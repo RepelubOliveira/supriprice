@@ -1,0 +1,25 @@
+# Vídeos e pacotes: pesam muito e não fazem parte do site publicado.
+*.mp4
+*.zip
+
+# O arquivo original empacotado (5,8 MB), já convertido para portal/.
+SupriPrice - Panorama do Diesel.html
+
+# Restos do Netlify e versões antigas do site
+netlify.toml
+index_artifact.html
+arbitragem.js
+
+# Cópia extraída do zip de publicação. A fonte da verdade é portal/.
+# Pode apagar essa pasta: ela é gerada de novo a cada empacotamento.
+supriprice-site/
+_teste/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,77 @@
+# SupriPrice · Panorama do Diesel — www.supriprice.com.br
+# Configuração para hospedagem Apache (cPanel, Hostinger, Locaweb, KingHost...).
+# Envie este arquivo junto com o site, na mesma pasta do index.html.
+# Em servidor Nginx este arquivo é ignorado — peça ao suporte as mesmas regras.
+
+# --- Página inicial ---------------------------------------------------------
+DirectoryIndex index.html
+
+# --- Sempre em https --------------------------------------------------------
+# Funciona em qualquer domínio, inclusive no endereço provisório da hospedagem.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+</IfModule>
+
+# --- Sempre com www (ATIVAR SÓ DEPOIS QUE O DOMÍNIO ESTIVER APONTADO) --------
+# Enquanto o site estiver num endereço provisório (supriprice.htmly.com.br,
+# por exemplo), NÃO tire o # das linhas abaixo: elas jogariam o visitante para
+# um domínio que ainda não existe e o site pareceria fora do ar.
+# Quando www.supriprice.com.br já estiver respondendo, apague os # das 4 linhas.
+#
+# <IfModule mod_rewrite.c>
+#   RewriteCond %{HTTP_HOST} ^supriprice\.com\.br$ [NC]
+#   RewriteRule ^(.*)$ https://www.supriprice.com.br/$1 [R=301,L]
+# </IfModule>
+
+# --- Tipos de arquivo -------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType text/html            .html
+  AddType text/css             .css
+  AddType text/javascript      .js
+  AddType font/woff2           .woff2
+  AddType image/svg+xml        .svg
+  AddType application/xml      .xml
+  AddDefaultCharset UTF-8
+</IfModule>
+
+# --- Compactação ------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript
+  AddOutputFilterByType DEFLATE application/javascript application/xml image/svg+xml
+  # woff2 já vem comprimido: recomprimir só gasta CPU.
+</IfModule>
+
+# --- Cache ------------------------------------------------------------------
+# O painel muda todo dia: index.html e dados.js NUNCA podem ficar presos em
+# cache, ou o visitante continua vendo os números de ontem.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  <Files "dados.js">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </Files>
+
+  <FilesMatch "\.(woff2|png|jpg|jpeg|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # --- Segurança ------------------------------------------------------------
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Os relatórios são páginas completas e precisam abrir dentro do iframe da
+# prévia — a regra SAMEORIGIN acima já permite isso, por serem do mesmo domínio.
+
+# --- Erros ------------------------------------------------------------------
+# Sem ErrorDocument de propósito: se um arquivo faltar, tem que aparecer 404
+# de verdade. Devolver a página inicial no lugar esconde upload incompleto e
+# faz o site parecer "quebrado sem motivo".
