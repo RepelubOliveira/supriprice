@@ -1,13 +1,15 @@
 name: Atualizar Panorama do Diesel
 
-# Roda de segunda a sexta. Dois horários porque a Abicom publica o boletim ao
-# longo da manhã: se às 8h ainda não saiu, a segunda tentativa pega. Quando o
-# boletim do dia não existe, o script sai sem publicar e o site continua com os
-# dados anteriores — o selo do topo avisa o leitor da data.
+# AGENDA DESLIGADA. O Cloudflare da Abicom recusa a faixa de IPs do GitHub
+# (403) e apresenta verificação anti-robô a pedidos vindos de servidor, então
+# rodar aqui só produzia falha diária. A atualização real acontece na máquina
+# do usuário, pela Tarefa Agendada do Windows que chama
+# automacao/rodar-diario.ps1. Este workflow fica só para execução manual, útil
+# se um dia a Abicom liberar a faixa — basta descomentar o bloco abaixo.
 on:
-  schedule:
-    - cron: '20 11 * * 1-5'   # 08:20 em Brasília
-    - cron: '30 13 * * 1-5'   # 10:30 em Brasília (rede de segurança)
+  # schedule:
+  #   - cron: '20 11 * * 1-5'   # 08:20 em Brasília
+  #   - cron: '30 13 * * 1-5'   # 10:30 em Brasília (rede de segurança)
   workflow_dispatch:
     inputs:
       simular:
