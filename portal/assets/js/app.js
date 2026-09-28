@@ -269,8 +269,10 @@
       }
     }
 
+    // Antes da primeira execução da automação o bloco ainda traz os polos da
+    // Petrobras, não as regiões da ANP — o título tem que acompanhar o dado.
     var tituloPolos = $('#polosTitulo');
-    if (tituloPolos && D.polosTitulo) tituloPolos.textContent = D.polosTitulo;
+    if (tituloPolos) tituloPolos.textContent = D.polosTitulo || 'Defasagem por polo';
 
     var ag = $('#agenda');
     if (ag) {
