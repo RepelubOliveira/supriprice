@@ -93,7 +93,10 @@
       // prontos da Abicom; o antigo, escrito à mão, trazia só petro e ppi.
       var def = (typeof p.defasagem === 'number') ? p.defasagem : (p.ppi - p.petro);
       var pct = (typeof p.pct === 'number') ? p.pct : Math.round(def / p.petro * 100);
-      var delta = def - p.anterior;
+      // Sem valor de ontem não há variação a mostrar — inventar um "0,00"
+      // daria a entender que o preço ficou parado.
+      var temOntem = typeof p.anterior === 'number';
+      var delta = temOntem ? def - p.anterior : 0;
       var sinal = delta >= 0 ? '+' : '-';
       // "S10" vira "Diesel S10"; "Diesel A" já vem completo.
       var titulo = /^(S10|S500)$/.test(p.nome) ? 'Diesel ' + p.nome : p.nome;
@@ -106,9 +109,11 @@
             '<span class="product__pct tnum">' + pct + '%</span>' +
           '</div>' +
           '<p class="product__value"><b class="tnum">' + brl(def) + '</b><span>/litro</span></p>' +
-          '<p class="product__prev">Ontem <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
-            '<span style="color:' + (delta >= 0 ? '#FFB4A6' : '#9FE0BF') + ';font-weight:700;">' +
-            sinal + num(Math.abs(delta)) + '</span></p>' +
+          (temOntem
+            ? '<p class="product__prev">Ontem <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
+              '<span style="color:' + (delta >= 0 ? '#FFB4A6' : '#9FE0BF') + ';font-weight:700;">' +
+              sinal + num(Math.abs(delta)) + '</span></p>'
+            : '<p class="product__prev">Primeira leitura registrada</p>') +
           '<div class="product__rows">' +
             '<div class="product__row">' +
               '<span>Petrobras</span>' +

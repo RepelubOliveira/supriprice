@@ -18,17 +18,38 @@ const ENT = {
   ndash: '–', mdash: '—', hellip: '…', aacute: 'á', eacute: 'é'
 };
 
-function decodificar(s) {
+function decodificarUmaVez(s) {
   return String(s || '')
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
     .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
     .replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m);
 }
 
+/**
+ * Alguns feeds codificam duas vezes: o WordPress publica "&amp;#038;" dentro do
+ * CDATA, que decodificado uma vez ainda sobra como "&#038;" no meio da URL.
+ * Repete até estabilizar, com teto para não entrar em laço com texto malformado.
+ */
+function decodificar(s) {
+  let atual = String(s || '');
+  for (let i = 0; i < 3; i++) {
+    const proximo = decodificarUmaVez(atual);
+    if (proximo === atual) break;
+    atual = proximo;
+  }
+  return atual;
+}
+
+/**
+ * Ordem importa: vários feeds mandam o HTML escapado ("&lt;p&gt;"), então é
+ * preciso DECODIFICAR primeiro e só então tirar as tags — senão o resumo sai
+ * com "<p style=..." no meio do texto. Decodifica de novo no fim porque o
+ * conteúdo real pode trazer suas próprias entidades.
+ */
 function semTags(s) {
-  return decodificar(String(s || '').replace(/<[^>]+>/g, ' '))
-    .replace(/\s+/g, ' ')
-    .trim();
+  const decodificado = decodificar(String(s || ''));
+  const semMarcacao = decodificado.replace(/<[^>]+>/g, ' ');
+  return decodificar(semMarcacao).replace(/\s+/g, ' ').trim();
 }
 
 /** Pega <tag>conteúdo</tag>, com ou sem CDATA. */
@@ -41,9 +62,10 @@ function tag(xml, nome) {
 /** Atom usa <link href="..."/> em vez de <link>texto</link>. */
 function extrairLink(xml) {
   const direto = tag(xml, 'link');
-  if (direto && /^https?:/i.test(direto.trim())) return direto.trim();
-  const href = xml.match(/<link[^>]+href=["']([^"']+)["']/i);
-  return href ? href[1] : '';
+  const bruto = (direto && /^https?:/i.test(direto.trim()))
+    ? direto.trim()
+    : (xml.match(/<link[^>]+href=["']([^"']+)["']/i) || [, ''])[1];
+  return decodificar(bruto).trim();
 }
 
 function extrairData(xml) {
@@ -107,13 +129,21 @@ function lerItens(xml, feed) {
 }
 
 function relevante(noticia, cfg) {
-  const alvo = (noticia.titulo + ' ' + noticia.resumo).toLowerCase();
+  // O bloqueio olha o título e só o COMEÇO do resumo. Vários feeds anexam
+  // links de outras matérias no fim da descrição; uma palavra vinda desse
+  // rodapé derrubava notícias boas — foi assim que "Fazenda mantém subsídio
+  // ao óleo diesel" sumia por causa de um "vagas" de outra chamada.
+  const titulo = noticia.titulo.toLowerCase();
+  const inicioResumo = noticia.resumo.slice(0, 120).toLowerCase();
 
   for (const bloqueada of cfg.palavrasBloqueadas || []) {
-    if (alvo.includes(bloqueada.toLowerCase())) return false;
+    const b = bloqueada.toLowerCase();
+    if (titulo.includes(b) || inicioResumo.includes(b)) return false;
   }
-  // Resumo vazio ou quase: sem contexto, a manchete sozinha não se sustenta.
-  if (noticia.resumo.length < 25) return false;
+  // Resumo curto NÃO descarta a matéria: alguns veículos publicam no feed só
+  // um logotipo e um link, e a manchete continua valendo. O portal e o jornal
+  // já sabem exibir um item sem resumo.
+  if (noticia.titulo.length < 15) return false;
 
   return true;
 }

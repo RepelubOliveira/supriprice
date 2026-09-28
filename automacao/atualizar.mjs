@@ -68,10 +68,12 @@ async function lerJson(caminho, padrao) {
   return JSON.parse(await readFile(caminho, 'utf8'));
 }
 
-function registrarHistorico(historico, data, valor) {
+function registrarHistorico(historico, data, valor, gasolina) {
   const chave = iso(data);
   const fora = historico.filter((p) => p.data !== chave);
-  fora.push({ data: chave, rotulo: ddmm(data), valor });
+  const ponto = { data: chave, rotulo: ddmm(data), valor };
+  if (typeof gasolina === 'number') ponto.gasolina = gasolina;
+  fora.push(ponto);
   fora.sort((a, b) => a.data.localeCompare(b.data));
   return fora.slice(-40);
 }
@@ -95,19 +97,24 @@ function montarSerie(historico) {
   };
 }
 
-function montarProdutos(abicom, editorial, anterior) {
+/**
+ * `anteriores` traz o valor de ontem de CADA produto. Passar o do diesel para
+ * a gasolina faria o cartão dela anunciar uma queda de R$ 2 que nunca houve.
+ * Sem valor de ontem, `anterior` fica null e o portal omite a linha "Ontem".
+ */
+function montarProdutos(abicom, editorial, anteriores) {
   const precos = editorial.precosPetrobras || {};
-  const cartao = (nome, bloco, petro) => ({
+  const cartao = (nome, bloco, petro, anterior) => ({
     nome, escopo: 'média dos polos', petro,
     ppi: Number((petro + bloco.defasagem).toFixed(4)),
     defasagem: bloco.defasagem, pct: bloco.pct,
     faixaMin: bloco.faixaMin, faixaMax: bloco.faixaMax,
     diasJanelaFechada: bloco.diasJanelaFechada,
-    anterior: anterior ?? bloco.defasagem
+    anterior: typeof anterior === 'number' ? anterior : null
   });
-  const itens = [cartao('Diesel A', abicom.diesel, Number(precos.diesel) || 0)];
+  const itens = [cartao('Diesel A', abicom.diesel, Number(precos.diesel) || 0, anteriores.diesel)];
   if (editorial.mostrarGasolina && abicom.gasolina) {
-    itens.push(cartao('Gasolina A', abicom.gasolina, Number(precos.gasolina) || 0));
+    itens.push(cartao('Gasolina A', abicom.gasolina, Number(precos.gasolina) || 0, anteriores.gasolina));
   }
   return itens;
 }
@@ -166,7 +173,7 @@ function gerarArquivoDados(dados) {
    Conteúdo editorial: conteudo/editorial.json
    ========================================================================== */
 
-window.DADOS = ${JSON.stringify(dados, null, 2)};
+window.DADOS = ${JSON.stringify(dados)};
 `;
 }
 
@@ -218,8 +225,9 @@ async function principal() {
   }
 
   const histAntes = await lerJson(P.historico, []);
-  const anterior = histAntes.filter((p) => p.data !== iso(hoje)).slice(-1)[0]?.valor;
-  const historico = registrarHistorico(histAntes, hoje, def);
+  const ontem = histAntes.filter((p) => p.data !== iso(hoje)).slice(-1)[0];
+  const anteriores = { diesel: ontem?.valor, gasolina: ontem?.gasolina };
+  const historico = registrarHistorico(histAntes, hoje, def, abicom.gasolina?.defasagem);
 
   // --- jornal do dia -------------------------------------------------------
   const jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico });
@@ -242,7 +250,7 @@ async function principal() {
       siteUrl: 'https://supriprice.htmly.com.br/',
       gerado: new Date().toISOString()
     },
-    produtos: montarProdutos(abicom, editorial, anterior),
+    produtos: montarProdutos(abicom, editorial, anteriores),
     ticker: montarTicker(abicom, dolar, brent, anp),
     serieS10: montarSerie(historico),
     polos: montarPolosAnp(anp) || editorial.polos,
