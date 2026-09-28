@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SupriPrice · Panorama do Diesel — arbitragem e preços, atualizado todo dia</title>
-<meta name="description" content="Panorama diário do mercado de diesel no Brasil: defasagem entre o preço da Petrobras e a paridade de importação, preço por polo, preço na bomba e o que acontece no mercado internacional. Relatório em uma página, todo dia às 8h.">
+<title>SupriPrice · Panorama do Diesel — notícias e inteligência do mercado de combustíveis</title>
+<meta name="description" content="Portal diário do mercado de combustíveis: defasagem do diesel, preço na bomba pela ANP, e as notícias que movem transporte, agro e o mercado internacional de importação e exportação.">
 <meta name="author" content="SupriPrice">
 <meta name="theme-color" content="#0E2A47">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -25,13 +25,13 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:site_name" content="SupriPrice">
-<meta property="og:title" content="SupriPrice · Panorama do Diesel">
-<meta property="og:description" content="Defasagem, paridade de importação e preço do diesel no Brasil e no mundo. Atualizado todo dia às 8h.">
+<meta property="og:title" content="SupriPrice · Inteligência do mercado de combustíveis">
+<meta property="og:description" content="Defasagem, preço na bomba e as manchetes de transporte, agro e mercado internacional. Atualizado todo dia útil.">
 <meta property="og:url" content="https://supriprice.htmly.com.br/"><!-- endereço 1 -->
 <meta property="og:image" content="https://supriprice.htmly.com.br/assets/supriprice-logo.png"><!-- endereço 2 -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SupriPrice · Panorama do Diesel">
-<meta name="twitter:description" content="Defasagem, paridade de importação e preço do diesel no Brasil e no mundo. Atualizado todo dia às 8h.">
+<meta name="twitter:title" content="SupriPrice · Inteligência do mercado de combustíveis">
+<meta name="twitter:description" content="Defasagem, preço na bomba e as manchetes de transporte, agro e mercado internacional. Atualizado todo dia útil.">
 <meta name="twitter:image" content="https://supriprice.htmly.com.br/assets/supriprice-logo.png"><!-- endereço 3 -->
 
 <link rel="icon" href="assets/supriprice-logo.png" type="image/png">
@@ -58,8 +58,8 @@
     <nav class="nav" id="navPrincipal" aria-label="Navegação principal">
       <a href="#arbitragem">Arbitragem</a>
       <a href="#painel">Mercado</a>
-      <a href="#jornal">Relatório do dia</a>
-      <a href="#mundo">Pelo mundo</a>
+      <a href="#noticias">Notícias</a>
+      <a href="#jornal">Jornal do dia</a>
       <a href="#arquivo">Arquivo</a>
     </nav>
   </div>
@@ -105,8 +105,8 @@
 
     <div class="card is-full">
       <div class="card__head">
-        <h2 class="card__title">Defasagem por polo</h2>
-        <p class="card__note">Aratu reflete o preço da Acelen (Mataripe), alinhado ao mercado externo</p>
+        <h2 class="card__title" id="polosTitulo">Preço médio do S10 por região</h2>
+        <p class="card__note">Levantamento da ANP, posto a posto</p>
       </div>
       <div class="ports" id="polos"></div>
     </div>
@@ -118,8 +118,9 @@
     </div>
 
     <div class="card">
-      <h2 class="card__title">Paridade de importação</h2>
-      <div id="paridade"></div>
+      <h2 class="card__title">Onde o diesel está mais caro</h2>
+      <div id="extremos"></div>
+      <p class="card__note" id="extremosNota"></p>
     </div>
 
     <div class="card">
@@ -128,22 +129,23 @@
     </div>
   </section>
 
-  <!-- Relatório do dia -->
-  <section class="section" id="jornal" aria-labelledby="jornalTitulo">
+  <!-- Notícias -->
+  <section class="section" id="noticias" aria-labelledby="noticiasTitulo">
     <div class="section-head">
-      <h2 id="jornalTitulo">Relatório do dia</h2>
-      <p>Resumo em uma página A4 — baixe em PDF, PNG, JPEG ou HTML</p>
+      <h2 id="noticiasTitulo">Notícias do mercado</h2>
+      <p>Manchete e link para quem apurou — clique para ler na fonte</p>
     </div>
-    <div class="editions" id="edicoes"></div>
+    <div class="news" id="listaNoticias"></div>
+    <p class="card__note" id="noticiasRodape"></p>
   </section>
 
-  <!-- Pelo mundo -->
-  <section class="section" id="mundo" aria-labelledby="mundoTitulo">
+  <!-- Jornal do dia -->
+  <section class="section" id="jornal" aria-labelledby="jornalTitulo">
     <div class="section-head">
-      <h2 id="mundoTitulo">Pelo mundo</h2>
-      <p>Mercado internacional — clique no título para abrir a publicação</p>
+      <h2 id="jornalTitulo">Jornal do dia</h2>
+      <p>Uma página com os números e as manchetes — baixe em PDF, PNG, JPEG ou HTML</p>
     </div>
-    <div class="world" id="listaMundo"></div>
+    <div class="editions" id="edicoes"></div>
   </section>
 
   <!-- Arquivo -->

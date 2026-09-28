@@ -307,23 +307,7 @@ button { cursor: pointer; }
 .dropdown__item:hover, .dropdown__item:focus-visible { background: #F1EDE2; }
 .dropdown__item span { color: var(--muted); font-weight: 500; font-size: 13.5px; }
 
-/* --- Pelo mundo ---------------------------------------------------------- */
-.world { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
-.world-card {
-  display: flex; flex-direction: column; gap: 6px;
-  border-top: 1px solid var(--line); padding-top: 12px;
-}
-.world-card__place { font-size: 12.5px; font-weight: 700; color: var(--brand); }
-.world-card__head { font-weight: 600; font-size: 18px; line-height: 1.3; }
-.world-card__head a { color: var(--ink); }
-.world-card__head a:hover { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
-.world-card__head a::after { content: ' \2197'; font-size: .8em; color: var(--muted); }
-.world-card__text { font-size: 16px; line-height: 1.5; color: var(--ink-2); }
-.world-card__foot {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
-  margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--line-2);
-}
-.world-card__source { font-size: 12.5px; color: var(--muted); flex: 1 1 100%; }
+/* --- Botão de ação em pílula (compartilhar, baixar, filtrar) -------------- */
 .chip-btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: transparent; border: 1px solid var(--line);
@@ -332,6 +316,37 @@ button { cursor: pointer; }
 }
 .chip-btn:hover { background: #fff; border-color: var(--navy); color: var(--navy); }
 .chip-btn svg { width: 14px; height: 14px; flex: none; }
+
+/* --- Notícias ------------------------------------------------------------ */
+.news {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 28px 26px;
+}
+.news-col { display: flex; flex-direction: column; gap: 14px; }
+.news-col__head { border-bottom: 2px solid var(--navy); padding-bottom: 6px; }
+.news-col__head h3 {
+  font-size: 13px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--brand);
+}
+.news-col__head p { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+
+.news-item {
+  display: flex; flex-direction: column; gap: 5px;
+  padding-bottom: 13px; border-bottom: 1px solid var(--line-2);
+}
+.news-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.news-item__head { font-size: 16px; font-weight: 600; line-height: 1.32; }
+.news-item__head a { color: var(--ink); }
+.news-item__head a:hover { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+.news-item__head a::after { content: ' \2197'; font-size: .78em; color: var(--muted); }
+.news-item__text { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.news-item__foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 6px 10px; margin-top: 2px;
+}
+.news-item__source { font-size: 12px; color: var(--muted); font-weight: 600; }
+.chip-btn--mini { padding: 4px 10px; font-size: 12px; }
+.chip-btn--mini svg { width: 12px; height: 12px; }
 
 /* --- Arquivo ------------------------------------------------------------- */
 .archive-filters { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -394,7 +409,7 @@ button { cursor: pointer; }
 /* --- Impressão ----------------------------------------------------------- */
 @media print {
   .site-header, .edition__actions, .archive-card__actions,
-  .world-card__foot, .toast, .skip-link, .archive-filters { display: none !important; }
+  .news-item__foot, .toast, .skip-link, .archive-filters { display: none !important; }
   body { background: #fff; }
   .hero { background: #fff; color: #000; }
   .hero__eyebrow, .hero__source, .product__prev, .ticker-row__label { color: #333; }

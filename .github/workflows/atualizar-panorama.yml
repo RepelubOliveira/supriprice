@@ -57,10 +57,13 @@ jobs:
         run: |
           git config user.name  "SupriPrice Bot"
           git config user.email "bot@supriprice.local"
-          git add conteudo/historico.json portal/assets/js/dados.js
+          git add conteudo/historico.json conteudo/edicoes.json \
+                  portal/assets/js/dados.js portal/relatorios/
           if git diff --staged --quiet; then
             echo "Nada mudou nesta execução."
           else
-            git commit -m "dados: panorama de $(TZ=America/Sao_Paulo date +%d/%m/%Y)"
+            git commit -m "portal: edição de $(TZ=America/Sao_Paulo date +%d/%m/%Y)"
+            # Outra execução pode ter commitado no meio do caminho.
+            git pull --rebase --autostash || true
             git push
           fi

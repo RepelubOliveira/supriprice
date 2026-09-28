@@ -1,47 +1,29 @@
 {
   "_leiaMe": [
-    "PARTE MANUAL DO PORTAL — o que a automação NÃO consegue buscar sozinha.",
-    "A automação lê este arquivo, junta com os números do dia (Abicom, Banco",
-    "Central e Brent) e gera o portal/assets/js/dados.js. Edite aqui, nunca no",
-    "dados.js: ele é reescrito a cada publicação e suas mudanças se perderiam.",
+    "O QUE SOBROU DE MANUAL. Quase tudo no portal virou automático:",
+    "  defasagem -> Abicom     bomba e regiões -> ANP",
+    "  dólar -> Banco Central  Brent -> ICE",
+    "  notícias -> os feeds de conteudo/feeds.json",
+    "  jornal do dia e arquivo -> gerados a cada execução",
     "",
-    "O que muda com que frequência:",
-    "  precosPetrobras  -> só quando a Petrobras reajusta (a Abicom avisa)",
-    "  bomba            -> a cada quinzena, quando a ANP divulga",
-    "  agenda / mundo   -> quando você quiser",
-    "  edicoes / arquivo-> quando publicar um relatório novo"
+    "Aqui ficam só as coisas que nenhuma fonte publica em formato aberto.",
+    "Você pode não tocar em nada: o portal funciona sozinho com o que está aqui.",
+    "Mexa quando quiser corrigir um preço de refinaria ou trocar a agenda."
   ],
 
   "mostrarGasolina": true,
 
   "precosPetrobras": {
-    "_nota": "R$/litro nas refinarias. Base para as barras comparativas.",
+    "_nota": [
+      "R$/litro nas refinarias. Serve só para as barras comparativas do topo.",
+      "A Petrobras reajusta poucas vezes por ano e a própria Abicom anuncia —",
+      "quando isso acontecer, o log da automação mostra no boletim do dia.",
+      "Se ficar desatualizado, o número grande (a defasagem) continua correto:",
+      "ele vem pronto da Abicom e não depende deste campo."
+    ],
     "diesel": 3.28,
     "gasolina": 2.96
   },
-
-  "bomba": {
-    "nota": "Média nacional, 1ª quinzena de setembro.",
-    "itens": [
-      { "nome": "Diesel S10", "valor": "R$ 7,11" },
-      { "nome": "Diesel S500", "valor": "R$ 6,76" }
-    ]
-  },
-
-  "paridade": [
-    { "nome": "Diesel S10, polos Petrobras", "valor": "R$ 6,66" },
-    { "nome": "Diesel S500, polos Petrobras", "valor": "R$ 6,38" },
-    { "nome": "Início de 2026", "valor": "R$ 3,00" }
-  ],
-
-  "polos": [
-    ["Itacoatiara (AM)", "Petrobras", 3.52, 1.08, -0.05],
-    ["Suape (PE)", "Petrobras", 3.49, 1.06, -0.08],
-    ["Itaqui (MA)", "Petrobras", 3.44, 1.05, -0.07],
-    ["Santos / Paulínia (SP)", "Petrobras", 3.24, 0.99, -0.07],
-    ["Paranaguá / Araucária (PR)", "Petrobras", 3.21, 0.98, -0.06],
-    ["Aratu (BA)", "Acelen (Mataripe)", 0.50, 0.09, 0.02]
-  ],
 
   "agenda": [
     { "data": "26/09", "texto": "Vence a parcela de R$ 1,12/L do subsídio." },
@@ -49,92 +31,47 @@
     { "data": "17/10", "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado." }
   ],
 
-  "mundo": [
+  "_arquivoHistorico": "Edições antigas, escritas à mão antes da automação. Ficam no fim do arquivo do site.",
+  "arquivoHistorico": [
     {
-      "local": "Estados Unidos",
-      "titulo": "Galão a US$ 6,53 e ameaça de veto",
-      "texto": "Trump defende barrar exportações. Origem de 80% do diesel que o Brasil importou em setembro.",
-      "fonte": "U.S. Energy Information Administration",
-      "url": "https://www.eia.gov/petroleum/gasdiesel/"
-    },
-    {
-      "local": "Europa",
-      "titulo": "Preço dobrou no ano",
-      "texto": "Futuros em máxima histórica. A Comissão Europeia diz não ver falta de produto.",
-      "fonte": "Comissão Europeia — Weekly Oil Bulletin",
-      "url": "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en"
-    },
-    {
-      "local": "Rússia",
-      "titulo": "Um quarto do refino parado",
-      "texto": "Ataques ucranianos às refinarias tiraram o país da lista de fornecedores.",
-      "fonte": "Reuters — Energy",
-      "url": "https://www.reuters.com/business/energy/"
-    },
-    {
-      "local": "Oriente Médio",
-      "titulo": "Ormuz ainda trava a oferta",
-      "texto": "Sauditas preparam a volta do oleoduto Leste-Oeste. EUA e Irã falam em nova rodada.",
-      "fonte": "Reuters — Energy",
-      "url": "https://www.reuters.com/business/energy/"
-    }
-  ],
-
-  "edicoes": [
-    {
-      "id": "geral",
-      "titulo": "Edição Geral",
-      "data": "24/09",
-      "descricao": "Brasil e mundo, abastecimento e preços.",
-      "arquivo": "relatorios/2026-09-24-geral.html",
-      "slug": "supriprice-geral-2026-09-24"
-    },
-    {
-      "id": "s10",
-      "titulo": "Edição S10",
-      "data": "23/09",
-      "descricao": "Transporte rodoviário e frotas.",
-      "arquivo": "relatorios/2026-09-23-s10.html",
-      "slug": "supriprice-s10-2026-09-23"
-    },
-    {
-      "id": "s500",
-      "titulo": "Edição S500",
-      "data": "23/09",
-      "descricao": "Campo, obras, mineração e geradores.",
-      "arquivo": "relatorios/2026-09-23-s500.html",
-      "slug": "supriprice-s500-2026-09-23"
-    }
-  ],
-
-  "arquivo": [
-    {
-      "data": "24/09",
-      "tag": "Geral",
+      "data": "24/09", "tag": "Geral",
       "titulo": "Ameaça dos EUA chega às vésperas do mês de maior consumo",
       "arquivo": "relatorios/2026-09-24-geral.html",
       "slug": "supriprice-geral-2026-09-24"
     },
     {
-      "data": "23/09",
-      "tag": "S10",
+      "data": "23/09", "tag": "S10",
       "titulo": "O petróleo recuou. A falta de diesel importado, não.",
       "arquivo": "relatorios/2026-09-23-s10.html",
       "slug": "supriprice-s10-2026-09-23"
     },
     {
-      "data": "23/09",
-      "tag": "S500",
+      "data": "23/09", "tag": "S500",
       "titulo": "S500: o diesel do campo fica mais difícil de achar",
       "arquivo": "relatorios/2026-09-23-s500.html",
       "slug": "supriprice-s500-2026-09-23"
     },
     {
-      "data": "11/09",
-      "tag": "Geral",
+      "data": "11/09", "tag": "Geral",
       "titulo": "Por que o diesel está mais caro e mais escasso hoje",
       "arquivo": "relatorios/2026-09-11-geral.html",
       "slug": "supriprice-geral-2026-09-11"
     }
+  ],
+
+  "_reserva": "Usados só se a ANP não responder numa execução.",
+  "bomba": {
+    "nota": "Reserva: usado apenas quando a ANP não responde.",
+    "itens": [
+      { "nome": "Diesel S10", "valor": "R$ 7,33" },
+      { "nome": "Diesel S500", "valor": "R$ 6,93" }
+    ]
+  },
+  "polos": [
+    ["Nordeste", "reserva", 7.67, 1.0, 0],
+    ["Norte", "reserva", 7.46, 0.97, 0],
+    ["Centro-Oeste", "reserva", 7.34, 0.96, 0],
+    ["Sul", "reserva", 7.22, 0.94, 0],
+    ["Sudeste", "reserva", 7.18, 0.94, 0]
   ]
 }

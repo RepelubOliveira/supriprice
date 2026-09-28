@@ -1,0 +1,129 @@
+{
+  "_leiaMe": [
+    "Fontes de notícia do portal. O robô lê cada feed, filtra o que é sobre",
+    "combustível e mercado, e monta as editorias do site.",
+    "",
+    "IMPORTANTE, sobre direito autoral: o portal publica manchete, um resumo",
+    "curto e o LINK para a matéria original — nunca o texto integral. É o mesmo",
+    "modelo de um agregador. Não retire o campo `url` nem a atribuição da fonte.",
+    "",
+    "editorias: mundo (importação, exportação, mercado internacional),",
+    "           brasil (setor de combustíveis no país),",
+    "           transporte (rodoviário, frete, logística),",
+    "           agro (demanda do campo)",
+    "",
+    "filtrar=true  -> só entra se casar com palavrasChave",
+    "filtrar=false -> tudo entra (feed já 100% especializado em energia)",
+    "peso          -> desempata quando dois veículos publicam a mesma notícia"
+  ],
+
+  "feeds": [
+    {
+      "nome": "EIA — Today in Energy",
+      "fonte": "U.S. Energy Information Administration",
+      "url": "https://www.eia.gov/rss/todayinenergy.xml",
+      "editoria": "mundo", "idioma": "en", "filtrar": false, "peso": 5
+    },
+    {
+      "nome": "EIA — Press",
+      "fonte": "U.S. Energy Information Administration",
+      "url": "https://www.eia.gov/rss/press_rss.xml",
+      "editoria": "mundo", "idioma": "en", "filtrar": false, "peso": 4
+    },
+    {
+      "nome": "OilPrice.com",
+      "fonte": "OilPrice.com",
+      "url": "https://oilprice.com/rss/main",
+      "editoria": "mundo", "idioma": "en", "filtrar": false, "peso": 3
+    },
+    {
+      "nome": "Hellenic Shipping News",
+      "fonte": "Hellenic Shipping News",
+      "url": "https://www.hellenicshippingnews.com/feed/",
+      "editoria": "mundo", "idioma": "en", "filtrar": true, "peso": 2
+    },
+
+    {
+      "nome": "Petronotícias",
+      "fonte": "Petronotícias",
+      "url": "https://petronoticias.com.br/feed/",
+      "editoria": "brasil", "idioma": "pt", "filtrar": false, "peso": 5
+    },
+    {
+      "nome": "Click Petróleo e Gás",
+      "fonte": "Click Petróleo e Gás",
+      "url": "https://clickpetroleoegas.com.br/feed/",
+      "editoria": "brasil", "idioma": "pt", "filtrar": true, "peso": 3
+    },
+    {
+      "nome": "Agência Brasil — Economia",
+      "fonte": "Agência Brasil",
+      "url": "https://agenciabrasil.ebc.com.br/rss/economia/feed.xml",
+      "editoria": "brasil", "idioma": "pt", "filtrar": true, "peso": 4
+    },
+    {
+      "nome": "InfoMoney",
+      "fonte": "InfoMoney",
+      "url": "https://www.infomoney.com.br/feed/",
+      "editoria": "brasil", "idioma": "pt", "filtrar": true, "peso": 2
+    },
+
+    {
+      "nome": "NTC&Logística",
+      "fonte": "NTC&Logística",
+      "url": "https://www.portalntc.org.br/feed/",
+      "editoria": "transporte", "idioma": "pt", "filtrar": true, "peso": 4
+    },
+    {
+      "nome": "Transporte Moderno",
+      "fonte": "Transporte Moderno",
+      "url": "https://transportemoderno.com.br/feed/",
+      "editoria": "transporte", "idioma": "pt", "filtrar": true, "peso": 3
+    },
+
+    {
+      "nome": "Canal Rural",
+      "fonte": "Canal Rural",
+      "url": "https://www.canalrural.com.br/feed/",
+      "editoria": "agro", "idioma": "pt", "filtrar": true, "peso": 3
+    },
+    {
+      "nome": "Agrolink",
+      "fonte": "Agrolink",
+      "url": "https://www.agrolink.com.br/rss/noticias.xml",
+      "editoria": "agro", "idioma": "pt", "filtrar": true, "peso": 2
+    },
+    {
+      "nome": "Compre Rural",
+      "fonte": "Compre Rural",
+      "url": "https://www.comprerural.com/feed/",
+      "editoria": "agro", "idioma": "pt", "filtrar": true, "peso": 2
+    }
+  ],
+
+  "palavrasChave": [
+    "diesel", "combustív", "combustivel", "petróleo", "petroleo", "gasolina",
+    "etanol", "biodiesel", "querosene", "refinaria", "refino", "petrobras",
+    "acelen", "abicom", "opep", "opec", "brent", "wti", "barril", "gás natural",
+    "gnv", "importação", "exportação", "import ", "export", "crude", "fuel",
+    "oil ", "refinery", "tanker", "freight", "bunker",
+    "frete", "caminhoneiro", "transportador", "rodoviário", "posto de combust",
+    "bomba", "paridade de importação", "defasagem", "subsídio", "anp",
+    "safra", "colheita", "plantio", "custo de produção", "insumo"
+  ],
+
+  "palavrasBloqueadas": [
+    "conteúdo restrito", "faça login", "apenas para associados",
+    "ser associado", "inscrições abertas", "últimos dias para se inscrever",
+    "expolog", "webinar", "seminário", "congresso", "feira ", "prêmio",
+    "premiação", "assembleia", "posse do presidente", "curso gratuito",
+    "vagas", "estágio", "estágios", "trainee", "trainnes", "oportunidades em",
+    "horóscopo", "sorteio", "aniversário"
+  ],
+
+  "_pontosMinimos": "Abaixo disso a matéria não entra. Palavra-chave no título vale 4; termo central (diesel, combustível, petróleo, refinaria, frete) soma mais 3.",
+  "pontosMinimos": 6,
+
+  "maxPorEditoria": 6,
+  "diasDeValidade": 7
+}

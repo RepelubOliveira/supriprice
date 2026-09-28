@@ -234,19 +234,43 @@
     var bomba = $('#bomba');
     if (bomba && D.bomba) {
       bomba.innerHTML = D.bomba.itens.map(function (b) {
+        var v = '';
+        if (typeof b.variacao === 'number') {
+          var cor = b.variacao >= 0 ? COR.alta : COR.baixa;
+          v = '<span style="font-size:13px;font-weight:700;color:' + cor + ';margin-left:8px;">' +
+              (b.variacao >= 0 ? '+' : '−') + num(Math.abs(b.variacao)) + '</span>';
+        }
         return '<div class="kv"><span class="kv__name">' + esc(b.nome) +
-               '</span><span class="kv__val is-lg tnum">' + esc(b.valor) + '</span></div>';
+               '</span><span class="kv__val is-lg tnum">' + esc(b.valor) + v + '</span></div>';
       }).join('');
       var nota = $('#bombaNota'); if (nota) nota.textContent = D.bomba.nota || '';
     }
 
-    var par = $('#paridade');
-    if (par) {
-      par.innerHTML = (D.paridade || []).map(function (b) {
-        return '<div class="kv"><span class="kv__name">' + esc(b.nome) +
-               '</span><span class="kv__val is-md tnum">' + esc(b.valor) + '</span></div>';
-      }).join('');
+    // Estados mais caros e mais baratos, quando a ANP responde.
+    var ext = $('#extremos');
+    if (ext) {
+      var a = D.anp;
+      if (a && a.maisCaros && a.maisCaros.length) {
+        var linha = function (e, cor) {
+          return '<div class="kv"><span class="kv__name">' + esc(e.estado) +
+                 '</span><span class="kv__val is-md tnum" style="color:' + cor + ';">' +
+                 brl(e.media) + '</span></div>';
+        };
+        ext.innerHTML =
+          '<p class="card__note" style="margin-bottom:2px;">Mais caros</p>' +
+          a.maisCaros.slice(0, 3).map(function (e) { return linha(e, COR.alta); }).join('') +
+          '<p class="card__note" style="margin:10px 0 2px;">Mais baratos</p>' +
+          (a.maisBaratos || []).slice(0, 3).map(function (e) { return linha(e, COR.baixa); }).join('');
+        var en = $('#extremosNota');
+        if (en) en.textContent = 'Diesel S10, média por estado. Referência ' +
+          String(a.referencia || '').split('-').reverse().join('/') + '.';
+      } else {
+        ext.innerHTML = '<p class="card__note">Sem dados da ANP nesta atualização.</p>';
+      }
     }
+
+    var tituloPolos = $('#polosTitulo');
+    if (tituloPolos && D.polosTitulo) tituloPolos.textContent = D.polosTitulo;
 
     var ag = $('#agenda');
     if (ag) {
@@ -573,33 +597,78 @@
 
   /* -------------------------------------------------------- pelo mundo */
 
-  function montarMundo() {
-    var alvo = $('#listaMundo'); if (!alvo) return;
+  var EDITORIAS = [
+    { id: 'mundo', nome: 'Mundo', sub: 'Importação, exportação e mercado internacional' },
+    { id: 'brasil', nome: 'Brasil', sub: 'Setor de combustíveis no país' },
+    { id: 'transporte', nome: 'Transporte', sub: 'Rodoviário, frete e logística' },
+    { id: 'agro', nome: 'Agro', sub: 'A demanda que vem do campo' }
+  ];
 
-    alvo.innerHTML = (D.mundo || []).map(function (w, i) {
-      var url = urlSegura(w.url);
-      var titulo = url
-        ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(w.titulo) + '</a>'
-        : esc(w.titulo);
+  /** Guarda as notícias numa lista plana para os botões de compartilhar. */
+  var noticiasPlanas = [];
 
-      var acoes = url
-        ? '<button class="chip-btn" type="button" data-share-mundo="' + i + '">' +
-            ICONE_LINK + 'Encaminhar</button>' +
-          '<a class="chip-btn" href="' + esc(linkWhatsApp(w.titulo + ' — ' + w.local, url)) + '" ' +
-            'target="_blank" rel="noopener noreferrer">' + ICONE_ZAP + 'WhatsApp</a>'
-        : '<span class="world-card__source">Link da publicação ainda não informado</span>';
+  function montarNoticias() {
+    var alvo = $('#listaNoticias'); if (!alvo) return;
+    var fonte = D.noticias || {};
+    noticiasPlanas = [];
+
+    var blocos = EDITORIAS.filter(function (e) {
+      return (fonte[e.id] || []).length;
+    }).map(function (e) {
+      var itens = fonte[e.id].map(function (n) {
+        var url = urlSegura(n.url);
+        if (!url) return '';
+        var idx = noticiasPlanas.push({ titulo: n.titulo, url: url, fonte: n.fonte }) - 1;
+        var quando = n.data ? tempoRelativo(n.data) : '';
+        return '' +
+          '<article class="news-item">' +
+            '<h4 class="news-item__head">' +
+              '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
+                esc(n.titulo) + '</a>' +
+            '</h4>' +
+            (n.resumo ? '<p class="news-item__text">' + esc(n.resumo) + '</p>' : '') +
+            '<div class="news-item__foot">' +
+              '<span class="news-item__source">' + esc(n.fonte) +
+                (quando ? ' · ' + esc(quando) : '') + '</span>' +
+              '<button class="chip-btn chip-btn--mini" type="button" data-share-noticia="' + idx + '">' +
+                ICONE_LINK + 'Encaminhar</button>' +
+            '</div>' +
+          '</article>';
+      }).join('');
 
       return '' +
-        '<article class="world-card">' +
-          '<span class="world-card__place">' + esc(w.local) + '</span>' +
-          '<h3 class="world-card__head">' + titulo + '</h3>' +
-          '<p class="world-card__text">' + esc(w.texto) + '</p>' +
-          '<div class="world-card__foot">' +
-            (w.fonte ? '<span class="world-card__source">' + esc(w.fonte) + '</span>' : '') +
-            acoes +
+        '<div class="news-col">' +
+          '<div class="news-col__head">' +
+            '<h3>' + esc(e.nome) + '</h3>' +
+            '<p>' + esc(e.sub) + '</p>' +
           '</div>' +
-        '</article>';
+          itens +
+        '</div>';
     }).join('');
+
+    alvo.innerHTML = blocos ||
+      '<p class="card__note">As manchetes do dia ainda não foram coletadas.</p>';
+
+    var rodape = $('#noticiasRodape');
+    if (rodape) {
+      rodape.textContent = noticiasPlanas.length
+        ? 'Publicamos manchete, resumo e link. O texto completo é de quem apurou — ' +
+          'clique para ler no site da fonte.'
+        : '';
+    }
+  }
+
+  /** "há 2 horas", "ontem", "há 3 dias". */
+  function tempoRelativo(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var min = Math.round((Date.now() - d.getTime()) / 60000);
+    if (min < 60) return 'há ' + Math.max(1, min) + ' min';
+    var h = Math.round(min / 60);
+    if (h < 24) return 'há ' + h + (h === 1 ? ' hora' : ' horas');
+    var dias = Math.round(h / 24);
+    if (dias === 1) return 'ontem';
+    return 'há ' + dias + ' dias';
   }
 
   /* ------------------------------------------------------------ arquivo */
@@ -708,10 +777,10 @@
       }
 
       // Pelo mundo — encaminhar
-      var shW = alvo.closest('[data-share-mundo]');
-      if (shW) {
-        var w = D.mundo[+shW.getAttribute('data-share-mundo')];
-        if (w) compartilhar({ titulo: w.titulo, texto: w.local + ' — ' + w.titulo, url: w.url });
+      var shN = alvo.closest('[data-share-noticia]');
+      if (shN) {
+        var n = noticiasPlanas[+shN.getAttribute('data-share-noticia')];
+        if (n) compartilhar({ titulo: n.titulo, texto: n.fonte + ' — ' + n.titulo, url: n.url });
         return;
       }
 
@@ -780,7 +849,7 @@
           }
         });
       }, { rootMargin: '-72px 0px -70% 0px' });
-      ['arbitragem', 'painel', 'jornal', 'mundo', 'arquivo'].forEach(function (id) {
+      ['arbitragem', 'painel', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
         var el = document.getElementById(id); if (el) io.observe(el);
       });
     }
@@ -795,7 +864,7 @@
   montarPolos();
   montarBlocos();
   montarEdicoes();
-  montarMundo();
+  montarNoticias();
   montarArquivo();
   ligarEventos();
   window.addEventListener('load', ajustarPrevias);
