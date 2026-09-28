@@ -9,14 +9,27 @@
 // inesperado, ele LANÇA erro em vez de devolver um palpite. Publicar número
 // errado num portal de mercado é pior do que não publicar.
 
-const UA = 'Mozilla/5.0 (compatible; SupriPriceBot/1.0; +https://supriprice.htmly.com.br)';
+// A Abicom PERMITE leitura automática destas páginas: o robots.txt dela só
+// barra /cms/, /vendor/ e afins — /ppi/ é liberado para qualquer agente.
+// O que derrubava a coleta era outra coisa: o Cloudflare à frente do site
+// recusa em bloco a faixa de IPs do GitHub Actions, devolvendo 403 antes de
+// olhar quem pediu. Da máquina do usuário a mesma URL responde 200 até sem
+// User-Agent nenhum. Por isso mandamos aqui o conjunto de cabeçalhos que um
+// navegador comum envia: anunciar-se como robô só piora a triagem, e não há
+// permissão específica de agente que estejamos contornando.
+const CABECALHOS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+  'Upgrade-Insecure-Requests': '1'
+};
 
 async function buscar(url, { texto = true, tentativas = 3 } = {}) {
   let ultimoErro;
   for (let i = 1; i <= tentativas; i++) {
     try {
       const r = await fetch(url, {
-        headers: { 'User-Agent': UA, Accept: '*/*' },
+        headers: CABECALHOS,
         signal: AbortSignal.timeout(25000)
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);

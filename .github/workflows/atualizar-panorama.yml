@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       # Sem dependências: o script usa só o que vem no Node 20.
       - name: Carregar histórico da Abicom

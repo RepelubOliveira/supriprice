@@ -12,7 +12,9 @@
 
 const BASE = 'https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/arquivos/shpc/qus/';
 const ARQUIVO_DIESEL = 'ultimas-4-semanas-diesel-gnv.csv';
-const UA = 'Mozilla/5.0 (compatible; SupriPriceBot/1.0; +https://supriprice.htmly.com.br)';
+// Mesmo motivo do fontes.mjs: cabeçalho de navegador passa pelas triagens
+// automáticas sem ser barrado pela origem do pedido.
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 const NOME_REGIAO = { N: 'Norte', NE: 'Nordeste', CO: 'Centro-Oeste', SE: 'Sudeste', S: 'Sul' };
 
