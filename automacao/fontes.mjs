@@ -3,7 +3,8 @@
 // Três fontes, todas públicas e sem chave:
 //   Abicom  — defasagem diária do diesel e da gasolina (análise com a StoneX)
 //   BCB     — dólar PTAX de fechamento (oficial)
-//   Yahoo   — Brent (contrato futuro BZ=F)
+//   Yahoo   — Brent (contrato futuro BZ=F) e a faixa de indicadores:
+//             Ibovespa, dólar, euro, Brent e WTI
 //
 // Regra de ouro deste arquivo: se uma fonte não responder ou vier num formato
 // inesperado, ele LANÇA erro em vez de devolver um palpite. Publicar número
@@ -194,6 +195,92 @@ export async function lerBrent() {
     }
   }
   throw new Error('Yahoo não devolveu nenhum fechamento válido do Brent.');
+}
+
+/**
+ * Faixa de indicadores de mercado (Ibovespa, dólar, euro, Brent, WTI).
+ *
+ * DE ONDE VEM A VARIAÇÃO — decidido com dado real em 30/09/2026, depois de
+ * comparar três métodos com fontes independentes:
+ *
+ *   indicador   InfoMoney  AwesomeAPI  Yahoo range=1d  série diária emendada
+ *   Ibovespa      +1,75%       —           +1,73%           +1,73%
+ *   Dólar         -0,76%    -0,62%         -0,60%           -0,98%
+ *   Euro             —      -0,73%         -0,73%           -1,28%
+ *   Brent            —         —           +2,03%           -4,37%
+ *
+ * Usamos o chartPreviousClose da consulta com range=1d: é o fechamento do
+ * pregão anterior DO MESMO CONTRATO, e bate com as fontes independentes.
+ * NÃO use a série diária de vários dias para achar "o fechamento de ontem":
+ *  - nos futuros ela emenda contratos na virada do mês — em 30/09 o Brent
+ *    trocou de novembro para dezembro, e a emenda fabricava uma queda de 4%
+ *    num dia em que o WTI subiu 1,3%;
+ *  - no câmbio os candles diários fecham em horário que não é o de mercado,
+ *    e há dias vazios (null).
+ * E NÃO use o chartPreviousClose com range de vários dias: aí ele é o
+ * fechamento de antes da janela inteira, não de ontem.
+ */
+const INDICADORES = [
+  { id: 'ibov', nome: 'Ibovespa', simbolo: '^BVSP', moeda: 'pts' },
+  { id: 'dolar', nome: 'Dólar', simbolo: 'USDBRL=X', moeda: 'BRL' },
+  { id: 'euro', nome: 'Euro', simbolo: 'EURBRL=X', moeda: 'BRL' },
+  { id: 'brent', nome: 'Brent', simbolo: 'BZ=F', moeda: 'USD' },
+  { id: 'wti', nome: 'WTI', simbolo: 'CL=F', moeda: 'USD' }
+];
+
+// Acima disso num único pregão é quase certamente erro de dado. Melhor
+// esconder o indicador do que estampar "-40%" no topo do portal.
+const VARIACAO_MAXIMA = 15;
+
+async function lerIndicador(ind) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ind.simbolo)}?interval=1d&range=1d`;
+  const j = await buscar(url, { texto: false });
+  const meta = j?.chart?.result?.[0]?.meta;
+
+  const valor = meta?.regularMarketPrice;
+  const anterior = meta?.chartPreviousClose;
+  if (!Number.isFinite(valor)) throw new Error(`${ind.nome}: Yahoo não devolveu cotação.`);
+  if (!Number.isFinite(anterior) || anterior <= 0) {
+    throw new Error(`${ind.nome}: Yahoo não devolveu o fechamento anterior.`);
+  }
+
+  const variacao = ((valor - anterior) / anterior) * 100;
+  if (Math.abs(variacao) > VARIACAO_MAXIMA) {
+    throw new Error(`${ind.nome}: variação implausível (${variacao.toFixed(1)}%).`);
+  }
+
+  // Hora da cotação em Brasília: o portal diz de quando é cada número, porque
+  // a atualização roda às 08:20 e 10:30 — não é cotação ao vivo.
+  const quando = new Date(meta.regularMarketTime * 1000);
+  const fmt = (o) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', ...o }).format(quando);
+
+  return {
+    id: ind.id,
+    nome: ind.nome,
+    moeda: ind.moeda,
+    valor,
+    anterior,
+    variacao: Math.round(variacao * 100) / 100,
+    // dataISO permite ao portal e ao jornal saberem se a cotação é de hoje ou
+    // o fechamento de um pregão anterior (às 08:20 a B3 ainda não abriu).
+    dataISO: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(quando),
+    data: fmt({ day: '2-digit', month: '2-digit' }),
+    hora: fmt({ hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+/**
+ * Lê todos os indicadores. Cada um é independente: se o Yahoo falhar num
+ * deles, a faixa sai sem aquele item. Nunca derruba a atualização.
+ */
+export async function lerIndicadores() {
+  const resultados = await Promise.allSettled(INDICADORES.map(lerIndicador));
+  const ok = [];
+  resultados.forEach((r, i) => {
+    if (r.status === 'fulfilled') ok.push(r.value);
+    else console.warn(`  ! ${INDICADORES[i].nome}: ${r.reason?.message || r.reason}`);
+  });
+  return ok;
 }
 
 export async function coletarTudo(data) {

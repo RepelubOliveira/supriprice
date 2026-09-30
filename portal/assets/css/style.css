@@ -118,6 +118,41 @@ button { cursor: pointer; }
   color: #fff; border-radius: 6px; padding: 8px 12px; font-size: 14px; font-weight: 700;
 }
 
+/* --- Faixa de mercado ---------------------------------------------------- */
+/* Linha fina acima do cabeçalho, no espírito da barra de cotações dos portais
+   econômicos. Alta verde e queda vermelha (convenção de bolsa) — o inverso do
+   painel de combustível, onde preço subindo é a notícia ruim. No celular a
+   lista rola de lado DENTRO da faixa; a página em si nunca rola na horizontal. */
+.mkt { background: var(--surface); border-bottom: 1px solid var(--line); font-size: 13px; }
+.mkt__bar { display: flex; align-items: center; gap: 4px 20px; min-height: 38px; }
+.mkt__list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+.mkt__item {
+  display: flex; align-items: baseline; gap: 6px; white-space: nowrap;
+  padding: 9px 16px; border-left: 1px solid var(--line-2);
+}
+.mkt__item:first-child { border-left: 0; padding-left: 0; }
+.mkt__name {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.mkt__val { font-weight: 700; color: var(--ink); }
+.mkt__chg { font-weight: 600; }
+.mkt__chg--up { color: var(--green); }
+.mkt__chg--down { color: var(--brand); }
+.mkt__chg--flat { color: var(--muted); }
+.mkt__when { font-size: 11px; color: var(--muted); }
+.mkt__meta { flex: 0 0 auto; margin: 0; font-size: 11px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 760px) {
+  .mkt__bar { flex-wrap: wrap; }
+  .mkt__list { flex-basis: 100%; }
+  .mkt__item { padding-block: 8px 4px; }
+  .mkt__meta { padding-bottom: 6px; }
+}
+
 /* --- Selo de atualização ------------------------------------------------- */
 .stamp {
   display: inline-flex; align-items: center; gap: 8px;

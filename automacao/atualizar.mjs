@@ -24,7 +24,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { coletarTudo } from './fontes.mjs';
+import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias } from './noticias.mjs';
 import { gerarJornal } from './jornal.mjs';
@@ -119,11 +119,16 @@ function montarProdutos(abicom, editorial, anteriores) {
   return itens;
 }
 
-function montarTicker(abicom, dolar, brent, anp) {
+function montarTicker(abicom, dolar, brent, anp, indicadores) {
   const d = abicom.diesel;
   const t = [
     { label: 'Defasagem diesel', valor: brl(d.defasagem), nota: `${d.pct}%` },
-    { label: 'Brent', valor: `US$ ${brent.valor.toFixed(2).replace('.', ',')}`, nota: '' },
+    // O Brent sai daqui quando a faixa de mercado do topo já o mostra: são
+    // números de momentos diferentes (fechamento x cotação atual), e dois
+    // Brents distintos na mesma tela só confundem.
+    ...(indicadores?.some((i) => i.id === 'brent') ? [] : [
+      { label: 'Brent', valor: `US$ ${brent.valor.toFixed(2).replace('.', ',')}`, nota: '' }
+    ]),
     { label: 'Dólar (PTAX)', valor: brl(dolar.valor), nota: '' }
   ];
   const s10 = anp?.produtos?.find((p) => p.nome === 'Diesel S10');
@@ -204,6 +209,12 @@ async function principal() {
   log(`Abicom ${abicom.data}: diesel ${brl(def)} (${abicom.diesel.pct}%)`);
   log(`Dólar ${brl(dolar.valor)} · Brent US$ ${brent.valor}`);
 
+  // Faixa de mercado: nunca derruba a atualização. Cada indicador que falhar
+  // simplesmente não aparece.
+  log('Buscando indicadores de mercado...');
+  const indicadores = await lerIndicadores();
+  log(`Mercado: ${indicadores.map((i) => `${i.nome} ${i.variacao > 0 ? '+' : ''}${i.variacao}%`).join(' · ') || 'nenhum indicador disponível'}`);
+
   log('Buscando preços na bomba (ANP)...');
   let anp = null;
   try {
@@ -230,7 +241,7 @@ async function principal() {
   const historico = registrarHistorico(histAntes, hoje, def, abicom.gasolina?.defasagem);
 
   // --- jornal do dia -------------------------------------------------------
-  const jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico });
+  const jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores });
   await mkdir(P.relatorios, { recursive: true });
   await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
   log(`Jornal: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
@@ -251,7 +262,8 @@ async function principal() {
       gerado: new Date().toISOString()
     },
     produtos: montarProdutos(abicom, editorial, anteriores),
-    ticker: montarTicker(abicom, dolar, brent, anp),
+    indicadores,
+    ticker: montarTicker(abicom, dolar, brent, anp, indicadores),
     serieS10: montarSerie(historico),
     polos: montarPolosAnp(anp) || editorial.polos,
     polosTitulo: anp ? 'Preço médio do S10 por região' : 'Defasagem por polo',

@@ -142,6 +142,54 @@
     }).join('');
   }
 
+  /* ----------------------------------------------------- faixa de mercado */
+
+  // Convenção de bolsa, OPOSTA à do painel de combustível: aqui alta é verde e
+  // queda é vermelha. A seta acompanha a cor para quem não distingue as duas.
+  function valorIndicador(i) {
+    if (i.moeda === 'pts') return Math.round(i.valor).toLocaleString('pt-BR') + ' pts';
+    if (i.moeda === 'BRL') return 'R$ ' + i.valor.toFixed(4).replace('.', ',');
+    return 'US$ ' + num(i.valor);
+  }
+
+  function montarMercado() {
+    var caixa = $('#mercado'), lista = $('#mercadoLista'), meta = $('#mercadoMeta');
+    var ind = D.indicadores || [];
+    if (!caixa || !lista || !ind.length) return;
+    var hoje = D.meta && D.meta.dataISO;
+
+    lista.innerHTML = ind.map(function (i) {
+      var sentido = i.variacao > 0 ? 'up' : (i.variacao < 0 ? 'down' : 'flat');
+      var seta = sentido === 'up' ? '▲' : (sentido === 'down' ? '▼' : '');
+      var pct = (sentido === 'up' ? '+' : (sentido === 'down' ? '−' : '')) +
+        num(Math.abs(i.variacao)) + '%';
+      // Às 08:20 a B3 ainda não abriu: o Ibovespa é o fechamento de ontem.
+      // Dizer isso evita que o leitor tome o número como sendo do dia.
+      var antigo = hoje && i.dataISO && i.dataISO < hoje;
+      var dica = (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
+        ' · variação sobre o fechamento anterior';
+      return '' +
+        '<li class="mkt__item" title="' + esc(dica) + '">' +
+          '<span class="mkt__name">' + esc(i.nome) + '</span>' +
+          '<span class="mkt__val tnum">' + esc(valorIndicador(i)) + '</span>' +
+          '<span class="mkt__chg mkt__chg--' + sentido + ' tnum">' +
+            (seta ? '<span aria-hidden="true">' + seta + '</span> ' : '') +
+            '<span class="sr-only">' + (sentido === 'up' ? 'alta de ' : (sentido === 'down' ? 'queda de ' : 'estável, ')) + '</span>' +
+            esc(pct) +
+          '</span>' +
+          (antigo ? '<span class="mkt__when">fech. ' + esc(i.data) + '</span>' : '') +
+        '</li>';
+    }).join('');
+
+    if (meta) {
+      var horas = ind.filter(function (i) { return !hoje || !i.dataISO || i.dataISO >= hoje; })
+        .map(function (i) { return i.hora; }).sort();
+      meta.textContent = (horas.length ? 'Cotações das ' + horas[horas.length - 1] : 'Último fechamento') +
+        ' · Yahoo Finance';
+    }
+    caixa.hidden = false;
+  }
+
   /* ------------------------------------------------------------ gráfico */
 
   function montarGrafico() {
@@ -864,6 +912,7 @@
 
   /* -------------------------------------------------------------- início */
 
+  montarMercado();
   montarSelo();
   montarProdutos();
   montarTicker();

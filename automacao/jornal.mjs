@@ -62,11 +62,15 @@ function lide({ abicom, brent, dolar, anp }) {
   return partes.join(' ');
 }
 
-function blocoNumeros({ abicom, brent, dolar }) {
+function blocoNumeros({ abicom, brent, dolar, indicadores }) {
   const d = abicom.diesel;
   const itens = [
     { rotulo: 'Defasagem do diesel', valor: brl(d.defasagem), nota: `${d.pct}% abaixo da paridade` },
-    { rotulo: 'Brent', valor: `US$ ${num(brent.valor)}`, nota: 'fechamento do contrato' },
+    // Como no portal: se a linha de mercado do topo já traz o Brent, ele não
+    // se repete aqui — dois Brents na mesma folha só confundem.
+    ...(indicadores?.some((i) => i.id === 'brent') ? [] : [
+      { rotulo: 'Brent', valor: `US$ ${num(brent.valor)}`, nota: 'fechamento do contrato' }
+    ]),
     { rotulo: 'Dólar', valor: brl(dolar.valor), nota: 'PTAX de venda' }
   ];
   if (abicom.gasolina) {
@@ -85,6 +89,43 @@ function blocoNumeros({ abicom, brent, dolar }) {
         <span class="numero__nota">${esc(i.nota)}</span>
       </div>`).join('')}
   </section>`;
+}
+
+/** Valor no formato de mesa de operação: pontos inteiros, câmbio com 4 casas. */
+function valorIndicador(i) {
+  if (i.moeda === 'pts') return `${Math.round(i.valor).toLocaleString('pt-BR')} pts`;
+  if (i.moeda === 'BRL') return brl(i.valor, 4);
+  return `US$ ${num(i.valor)}`;
+}
+
+/**
+ * Linha de cotações logo abaixo do cabeçalho, como a de um jornal econômico.
+ * Seta além da cor: quem não distingue verde de vermelho lê o sentido pela
+ * seta. Cotação que não é de hoje (às 08:20 a B3 ainda não abriu) leva
+ * "fech. DD/MM", para ninguém ler o fechamento de ontem como número do dia.
+ */
+function blocoMercado(indicadores, iso) {
+  if (!indicadores?.length) return '';
+  // Quadro em colunas, não linha corrida: cinco cotações numa linha só não
+  // cabem nos 760 px úteis da folha, e a quebra deixava um item órfão.
+  return `
+  <div class="mercado">
+    <span class="mercado__titulo">Mercado</span>
+    <div class="mercado__lista">
+    ${indicadores.map((i) => {
+      const classe = i.variacao > 0 ? 'alta' : i.variacao < 0 ? 'baixa' : '';
+      const seta = i.variacao > 0 ? '▲ ' : i.variacao < 0 ? '▼ ' : '';
+      const quando = i.dataISO < iso ? `<span class="mercado__quando">fech. ${esc(i.data)}</span>` : '';
+      return `
+      <div class="mercado__item">
+        <span class="mercado__nome">${esc(i.nome)}</span>
+        <span class="mercado__valor tnum">${esc(valorIndicador(i))}</span>
+        <span class="${classe} tnum">${seta}${esc(sinal(i.variacao))}%</span>
+        ${quando}
+      </div>`;
+    }).join('')}
+    </div>
+  </div>`;
 }
 
 function blocoAnp(anp) {
@@ -175,7 +216,7 @@ function blocoGrafico(historico) {
  * Monta o HTML completo do jornal.
  * @returns {{html: string, nomeArquivo: string, titulo: string, chamada: string}}
  */
-export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, historico }) {
+export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, historico, indicadores }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   const titulos = { mundo: 'Mundo', brasil: 'Brasil', transporte: 'Transporte', agro: 'Agro' };
 
@@ -234,6 +275,21 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
     text-align: center; font-size: 11px; font-weight: 600; letter-spacing: .16em;
     text-transform: uppercase; color: #6B4A18;
   }
+  .mercado { margin-top: 10px; padding-top: 8px; border-top: 1px solid #DCD5C4; text-align: center; }
+  .mercado__titulo {
+    display: block; margin-bottom: 6px; font-size: 10px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: #6B4A18;
+  }
+  .mercado__lista {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px 10px;
+  }
+  .mercado__item { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 11px; line-height: 1.3; }
+  .mercado__nome { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6A7480; }
+  .mercado__valor { font-size: 13px; font-weight: 700; color: #14171A; }
+  .mercado__quando { color: #6A7480; font-size: 10px; }
+  .mercado .alta { color: #2E6B4F; font-weight: 600; }
+  .mercado .baixa { color: #B3341F; font-weight: 600; }
+  .tnum { font-variant-numeric: tabular-nums; }
   .manchete {
     font-family: Georgia, 'Times New Roman', serif; font-weight: 700;
     font-size: clamp(22px, 3.6vw, 31px); line-height: 1.16; margin: 16px 0 8px;
@@ -300,18 +356,20 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
     </div>
     <h1 class="cabecalho">Panorama do Diesel</h1>
     <p class="topo__sub">Transporte · Agro · Indústria</p>
+    ${blocoMercado(indicadores, iso)}
   </header>
 
   <h2 class="manchete">${esc(manchete)}</h2>
   <p class="lide">${lide({ abicom, brent, dolar, anp })}</p>
 
-  ${blocoNumeros({ abicom, brent, dolar })}
+  ${blocoNumeros({ abicom, brent, dolar, indicadores })}
   ${blocoAnp(anp)}
   ${blocoGrafico(historico)}
   ${blocoNoticias(noticias?.editorias || {}, titulos)}
 
   <footer class="rodape">
-    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar: Banco Central · Brent: ICE ·
+    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
+      Mercado: Yahoo Finance ·
       Manchetes: veículos citados, com link para a matéria original.</span>
     <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial. © ${data.getFullYear()} SupriPrice</span>
   </footer>

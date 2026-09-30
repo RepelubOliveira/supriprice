@@ -38,11 +38,23 @@
 <!-- Sem <link rel="preload"> para a fonte: o CDN do HTMLy devolve 404 quando a
      requisição vem com crossorigin, enchendo o console de erro. A fonte carrega
      normalmente pelo @font-face do style.css. -->
-<link rel="stylesheet" href="assets/css/style.css">
+<!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
+     nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
+<link rel="stylesheet" href="assets/css/style.css?v=20260930">
 </head>
 <body>
 
 <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- ====================== Faixa de mercado ======================
+     Fica ACIMA do cabeçalho fixo: some ao rolar, e o menu continua no topo.
+     Começa escondida; o app.js só a mostra se houver indicador para exibir. -->
+<section class="mkt" id="mercado" aria-label="Indicadores de mercado" hidden>
+  <div class="wrap mkt__bar">
+    <ul class="mkt__list" id="mercadoLista"></ul>
+    <p class="mkt__meta" id="mercadoMeta"></p>
+  </div>
+</section>
 
 <!-- ====================== Cabeçalho ====================== -->
 <header class="site-header">
@@ -162,7 +174,8 @@
 <footer class="wrap site-footer">
   <span>
     Defasagem: Abicom, em parceria com a StoneX. Preço na bomba: ANP, dados abertos.
-    Dólar: Banco Central. Brent: ICE. Manchetes: os veículos citados em cada item,
+    Dólar PTAX: Banco Central. Brent: ICE. Indicadores de mercado: Yahoo Finance.
+    Manchetes: os veículos citados em cada item,
     com link para a matéria original. Conteúdo informativo, não constitui
     recomendação comercial.
   </span>
@@ -180,6 +193,6 @@
 
 <!-- Bibliotecas usadas só na geração dos downloads (carregadas sob demanda). -->
 <script src="assets/js/dados.js"></script>
-<script src="assets/js/app.js"></script>
+<script src="assets/js/app.js?v=20260930"></script>
 </body>
 </html>

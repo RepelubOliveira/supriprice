@@ -34,6 +34,21 @@
     text-align: center; font-size: 11px; font-weight: 600; letter-spacing: .16em;
     text-transform: uppercase; color: #6B4A18;
   }
+  .mercado { margin-top: 10px; padding-top: 8px; border-top: 1px solid #DCD5C4; text-align: center; }
+  .mercado__titulo {
+    display: block; margin-bottom: 6px; font-size: 10px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: #6B4A18;
+  }
+  .mercado__lista {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px 10px;
+  }
+  .mercado__item { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 11px; line-height: 1.3; }
+  .mercado__nome { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6A7480; }
+  .mercado__valor { font-size: 13px; font-weight: 700; color: #14171A; }
+  .mercado__quando { color: #6A7480; font-size: 10px; }
+  .mercado .alta { color: #2E6B4F; font-weight: 600; }
+  .mercado .baixa { color: #B3341F; font-weight: 600; }
+  .tnum { font-variant-numeric: tabular-nums; }
   .manchete {
     font-family: Georgia, 'Times New Roman', serif; font-weight: 700;
     font-size: clamp(22px, 3.6vw, 31px); line-height: 1.16; margin: 16px 0 8px;
@@ -100,10 +115,47 @@
     </div>
     <h1 class="cabecalho">Panorama do Diesel</h1>
     <p class="topo__sub">Transporte · Agro · Indústria</p>
+    
+  <div class="mercado">
+    <span class="mercado__titulo">Mercado</span>
+    <div class="mercado__lista">
+    
+      <div class="mercado__item">
+        <span class="mercado__nome">Ibovespa</span>
+        <span class="mercado__valor tnum">186.948 pts</span>
+        <span class="alta tnum">▲ +1,70%</span>
+        
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Dólar</span>
+        <span class="mercado__valor tnum">R$ 5,1742</span>
+        <span class="baixa tnum">▼ −0,56%</span>
+        
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Euro</span>
+        <span class="mercado__valor tnum">R$ 5,8590</span>
+        <span class="baixa tnum">▼ −0,72%</span>
+        
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Brent</span>
+        <span class="mercado__valor tnum">US$ 98,20</span>
+        <span class="alta tnum">▲ +2,12%</span>
+        
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">WTI</span>
+        <span class="mercado__valor tnum">US$ 90,65</span>
+        <span class="alta tnum">▲ +1,42%</span>
+        
+      </div>
+    </div>
+  </div>
   </header>
 
   <h2 class="manchete">Defasagem do diesel sobe R$ 0,43 e chega a R$ 3,40</h2>
-  <p class="lide">A defasagem média do diesel fechou em <strong>R$ 3,40 por litro</strong>, 101% abaixo da paridade de importação. Entre os polos, a diferença vai de R$ 2,24 a R$ 3,75 por litro. A janela de importação está fechada há 260 dias na média. O Brent fechou a US$ 98,22 e o dólar, a R$ 5,18. Na bomba, o S10 saiu por R$ 7,33 em média nacional — alta de R$ 0,19 na semana.</p>
+  <p class="lide">A defasagem média do diesel fechou em <strong>R$ 3,40 por litro</strong>, 101% abaixo da paridade de importação. Entre os polos, a diferença vai de R$ 2,24 a R$ 3,75 por litro. A janela de importação está fechada há 260 dias na média. O Brent fechou a US$ 98,20 e o dólar, a R$ 5,18. Na bomba, o S10 saiu por R$ 7,33 em média nacional — alta de R$ 0,19 na semana.</p>
 
   
   <section class="numeros">
@@ -112,11 +164,6 @@
         <span class="numero__rotulo">Defasagem do diesel</span>
         <span class="numero__valor">R$ 3,40</span>
         <span class="numero__nota">101% abaixo da paridade</span>
-      </div>
-      <div class="numero">
-        <span class="numero__rotulo">Brent</span>
-        <span class="numero__valor">US$ 98,22</span>
-        <span class="numero__nota">fechamento do contrato</span>
       </div>
       <div class="numero">
         <span class="numero__rotulo">Dólar</span>
@@ -200,15 +247,15 @@
           <span class="fonte">Click Petróleo e Gás</span>
         </li>
         <li>
-          <a href="https://petronoticias.com.br/participacao-da-binatural-em-audiencia-publica-mostra-que-o-pais-tem-condicoes-de-expandir-o-biocombustiveis-para-o-setor-aquaviario/" target="_blank" rel="noopener noreferrer">PARTICIPAÇÃO DA BINATURAL EM AUDIÊNCIA PÚBLICA MOSTRA QUE PAÍS TEM CONDIÇÕES DE EXPANDIR O BIOCOMBUSTÍVEIS PARA O SETOR AQUAVIÁRIO</a>
-          <span class="fonte">Petronotícias</span>
-        </li>
-        <li>
-          <a href="https://clickpetroleoegas.com.br/o-brasil-vive-o-melhor-momento-do-biodiesel-producao-bate-recorde-mistura-chega-ao-b15-e-setor-investe-milhoes-rpc95/?utm_source=rss&amp;utm_medium=rss&amp;utm_campaign=o-brasil-vive-o-melhor-momento-do-biodiesel-producao-bate-recorde-mistura-chega-ao-b15-e-setor-investe-milhoes-rpc95" target="_blank" rel="noopener noreferrer">O Brasil vive o melhor momento do biodiesel? Produção bate recorde, mistura chega ao B15 e setor investe milhões</a>
+          <a href="https://clickpetroleoegas.com.br/sao-paulo-produz-12-bilhoes-de-litros-de-etanol-combustivel-vence-gasolina-em-37-de-44-meses-e-setor-mira-novo-mercado-nos-navios-ctl01/?utm_source=rss&amp;utm_medium=rss&amp;utm_campaign=sao-paulo-produz-12-bilhoes-de-litros-de-etanol-combustivel-vence-gasolina-em-37-de-44-meses-e-setor-mira-novo-mercado-nos-navios-ctl01" target="_blank" rel="noopener noreferrer">São Paulo produz 12 bilhões de litros de etanol, combustível vence gasolina em 37 de 44 meses e setor mira novo mercado nos navios</a>
           <span class="fonte">Click Petróleo e Gás</span>
         </li>
         <li>
-          <a href="https://petronoticias.com.br/periodo-de-seca-no-norte-do-pais-faz-a-transpetro-voltar-com-a-operacao-codajas-para-garantir-o-abastecimento-de-combustiveis-na-regiao/" target="_blank" rel="noopener noreferrer">PERÍODO DE SECA NO NORTE DO PAÍS FAZ A TRANSPETRO VOLTAR COM A OPERAÇÃO CODAJÁS PARA GARANTIR O ABASTECIMENTO DE COMBUSTÍVEIS NA REGIÃO</a>
+          <a href="https://clickpetroleoegas.com.br/gigante-de-gas-natural-liquefeito-avanca-com-fase-2-no-canada-dobra-capacidade-de-exportacao-e-preve-28-milhoes-de-toneladas-de-gnl-por-ano-rpc95/?utm_source=rss&amp;utm_medium=rss&amp;utm_campaign=gigante-de-gas-natural-liquefeito-avanca-com-fase-2-no-canada-dobra-capacidade-de-exportacao-e-preve-28-milhoes-de-toneladas-de-gnl-por-ano-rpc95" target="_blank" rel="noopener noreferrer">Gigante de gás natural liquefeito avança com Fase 2 no Canadá, dobra capacidade de exportação e prevê 28 milhões de toneladas de GNL por ano</a>
+          <span class="fonte">Click Petróleo e Gás</span>
+        </li>
+        <li>
+          <a href="https://petronoticias.com.br/participacao-da-binatural-em-audiencia-publica-mostra-que-o-pais-tem-condicoes-de-expandir-o-biocombustiveis-para-o-setor-aquaviario/" target="_blank" rel="noopener noreferrer">PARTICIPAÇÃO DA BINATURAL EM AUDIÊNCIA PÚBLICA MOSTRA QUE PAÍS TEM CONDIÇÕES DE EXPANDIR O BIOCOMBUSTÍVEIS PARA O SETOR AQUAVIÁRIO</a>
           <span class="fonte">Petronotícias</span>
         </li></ul>
       </div>
@@ -236,22 +283,27 @@
         <h3>Agro</h3>
         <ul>
         <li>
+          <a href="https://www.canalrural.com.br/economia/petroleo-sobe-com-tensao-no-oriente-medio-e-avanco-mensal-do-brent-e-do-wti/" target="_blank" rel="noopener noreferrer">Petróleo sobe com tensão no Oriente Médio e avanço mensal do Brent e do WTI</a>
+          <span class="fonte">Canal Rural</span>
+        </li>
+        <li>
+          <a href="https://www.comprerural.com/diesel-nas-maximas-recorde-no-reino-unido-e-alta-no-brasil-pressionam-a-safra/" target="_blank" rel="noopener noreferrer">Diesel nas máximas: recorde no Reino Unido e alta no Brasil pressionam a safra</a>
+          <span class="fonte">Compre Rural</span>
+        </li>
+        <li>
+          <a href="https://www.canalrural.com.br/economia/diesel-s-10-acumula-alta-de-151-em-12-meses/" target="_blank" rel="noopener noreferrer">Diesel S-10 acumula alta de 15,1% em 12 meses</a>
+          <span class="fonte">Canal Rural</span>
+        </li>
+        <li>
           <a href="https://www.canalrural.com.br/economia/diesel-s-10-lidera-alta-em-12-meses-e-chega-a-r-7097-por-litro-em-setembro/" target="_blank" rel="noopener noreferrer">Diesel S-10 lidera alta em 12 meses e chega a R$ 7,097 por litro em setembro</a>
           <span class="fonte">Canal Rural</span>
-        </li>
-        <li>
-          <a href="https://www.canalrural.com.br/agricultura/projeto-soja-brasil/na-safra-26-27-de-soja-tudo-depende-do-seu-planejamento-e-cuidado-nao-resolva-com-pressa-aponta-especialista-em-agronegocio/" target="_blank" rel="noopener noreferrer">‘Na safra 26/27, tudo depende do seu planejamento e cuidado. Não resolva nada com pressa’, aconselha especialista</a>
-          <span class="fonte">Canal Rural</span>
-        </li>
-        <li>
-          <a href="https://www.comprerural.com/colheita-de-cafe-na-area-de-atuacao-da-cooxupe-atinge-994/" target="_blank" rel="noopener noreferrer">Colheita de café na área de atuação da Cooxupé atinge 99,4%</a>
-          <span class="fonte">Compre Rural</span>
         </li></ul>
       </div></div>
   </section>
 
   <footer class="rodape">
-    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar: Banco Central · Brent: ICE ·
+    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
+      Mercado: Yahoo Finance ·
       Manchetes: veículos citados, com link para a matéria original.</span>
     <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial. © 2026 SupriPrice</span>
   </footer>

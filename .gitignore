@@ -26,3 +26,6 @@ desktop.ini
 
 # Registros das execucoes diarias na maquina local.
 logs/
+
+# Configuracao local de preview do Claude (aponta para pasta temporaria).
+.claude/
