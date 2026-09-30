@@ -8,11 +8,12 @@
     "",
     "Aqui ficam só as coisas que nenhuma fonte publica em formato aberto.",
     "Você pode não tocar em nada: o portal funciona sozinho com o que está aqui.",
-    "Mexa quando quiser corrigir um preço de refinaria ou trocar a agenda."
+    "Mexa quando quiser corrigir um preço de refinaria ou trocar a agenda.",
+    "",
+    "Agenda: itens com data DD/MM já vencida somem do portal sozinhos.",
+    "Se a ANP não responder, o robô usa a última leitura válida dela (conteudo/anp-ultima.json), com o período à mostra."
   ],
-
   "mostrarGasolina": true,
-
   "precosPetrobras": {
     "_nota": [
       "R$/litro nas refinarias. Serve só para as barras comparativas do topo.",
@@ -24,54 +25,49 @@
     "diesel": 3.28,
     "gasolina": 2.96
   },
-
   "agenda": [
-    { "data": "26/09", "texto": "Vence a parcela de R$ 1,12/L do subsídio." },
-    { "data": "Out.", "texto": "Mês de maior consumo de diesel do ano." },
-    { "data": "17/10", "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado." }
+    {
+      "data": "26/09",
+      "texto": "Vence a parcela de R$ 1,12/L do subsídio."
+    },
+    {
+      "data": "Out.",
+      "texto": "Mês de maior consumo de diesel do ano."
+    },
+    {
+      "data": "17/10",
+      "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado."
+    }
   ],
-
   "_arquivoHistorico": "Edições antigas, escritas à mão antes da automação. Ficam no fim do arquivo do site.",
   "arquivoHistorico": [
     {
-      "data": "24/09", "tag": "Geral",
+      "data": "24/09",
+      "tag": "Geral",
       "titulo": "Ameaça dos EUA chega às vésperas do mês de maior consumo",
       "arquivo": "relatorios/2026-09-24-geral.html",
       "slug": "supriprice-geral-2026-09-24"
     },
     {
-      "data": "23/09", "tag": "S10",
+      "data": "23/09",
+      "tag": "S10",
       "titulo": "O petróleo recuou. A falta de diesel importado, não.",
       "arquivo": "relatorios/2026-09-23-s10.html",
       "slug": "supriprice-s10-2026-09-23"
     },
     {
-      "data": "23/09", "tag": "S500",
+      "data": "23/09",
+      "tag": "S500",
       "titulo": "S500: o diesel do campo fica mais difícil de achar",
       "arquivo": "relatorios/2026-09-23-s500.html",
       "slug": "supriprice-s500-2026-09-23"
     },
     {
-      "data": "11/09", "tag": "Geral",
+      "data": "11/09",
+      "tag": "Geral",
       "titulo": "Por que o diesel está mais caro e mais escasso hoje",
       "arquivo": "relatorios/2026-09-11-geral.html",
       "slug": "supriprice-geral-2026-09-11"
     }
-  ],
-
-  "_reserva": "Usados só se a ANP não responder numa execução.",
-  "bomba": {
-    "nota": "Reserva: usado apenas quando a ANP não responde.",
-    "itens": [
-      { "nome": "Diesel S10", "valor": "R$ 7,33" },
-      { "nome": "Diesel S500", "valor": "R$ 6,93" }
-    ]
-  },
-  "polos": [
-    ["Nordeste", "reserva", 7.67, 1.0, 0],
-    ["Norte", "reserva", 7.46, 0.97, 0],
-    ["Centro-Oeste", "reserva", 7.34, 0.96, 0],
-    ["Sul", "reserva", 7.22, 0.94, 0],
-    ["Sudeste", "reserva", 7.18, 0.94, 0]
   ]
 }

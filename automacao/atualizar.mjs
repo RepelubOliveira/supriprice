@@ -36,6 +36,7 @@ const P = {
   feeds: path.join(RAIZ, 'conteudo', 'feeds.json'),
   historico: path.join(RAIZ, 'conteudo', 'historico.json'),
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
+  anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
   index: path.join(RAIZ, 'portal', 'index.html'),
   relatorios: path.join(RAIZ, 'portal', 'relatorios')
@@ -162,7 +163,9 @@ function montarPolosAnp(anp) {
   const maior = Math.max(...anp.regioes.map((r) => r.media));
   return anp.regioes.map((r) => [
     r.nome, `${r.coletas} postos`, Number(r.media.toFixed(2)),
-    Number((r.media / maior).toFixed(4)), 0
+    // Sem variação: a ANP é semanal e a comparação por região não é apurada.
+    // null faz o portal omitir a linha em vez de mostrar um zero inventado.
+    Number((r.media / maior).toFixed(4)), null
   ]);
 }
 
@@ -217,13 +220,26 @@ async function principal() {
   log(`Mercado: ${indicadores.map((i) => `${i.nome} ${i.variacao > 0 ? '+' : ''}${i.variacao}%`).join(' · ') || 'nenhum indicador disponível'}`);
 
   log('Buscando preços na bomba (ANP)...');
+  // Se a ANP não responder, vale a ÚLTIMA LEITURA BOA dela, guardada a cada
+  // sucesso — nunca números fixos. Antes havia uma "reserva" no
+  // editorial.json com preços de uma semana qualquer, publicada como se fosse
+  // atual. A leitura guardada carrega o próprio período ("20/09 a 25/09"), e
+  // o portal e o jornal o exibem: o leitor sempre sabe de quando é o preço.
+  // Como a ANP é semanal, na maioria das vezes ainda é a semana corrente.
   let anp = null;
   try {
-    anp = await lerPrecosAnp();
+    const csvLocal = (args.find((a) => a.startsWith('--anp-csv=')) || '').split('=')[1];
+    anp = await lerPrecosAnp(csvLocal
+      ? new TextDecoder('utf-8', { ignoreBOM: false }).decode(await readFile(csvLocal))
+      : undefined);
     const s10 = anp.produtos.find((p) => p.nome === 'Diesel S10');
     log(`ANP: S10 ${brl(s10.media)} em ${anp.totalColetas} postos (${anp.periodo.de} a ${anp.periodo.ate})`);
+    await writeFile(P.anpUltima, JSON.stringify(anp) + '\n', 'utf8');
   } catch (e) {
     console.warn(`  ! ANP indisponível: ${e.message}`);
+    anp = await lerJson(P.anpUltima, null);
+    if (anp) log(`ANP: usando a última leitura válida (${anp.periodo.de} a ${anp.periodo.ate})`);
+    else console.warn('  ! Sem leitura anterior da ANP: o portal sai sem os blocos da bomba.');
   }
 
   log('Lendo os feeds de notícia...');
@@ -266,9 +282,9 @@ async function principal() {
     indicadores,
     ticker: montarTicker(abicom, dolar, brent, anp, indicadores),
     serieS10: montarSerie(historico),
-    polos: montarPolosAnp(anp) || editorial.polos,
-    polosTitulo: anp ? 'Preço médio do S10 por região' : 'Defasagem por polo',
-    bomba: montarBomba(anp) || editorial.bomba,
+    polos: montarPolosAnp(anp) || [],
+    polosTitulo: 'Preço médio do S10 por região',
+    bomba: montarBomba(anp),
     anp: anp ? { maisCaros: anp.maisCaros, maisBaratos: anp.maisBaratos, referencia: anp.referencia } : null,
     paridade: editorial.paridade,
     agenda: editorial.agenda,
@@ -288,13 +304,13 @@ async function principal() {
   // mesmo endereço todo dia, quem já visitou o site veria números velhos por
   // até um mês — foi assim que a faixa de mercado "sumiu" para quem tinha o
   // dados.js de antes dela. Cada atualização ganha um endereço novo
-  // (dados.js?v=AAAAMMDD-HHMM); o index.html vem com "no-store", então o
+  // (dados.js?v=AAAAMMDD-HHMMSS); o index.html vem com "no-store", então o
   // navegador sempre acha a versão nova. O index vai ao disco também, para
   // uma publicação manual dele nunca apontar para uma versão antiga.
   const versao = new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
-  }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(':', '');
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(/:/g, '');
   const indexAntes = await readFile(P.index, 'utf8');
   const REF_DADOS = /assets\/js\/dados\.js(\?v=[^"']*)?(["'])/g;
   const referencias = indexAntes.match(REF_DADOS) || [];

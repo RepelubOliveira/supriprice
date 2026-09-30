@@ -49,19 +49,37 @@ function mediana(lista) {
  * simples basta — e evita arrastar uma biblioteca de CSV para o projeto.
  */
 async function baixarCsv(arquivo) {
-  const r = await fetch(BASE + arquivo, {
-    headers: { 'User-Agent': UA },
-    signal: AbortSignal.timeout(90000)
-  });
-  if (!r.ok) throw new Error(`ANP respondeu HTTP ${r.status} para ${arquivo}`);
-  const bytes = new Uint8Array(await r.arrayBuffer());
+  // Duas tentativas: o gov.br às vezes fica lento a ponto de estourar os 90 s
+  // (aconteceu em 30/09/2026, às 17h41) e na tentativa seguinte responde.
+  // A leitura do corpo fica DENTRO da repetição: o limite de tempo também
+  // corta o download no meio, e é aí que a lentidão costuma aparecer.
+  let bytes, ultimoErro;
+  for (let tentativa = 1; tentativa <= 2 && !bytes; tentativa++) {
+    try {
+      const r = await fetch(BASE + arquivo, {
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(90000)
+      });
+      if (!r.ok) throw new Error(`ANP respondeu HTTP ${r.status} para ${arquivo}`);
+      bytes = new Uint8Array(await r.arrayBuffer());
+    } catch (e) {
+      ultimoErro = e;
+      if (tentativa < 2) await new Promise((ok) => setTimeout(ok, 5000));
+    }
+  }
+  if (!bytes) throw ultimoErro;
   // ignoreBOM:false faz o TextDecoder comer o BOM sozinho; a limpeza abaixo
   // cobre o caso de a ANP mudar para um arquivo sem BOM ou em Latin-1.
   return new TextDecoder('utf-8', { ignoreBOM: false }).decode(bytes);
 }
 
-export async function lerPrecosAnp() {
-  const texto = await baixarCsv(ARQUIVO_DIESEL);
+/**
+ * @param {string} [textoPronto] conteúdo de um CSV já baixado. Sem ele, baixa
+ *   do gov.br. Existe para semear conteudo/anp-ultima.json quando o gov.br
+ *   está lento demais (node automacao/atualizar.mjs --anp-csv=arquivo.csv).
+ */
+export async function lerPrecosAnp(textoPronto) {
+  const texto = textoPronto ?? await baixarCsv(ARQUIVO_DIESEL);
   const linhas = texto.split(/\r?\n/);
   if (linhas.length < 100) throw new Error('CSV da ANP veio menor que o esperado.');
 

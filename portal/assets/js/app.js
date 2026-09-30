@@ -330,7 +330,11 @@
 
   function montarPolos() {
     var alvo = $('#polos'); if (!alvo) return;
-    alvo.innerHTML = (D.polos || []).map(function (r) {
+    if (!(D.polos || []).length) {
+      alvo.innerHTML = '<p class="card__note">Sem dados da ANP nesta atualização.</p>';
+      return;
+    }
+    alvo.innerHTML = D.polos.map(function (r) {
       var nome = r[0], op = r[1], defR = r[2], pct = r[3], delta = r[4];
       return '' +
         '<div class="port">' +
@@ -340,8 +344,12 @@
             '<span class="tnum">' + Math.round(pct * 100) + '%</span></span>' +
           '<span class="port__bar"><i style="width:' + Math.min(100, pct / 1.1 * 100).toFixed(0) +
             '%;background:' + (pct > 0.5 ? COR.alta : COR.navy) + ';"></i></span>' +
-          '<span class="port__delta tnum" style="color:' + (delta >= 0 ? COR.alta : COR.baixa) + ';">' +
-            (delta >= 0 ? '+' : '-') + num(Math.abs(delta)) + ' vs. ontem</span>' +
+          // Sem variação apurada, nada de "+0,00 vs. ontem": a ANP é semanal e
+          // não tem "ontem" — o zero que aparecia era inventado.
+          (typeof delta === 'number'
+            ? '<span class="port__delta tnum" style="color:' + (delta >= 0 ? COR.alta : COR.baixa) + ';">' +
+                (delta >= 0 ? '+' : '-') + num(Math.abs(delta)) + ' vs. ontem</span>'
+            : '') +
         '</div>';
     }).join('');
   }
@@ -392,9 +400,23 @@
 
     var ag = $('#agenda');
     if (ag) {
-      ag.innerHTML = (D.agenda || []).map(function (a) {
-        return '<div class="agenda-row"><b>' + esc(a.data) + '</b><span>' + esc(a.texto) + '</span></div>';
-      }).join('');
+      // Item com data DD/MM já vencida sai sozinho — agenda é o que vem pela
+      // frente, e ninguém precisa lembrar de editar o editorial.json. Datas
+      // em texto livre ("Out.") ficam sempre.
+      var hojeAg = new Date(); hojeAg.setHours(0, 0, 0, 0);
+      var futuros = (D.agenda || []).filter(function (a) {
+        var m = /^(\d{1,2})\/(\d{1,2})$/.exec(String(a.data || '').trim());
+        if (!m) return true;
+        var d = new Date(hojeAg.getFullYear(), +m[2] - 1, +m[1]);
+        // Em dezembro, "05/01" é o janeiro que vem, não o que já passou.
+        if (hojeAg - d > 180 * 86400000) d.setFullYear(d.getFullYear() + 1);
+        return d >= hojeAg;
+      });
+      ag.innerHTML = futuros.length
+        ? futuros.map(function (a) {
+            return '<div class="agenda-row"><b>' + esc(a.data) + '</b><span>' + esc(a.texto) + '</span></div>';
+          }).join('')
+        : '<p class="card__note">Nada agendado nos próximos dias.</p>';
     }
   }
 
