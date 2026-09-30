@@ -24,9 +24,18 @@ if (-not $node) {
 }
 Write-Host "Node encontrado: $((& node --version))"
 
-if (-not [Environment]::GetEnvironmentVariable('HTMLY_API_KEY', 'User')) {
+# Guarda contra um erro que ja aconteceu: colar o texto de exemplo em vez da
+# chave. O HTMLy responde 401 la na frente, depois de toda a coleta, e a causa
+# nao fica obvia. Melhor barrar aqui.
+$chave = [Environment]::GetEnvironmentVariable('HTMLY_API_KEY', 'User')
+if ($chave -eq 'SUA-CHAVE-DO-HTMLY') {
+  Write-Host "ATENCAO: a variavel guardou o TEXTO DE EXEMPLO, nao a sua chave." -ForegroundColor Red
+  Write-Host "Cadastre o valor real, que esta no seu Perfil no site do HTMLy." -ForegroundColor Yellow
+  exit 1
+}
+if (-not $chave) {
   Write-Host "ATENCAO: a chave do HTMLy nao esta cadastrada. Cadastre com:" -ForegroundColor Yellow
-  Write-Host '  setx HTMLY_API_KEY "cole-sua-chave-aqui"' -ForegroundColor Yellow
+  Write-Host '  setx HTMLY_API_KEY "SUA-CHAVE-DO-HTMLY"' -ForegroundColor Yellow
   Write-Host "Depois feche e abra o terminal, e rode este instalador de novo." -ForegroundColor Yellow
   exit 1
 }

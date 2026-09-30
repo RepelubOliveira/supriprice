@@ -25,6 +25,10 @@ function Registrar($texto) {
 
 Registrar "Iniciando atualizacao do SupriPrice"
 
+if ($env:HTMLY_API_KEY -eq 'SUA-CHAVE-DO-HTMLY') {
+  Registrar "ERRO: a variavel HTMLY_API_KEY guardou o texto de exemplo, nao a chave real."
+  exit 1
+}
 if (-not $env:HTMLY_API_KEY) {
   Registrar "ERRO: HTMLY_API_KEY nao esta definida. Nada foi publicado."
   exit 1
