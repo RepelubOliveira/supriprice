@@ -40,19 +40,28 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20260930">
+<link rel="stylesheet" href="assets/css/style.css?v=20260930b">
 </head>
 <body>
 
 <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
 <!-- ====================== Faixa de mercado ======================
-     Fica ACIMA do cabeçalho fixo: some ao rolar, e o menu continua no topo.
-     Começa escondida; o app.js só a mostra se houver indicador para exibir. -->
+     Letreiro que passa sozinho, acima do cabeçalho fixo (some ao rolar a
+     página; o menu continua no topo). Começa escondido: o app.js só o mostra
+     se houver indicador. Para ao passar o mouse; o botão pausa de vez — no
+     celular não existe "passar o mouse", e conteúdo que se move por mais de
+     5 segundos precisa de um jeito de parar. -->
 <section class="mkt" id="mercado" aria-label="Indicadores de mercado" hidden>
   <div class="wrap mkt__bar">
-    <ul class="mkt__list" id="mercadoLista"></ul>
+    <div class="mkt__viewport">
+      <ul class="mkt__list" id="mercadoLista"></ul>
+    </div>
     <p class="mkt__meta" id="mercadoMeta"></p>
+    <button class="mkt__pause" id="mercadoPausa" type="button"
+            aria-pressed="false" aria-label="Pausar a faixa de cotações">
+      <span aria-hidden="true">❚❚</span>
+    </button>
   </div>
 </section>
 
@@ -193,6 +202,6 @@
 
 <!-- Bibliotecas usadas só na geração dos downloads (carregadas sob demanda). -->
 <script src="assets/js/dados.js"></script>
-<script src="assets/js/app.js?v=20260930"></script>
+<script src="assets/js/app.js?v=20260930b"></script>
 </body>
 </html>

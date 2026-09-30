@@ -152,13 +152,19 @@
     return 'US$ ' + num(i.valor);
   }
 
+  // Velocidade do letreiro em pixels por segundo. A duração da volta é
+  // calculada a partir dela, para a faixa andar no mesmo ritmo com 3 ou com
+  // 10 indicadores, em tela estreita ou larga.
+  var MKT_VELOCIDADE = 45;
+
   function montarMercado() {
     var caixa = $('#mercado'), lista = $('#mercadoLista'), meta = $('#mercadoMeta');
     var ind = D.indicadores || [];
     if (!caixa || !lista || !ind.length) return;
     var hoje = D.meta && D.meta.dataISO;
 
-    lista.innerHTML = ind.map(function (i) {
+    /** Um item da faixa. eco=true é cópia só visual: some do leitor de tela. */
+    function item(i, eco) {
       var sentido = i.variacao > 0 ? 'up' : (i.variacao < 0 ? 'down' : 'flat');
       var seta = sentido === 'up' ? '▲' : (sentido === 'down' ? '▼' : '');
       var pct = (sentido === 'up' ? '+' : (sentido === 'down' ? '−' : '')) +
@@ -169,7 +175,7 @@
       var dica = (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
         ' · variação sobre o fechamento anterior';
       return '' +
-        '<li class="mkt__item" title="' + esc(dica) + '">' +
+        '<li class="mkt__item" title="' + esc(dica) + '"' + (eco ? ' aria-hidden="true"' : '') + '>' +
           '<span class="mkt__name">' + esc(i.nome) + '</span>' +
           '<span class="mkt__val tnum">' + esc(valorIndicador(i)) + '</span>' +
           '<span class="mkt__chg mkt__chg--' + sentido + ' tnum">' +
@@ -179,7 +185,8 @@
           '</span>' +
           (antigo ? '<span class="mkt__when">fech. ' + esc(i.data) + '</span>' : '') +
         '</li>';
-    }).join('');
+    }
+    function volta(eco) { return ind.map(function (i) { return item(i, eco); }).join(''); }
 
     if (meta) {
       var horas = ind.filter(function (i) { return !hoje || !i.dataISO || i.dataISO >= hoje; })
@@ -188,6 +195,60 @@
         ' · Yahoo Finance';
     }
     caixa.hidden = false;
+
+    // Movimento reduzido pedido no sistema: lista parada, uma vez só. O CSS
+    // quebra os itens em linhas e esconde o botão de pausa.
+    var semMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (semMovimento) { lista.innerHTML = volta(false); return; }
+
+    /*
+     * O laço: a animação desliza a lista em -50%. Para o recomeço ser
+     * invisível, a lista tem duas metades idênticas. E cada metade precisa
+     * ser pelo menos tão larga quanto a faixa — senão, em tela larga, sobraria
+     * um vão vazio antes de a segunda metade entrar. Por isso a volta de
+     * indicadores se repete quantas vezes for preciso dentro de cada metade.
+     * Só a primeira volta é lida pelo leitor de tela; o resto é eco visual.
+     */
+    var larguraMontada = -1;
+    function montarLaco() {
+      var janela = lista.parentNode;
+      var largura = janela.clientWidth;
+      if (largura === larguraMontada) return;
+      larguraMontada = largura;
+
+      lista.innerHTML = volta(false);
+      var umaVolta = lista.scrollWidth;
+      if (!umaVolta || !largura) return;
+
+      var repeticoes = Math.max(1, Math.ceil(largura / umaVolta));
+      var primeira = volta(false), eco = '';
+      for (var k = 1; k < repeticoes; k++) primeira += volta(true);
+      for (var j = 0; j < repeticoes; j++) eco += volta(true);
+      lista.innerHTML = primeira + eco;
+      lista.style.setProperty('--mkt-dur', ((umaVolta * repeticoes) / MKT_VELOCIDADE).toFixed(1) + 's');
+    }
+
+    montarLaco();
+    // A fonte carrega depois e muda a largura dos textos; e a janela pode
+    // mudar de tamanho. Nos dois casos a conta precisa ser refeita.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { larguraMontada = -1; montarLaco(); });
+    }
+    var espera;
+    window.addEventListener('resize', function () {
+      clearTimeout(espera);
+      espera = setTimeout(montarLaco, 200);
+    });
+
+    var botao = $('#mercadoPausa');
+    if (botao) {
+      botao.addEventListener('click', function () {
+        var pausado = caixa.classList.toggle('is-paused');
+        botao.setAttribute('aria-pressed', pausado ? 'true' : 'false');
+        botao.setAttribute('aria-label', pausado ? 'Retomar a faixa de cotações' : 'Pausar a faixa de cotações');
+        botao.firstElementChild.textContent = pausado ? '▶' : '❚❚';
+      });
+    }
   }
 
   /* ------------------------------------------------------------ gráfico */

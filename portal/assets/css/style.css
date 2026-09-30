@@ -119,22 +119,48 @@ button { cursor: pointer; }
 }
 
 /* --- Faixa de mercado ---------------------------------------------------- */
-/* Linha fina acima do cabeçalho, no espírito da barra de cotações dos portais
-   econômicos. Alta verde e queda vermelha (convenção de bolsa) — o inverso do
-   painel de combustível, onde preço subindo é a notícia ruim. No celular a
-   lista rola de lado DENTRO da faixa; a página em si nunca rola na horizontal. */
+/* Letreiro contínuo, no espírito da barra de cotações dos portais econômicos.
+   COMO O LAÇO FUNCIONA: o app.js monta a lista duas vezes seguidas (a segunda
+   cópia com aria-hidden, para o leitor de tela não ler tudo em dobro) e a
+   animação desliza exatamente -50%. Quando a primeira cópia sai pela
+   esquerda, a segunda está no lugar dela — o salto de volta ao início é
+   invisível. Por isso o espaçamento fica no padding dos itens, nunca em gap:
+   as duas metades precisam ter a mesma largura ao pixel.
+   A duração vem do app.js (--mkt-dur), calculada pela largura, para a
+   velocidade ser a mesma com 3 ou com 10 indicadores.
+   Cores: alta verde e queda vermelha (convenção de bolsa) — o inverso do
+   painel de combustível, onde preço subindo é a notícia ruim. */
 .mkt { background: var(--surface); border-bottom: 1px solid var(--line); font-size: 13px; }
-.mkt__bar { display: flex; align-items: center; gap: 4px 20px; min-height: 38px; }
+.mkt__bar { display: flex; align-items: center; gap: 4px 14px; min-height: 38px; }
+.mkt__viewport {
+  flex: 1 1 auto; min-width: 0; overflow: hidden;
+  /* Esmaece as pontas: o item entra e sai suave em vez de ser cortado seco. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+          mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
 .mkt__list {
   list-style: none; margin: 0; padding: 0;
-  display: flex; flex: 1 1 auto; min-width: 0;
-  overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+  display: flex; width: max-content;
+  animation: mkt-rolar var(--mkt-dur, 40s) linear infinite;
+  will-change: transform;
+}
+/* .is-paused é o botão de pausa. Parar ao passar o mouse vale só onde existe
+   mouse de verdade: no celular o toque deixa o :hover "grudado", e a faixa
+   não voltaria a andar depois de tocar em "retomar". Também NÃO usamos
+   :focus-within — depois do clique o botão fica focado e o efeito seria o
+   mesmo. Quem navega por teclado pausa pelo próprio botão. */
+.mkt.is-paused .mkt__list { animation-play-state: paused; }
+@media (hover: hover) {
+  .mkt:hover .mkt__list { animation-play-state: paused; }
+}
+@keyframes mkt-rolar {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
 .mkt__item {
   display: flex; align-items: baseline; gap: 6px; white-space: nowrap;
-  padding: 9px 16px; border-left: 1px solid var(--line-2);
+  padding: 9px 18px; border-right: 1px solid var(--line-2);
 }
-.mkt__item:first-child { border-left: 0; padding-left: 0; }
 .mkt__name {
   font-size: 11px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted);
@@ -146,11 +172,31 @@ button { cursor: pointer; }
 .mkt__chg--flat { color: var(--muted); }
 .mkt__when { font-size: 11px; color: var(--muted); }
 .mkt__meta { flex: 0 0 auto; margin: 0; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.mkt__pause {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--muted); font-size: 10px; line-height: 1;
+}
+.mkt__pause:hover { color: var(--navy); border-color: var(--navy-3); }
+
 @media (max-width: 760px) {
-  .mkt__bar { flex-wrap: wrap; }
-  .mkt__list { flex-basis: 100%; }
-  .mkt__item { padding-block: 8px 4px; }
-  .mkt__meta { padding-bottom: 6px; }
+  .mkt__bar { flex-wrap: wrap; padding-bottom: 6px; }
+  .mkt__viewport { flex-basis: 100%; }
+  .mkt__item { padding-block: 8px 6px; }
+  .mkt__meta { flex: 1 1 auto; }
+  .mkt__pause { width: 32px; height: 26px; } /* alvo de toque confortável */
+}
+
+/* Quem pediu ao sistema para reduzir animações vê a faixa PARADA: os itens
+   quebram em linhas, sem movimento e sem barra de rolagem. O app.js, nesse
+   caso, nem monta a segunda cópia. A regra genérica de movimento reduzido do
+   topo deste arquivo encurtaria a animação para .01ms e faria o letreiro
+   piscar — por isso ela é desligada aqui explicitamente. */
+@media (prefers-reduced-motion: reduce) {
+  .mkt__viewport { -webkit-mask-image: none; mask-image: none; }
+  .mkt__list { animation: none !important; flex-wrap: wrap; width: auto; }
+  .mkt__pause { display: none; }
 }
 
 /* --- Selo de atualização ------------------------------------------------- */
