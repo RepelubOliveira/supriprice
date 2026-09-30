@@ -1,3 +1,5 @@
+param([switch]$SemPerguntar)  # sem a pergunta de confirmacao, para execucao automatizada
+
 # SupriPrice - cadastra a chave do HTMLy (roda uma vez so)
 # -----------------------------------------------------------------------------
 # HISTORICO DAS TENTATIVAS, para ninguem repetir:
@@ -58,7 +60,7 @@ if ($chave -notmatch '^[A-Za-z0-9_\-]+$') {
 }
 
 Write-Host "Encontrei na area de transferencia: $(Mascarar $chave)  ($($chave.Length) caracteres)"
-$ok = Read-Host "E essa a chave? (s/n)"
+if ($SemPerguntar) { $ok = 's' } else { $ok = Read-Host "E essa a chave? (s/n)" }
 if ($ok -notmatch '^[sS]') {
   Write-Host "Cancelado. Nada foi alterado." -ForegroundColor Yellow
   exit 1
