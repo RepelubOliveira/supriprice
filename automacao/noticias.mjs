@@ -8,7 +8,7 @@
 // o texto integral. É o modelo de um agregador: o leitor termina de ler no site
 // de quem apurou. Toda matéria carrega o nome da fonte.
 
-const UA = 'Mozilla/5.0 (compatible; SupriPriceBot/1.0; +https://supriprice.htmly.com.br)';
+const UA = 'Mozilla/5.0 (compatible; SupriPriceBot/1.0; +https://www.supriprice.com.br)';
 const LIMITE_RESUMO = 200;
 
 /** Entidades XML/HTML mais comuns nos feeds. */

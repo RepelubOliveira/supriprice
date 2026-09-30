@@ -17,7 +17,7 @@ DirectoryIndex index.html
 </IfModule>
 
 # --- Sempre com www (ATIVAR SÓ DEPOIS QUE O DOMÍNIO ESTIVER APONTADO) --------
-# Enquanto o site estiver num endereço provisório (supriprice.htmly.com.br,
+# Enquanto o site estiver num endereço provisório (www.supriprice.com.br,
 # por exemplo), NÃO tire o # das linhas abaixo: elas jogariam o visitante para
 # um domínio que ainda não existe e o site pareceria fora do ar.
 # Quando www.supriprice.com.br já estiver respondendo, apague os # das 4 linhas.

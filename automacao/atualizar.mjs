@@ -247,7 +247,7 @@ async function principal() {
     meta: {
       dataISO: iso(hoje), horaFechamento: '08:00',
       fonte: `Fonte: Abicom/StoneX, fechamento ${abicom.data}`,
-      siteUrl: 'https://supriprice.htmly.com.br/',
+      siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()
     },
     produtos: montarProdutos(abicom, editorial, anteriores),

@@ -4,7 +4,7 @@ Site aberto ao público com o panorama do mercado de diesel atualizado todo dia.
 É um site **estático**: só HTML, CSS e JavaScript. Não precisa de servidor de
 aplicação, banco de dados nem processo rodando — sobe em qualquer hospedagem.
 
-Hoje está em **supriprice.htmly.com.br**. Peso total: **1,3 MB**.
+Hoje está em **www.supriprice.com.br**. Peso total: **1,3 MB**.
 
 ```
 portal/
@@ -114,8 +114,8 @@ o CSS e o JavaScript não existem no servidor. Sempre o zip inteiro.
 mostrar código, não a página do site:
 
 ```
-https://supriprice.htmly.com.br/assets/css/style.css
-https://supriprice.htmly.com.br/assets/js/app.js
+https://www.supriprice.com.br/assets/css/style.css
+https://www.supriprice.com.br/assets/js/app.js
 ```
 
 **Limites do plano.** O gratuito dá 1 site, **10 MB** e **3 atualizações por
