@@ -58,12 +58,14 @@
     var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     var dias = Math.round((hoje - d) / 86400000);
     var ddmm = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
-    var hora = meta.horaFechamento || '08:00';
 
     var texto;
-    if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm + ', às ' + hora;
-    else if (dias === 1) texto = 'Atualizado ontem, ' + ddmm + ', às ' + hora;
-    else texto = 'Atualizado em ' + ddmm + '/' + d.getFullYear() + ' às ' + hora;
+    // Só a data, sem hora: o horário fixo "às 08:00" nem era verdadeiro (o
+    // robô roda às 08:20 ou 10:30). A data é o que importa — é ela que avisa
+    // o leitor quando o número não é de hoje.
+    if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
+    else if (dias === 1) texto = 'Atualizado ontem, ' + ddmm;
+    else texto = 'Atualizado em ' + ddmm + '/' + d.getFullYear();
 
     alvo.textContent = texto;
     var ano = $('#ano'); if (ano) ano.textContent = String(new Date().getFullYear());

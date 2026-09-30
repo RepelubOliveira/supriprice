@@ -256,7 +256,7 @@ async function principal() {
   // --- dados.js ------------------------------------------------------------
   const dados = {
     meta: {
-      dataISO: iso(hoje), horaFechamento: '08:00',
+      dataISO: iso(hoje),
       fonte: `Fonte: Abicom/StoneX, fechamento ${abicom.data}`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()
