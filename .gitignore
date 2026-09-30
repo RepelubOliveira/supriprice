@@ -29,3 +29,8 @@ logs/
 
 # Configuracao local de preview do Claude (aponta para pasta temporaria).
 .claude/
+
+# Video de divulgacao: capturas e MP4 sao gerados (pesados demais para o git).
+video/capturas/
+video/*.mp4
+video/capa-*.jpg

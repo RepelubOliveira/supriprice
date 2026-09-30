@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Estúdio de capturas</title>
+<!-- Abre o portal num quadro de LARGURA FIXA. A primeira tentativa fotografou
+     a página direto no painel do navegador, que estava recolhido: largura 0,
+     tudo espremido numa coluna. Dentro de um iframe com largura em px, o
+     layout é o de um celular (390) ou de um computador (1440) de verdade,
+     qualquer que seja o tamanho da janela. -->
+<style>body { margin: 0; background: #222; } iframe { border: 0; display: block; background: #fff; }</style>
+</head>
+<body>
+<iframe id="quadro" title="Portal"></iframe>
+<script>
+  /** Abre `url` num quadro de w×h px e devolve a janela dele, já carregada. */
+  window.abrir = function (url, w, h) {
+    return new Promise(function (ok) {
+      var f = document.getElementById('quadro');
+      f.style.width = w + 'px';
+      f.style.height = h + 'px';
+      f.onload = function () { ok(f.contentWindow); };
+      f.src = url;
+    });
+  };
+
+  /** Injeta capturar.js dentro do quadro. */
+  window.prepararCaptura = function (win) {
+    return new Promise(function (ok, erro) {
+      var s = win.document.createElement('script');
+      s.src = '/video/capturar.js?t=' + Date.now();
+      s.onload = ok; s.onerror = erro;
+      win.document.head.appendChild(s);
+    });
+  };
+</script>
+</body>
+</html>

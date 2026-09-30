@@ -140,7 +140,7 @@ O robô **nunca publica número que não conseguiu confirmar**.
 |---|---|
 | Fim de semana | Sai sem publicar. |
 | Abicom ainda não publicou às 8h20 | Sai sem publicar; a execução das 10h30 tenta de novo. |
-| **ANP fora do ar** | Publica sem o bloco da bomba; o resto sai normal. |
+| **ANP fora do ar ou lenta** | Tenta duas vezes. Se falhar, usa a **última leitura válida** (`conteudo/anp-ultima.json`), que mostra o próprio período — nunca números fixos. Sem leitura guardada, os blocos da bomba saem. |
 | **Um indicador de mercado falhou** | A faixa sai sem aquele item; o resto sai normal. |
 | **Indicador com variação acima de 15%** | Tratado como erro de dado: o item some da faixa. |
 | **Um feed fora do ar** | Registra no log e segue com os outros 12. |
@@ -182,6 +182,25 @@ mudaram** — sem um endereço novo, quem já visitou o site fica com a versão
 antiga. O `?v=` do **`dados.js` não se mexe à mão**: o robô reescreve a cada
 atualização e publica o `index.html` junto (a página em si nunca fica guardada
 no navegador, então a versão nova é sempre encontrada).
+
+---
+
+## Vídeo de divulgação
+
+Em `video/` ficam as ferramentas que geraram o vídeo para redes sociais
+(vertical 1080×1920 para Reels/TikTok/Stories e horizontal 1920×1080 para
+LinkedIn/YouTube). **Os números do vídeo são os do dia em que ele foi gerado**
+— para uma versão atualizada, refaça as capturas e renderize de novo:
+
+1. Suba o servidor local `projeto-local` (pasta do projeto, porta 8767).
+2. Abra `http://localhost:8767/video/estudio.html` e, no console:
+   `w = await abrir('/portal/index.html', 390, 844); await prepararCaptura(w); await w.capturarPortal('m', 3)`
+   — repita com `1440, 900` e `'d', 1.5`; e para o jornal,
+   `abrir('/portal/relatorios/jornal-AAAA-MM-DD.html', 842, 1219)` + `capturarJornal(2)`.
+3. Abra `http://localhost:8767/video/compositor.html` e rode
+   `await Video.renderizar('vertical')` e `await Video.renderizar('horizontal')`.
+
+Os MP4 e as capas saem em `video/`. Não vão para o git (pesam ~55 MB cada).
 
 ---
 
