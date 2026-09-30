@@ -176,8 +176,12 @@ acrescente um termo em `palavrasBloqueadas`.
 cálculo da variação — ele registra, com números, por que o método é esse.
 
 **Mudou o CSS ou o JavaScript do portal:** troque o `?v=` nas duas linhas do
-`portal/index.html` que carregam `style.css` e `app.js`. Senão, quem já visitou
-o site pode ficar com a versão antiga guardada no navegador.
+`portal/index.html` que carregam `style.css` e `app.js`. O HTMLy manda o
+navegador guardar arquivos `.js` e `.css` por **30 dias sem conferir se
+mudaram** — sem um endereço novo, quem já visitou o site fica com a versão
+antiga. O `?v=` do **`dados.js` não se mexe à mão**: o robô reescreve a cada
+atualização e publica o `index.html` junto (a página em si nunca fica guardada
+no navegador, então a versão nova é sempre encontrada).
 
 ---
 

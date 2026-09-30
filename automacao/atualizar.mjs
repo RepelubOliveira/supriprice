@@ -37,6 +37,7 @@ const P = {
   historico: path.join(RAIZ, 'conteudo', 'historico.json'),
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
+  index: path.join(RAIZ, 'portal', 'index.html'),
   relatorios: path.join(RAIZ, 'portal', 'relatorios')
 };
 
@@ -280,9 +281,31 @@ async function principal() {
 
   const conteudo = gerarArquivoDados(dados);
   await writeFile(P.dados, conteudo, 'utf8');
+
+  // --- versão do dados.js no index.html ------------------------------------
+  // O HTMLy serve .js com "Cache-Control: max-age=2592000, immutable": o
+  // navegador guarda o arquivo por 30 dias sem nem perguntar se mudou. Com o
+  // mesmo endereço todo dia, quem já visitou o site veria números velhos por
+  // até um mês — foi assim que a faixa de mercado "sumiu" para quem tinha o
+  // dados.js de antes dela. Cada atualização ganha um endereço novo
+  // (dados.js?v=AAAAMMDD-HHMM); o index.html vem com "no-store", então o
+  // navegador sempre acha a versão nova. O index vai ao disco também, para
+  // uma publicação manual dele nunca apontar para uma versão antiga.
+  const versao = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(':', '');
+  const indexAntes = await readFile(P.index, 'utf8');
+  const REF_DADOS = /assets\/js\/dados\.js(\?v=[^"']*)?(["'])/g;
+  const referencias = indexAntes.match(REF_DADOS) || [];
+  if (referencias.length !== 1) {
+    throw new Error(`Esperava 1 referência ao dados.js no index.html e achei ${referencias.length}. Abortando para não publicar uma página que não carrega os números.`);
+  }
+  const indexHtml = indexAntes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
+  await writeFile(P.index, indexHtml, 'utf8');
   await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
   await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
-  log(`dados.js ${(conteudo.length / 1024).toFixed(1)} KB · histórico ${historico.length} pontos · ${edicoes.length} edições`);
+  log(`dados.js?v=${versao} ${(conteudo.length / 1024).toFixed(1)} KB · histórico ${historico.length} pontos · ${edicoes.length} edições`);
 
   if (SIMULAR) { log('Modo simulação: nada publicado.'); return; }
 
@@ -291,7 +314,10 @@ async function principal() {
     slug: process.env.HTMLY_SLUG || 'supriprice',
     chave: process.env.HTMLY_API_KEY,
     arquivos: [
+      // Os dois juntos, na mesma chamada: o index aponta para a versão nova
+      // do dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
+      { path: 'index.html', content: indexHtml },
       { path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }
     ]
   });

@@ -201,7 +201,12 @@
 </noscript>
 
 <!-- Bibliotecas usadas só na geração dos downloads (carregadas sob demanda). -->
-<script src="assets/js/dados.js"></script>
+<!-- O ?v= do dados.js é REESCRITO PELO ROBÔ a cada atualização (automacao/
+     atualizar.mjs). Não é enfeite: o HTMLy entrega .js com "max-age=30 dias,
+     immutable" — sem um endereço novo a cada atualização, quem já visitou o
+     site continuaria vendo os números antigos por até um mês. O index.html
+     em si vem com "no-store", então a versão nova é sempre encontrada. -->
+<script src="assets/js/dados.js?v=20260930-1721"></script>
 <script src="assets/js/app.js?v=20260930c"></script>
 </body>
 </html>
