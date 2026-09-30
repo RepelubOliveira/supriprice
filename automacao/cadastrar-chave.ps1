@@ -1,10 +1,15 @@
 # SupriPrice - cadastra a chave do HTMLy (roda uma vez so)
 # -----------------------------------------------------------------------------
-# POR QUE ESTE SCRIPT EXISTE: a instrucao anterior era um comando com lacuna
-# ("setx HTMLY_API_KEY "SUA-CHAVE""), e duas vezes seguidas o texto de exemplo
-# foi guardado no lugar da chave. Aqui nao ha lacuna para preencher: o script
-# pergunta, valida e guarda. A chave nunca aparece na tela nem no historico do
-# terminal, e nunca entra em nenhum arquivo do projeto.
+# HISTORICO DAS TENTATIVAS, para ninguem repetir:
+#  1. "setx HTMLY_API_KEY "SUA-CHAVE"" - o texto de exemplo foi guardado no
+#     lugar da chave, duas vezes. Comando com lacuna e armadilha.
+#  2. Read-Host -AsSecureString - varios terminais nao aceitam colar nesse
+#     prompt; so entrava um caractere.
+#  3. Este: le da AREA DE TRANSFERENCIA. Voce copia a chave no site do HTMLy e
+#     roda o script. Nao ha o que digitar nem o que editar.
+#
+# A chave nunca entra em arquivo do projeto: vai para a variavel de ambiente do
+# seu usuario do Windows.
 
 $ErrorActionPreference = 'Stop'
 
@@ -12,34 +17,50 @@ $exemplos = @(
   'SUA-CHAVE-DO-HTMLY', 'cole-sua-chave-aqui', 'cole-aqui-o-valor-que-voce-copiou'
 )
 
+function Mascarar($s) {
+  if ($s.Length -le 8) { return '*' * $s.Length }
+  return "$($s.Substring(0,3))$('*' * ($s.Length - 6))$($s.Substring($s.Length - 3))"
+}
+
 Write-Host ""
 Write-Host "Cadastro da chave do HTMLy" -ForegroundColor Cyan
-Write-Host "Pegue em htmly.com.br > seu Perfil > API key."
+Write-Host "Antes de continuar: copie a chave em htmly.com.br > seu Perfil > API key."
 Write-Host ""
 
-# AsSecureString: o que voce digita nao aparece na tela nem fica no historico.
-$segura = Read-Host "Cole a chave e tecle Enter" -AsSecureString
-$ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
 try {
-  $chave = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr).Trim()
-} finally {
-  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+  $chave = (Get-Clipboard -Raw -ErrorAction Stop)
+} catch {
+  Write-Host "Nao consegui ler a area de transferencia: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
 }
 
 if (-not $chave) {
-  Write-Host "Nada foi digitado. Nada foi alterado." -ForegroundColor Red
+  Write-Host "A area de transferencia esta vazia. Copie a chave e rode de novo." -ForegroundColor Red
   exit 1
 }
+
+# Tira espacos, quebras de linha e aspas que costumam vir junto na copia.
+$chave = $chave.Trim().Trim('"').Trim("'").Trim()
+
 if ($exemplos -contains $chave) {
-  Write-Host "Isso e o texto de exemplo, nao a chave. Nada foi alterado." -ForegroundColor Red
+  Write-Host "O que esta copiado e o texto de exemplo, nao a chave. Nada foi alterado." -ForegroundColor Red
   exit 1
 }
 if ($chave.Length -lt 20) {
-  Write-Host "Chave curta demais ($($chave.Length) caracteres) - parece incompleta. Nada foi alterado." -ForegroundColor Red
+  Write-Host "O que esta copiado tem so $($chave.Length) caracteres - curto demais para ser a chave." -ForegroundColor Red
+  Write-Host "Nada foi alterado." -ForegroundColor Red
   exit 1
 }
 if ($chave -notmatch '^[A-Za-z0-9_\-]+$') {
-  Write-Host "A chave tem caracteres estranhos - pode ter vindo com espaco ou aspas. Nada foi alterado." -ForegroundColor Red
+  Write-Host "O que esta copiado nao parece uma chave (tem espaco ou simbolo estranho)." -ForegroundColor Red
+  Write-Host "Nada foi alterado." -ForegroundColor Red
+  exit 1
+}
+
+Write-Host "Encontrei na area de transferencia: $(Mascarar $chave)  ($($chave.Length) caracteres)"
+$ok = Read-Host "E essa a chave? (s/n)"
+if ($ok -notmatch '^[sS]') {
+  Write-Host "Cancelado. Nada foi alterado." -ForegroundColor Yellow
   exit 1
 }
 
@@ -47,5 +68,6 @@ if ($chave -notmatch '^[A-Za-z0-9_\-]+$') {
 $env:HTMLY_API_KEY = $chave
 
 Write-Host ""
-Write-Host "Guardada. $($chave.Length) caracteres." -ForegroundColor Green
-Write-Host "Ela fica no seu usuario do Windows, fora do projeto e fora do GitHub."
+Write-Host "Guardada no seu usuario do Windows, fora do projeto e fora do GitHub." -ForegroundColor Green
+Write-Host "Limpando a area de transferencia para a chave nao ficar sobrando por ai."
+try { Set-Clipboard -Value ' ' } catch { }
