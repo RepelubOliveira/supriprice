@@ -1,22 +1,39 @@
 # SupriPrice — portal de inteligência do mercado de combustíveis
 
-Todo dia útil de manhã, um robô no GitHub busca dados e notícias, monta o
-portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
+Site: **https://www.supriprice.com.br**
+
+Todo dia útil de manhã, um robô **no seu computador** busca dados e notícias,
+monta o portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
 
 ```
-   08:20 (Brasília)
+   08:20 e 10:30 (Brasília), segunda a sexta — Tarefa Agendada do Windows
         │
         ├── Abicom/StoneX ──► defasagem do diesel e da gasolina, faixa por polo
         ├── Banco Central ──► dólar PTAX
-        ├── ICE (BZ=F)    ──► Brent
+        ├── Yahoo Finance ──► faixa de mercado: Ibovespa, dólar, euro, Brent, WTI
         ├── ANP           ──► preço na bomba em ~5.000 postos, por região e estado
         └── 13 feeds RSS  ──► manchetes de mundo, Brasil, transporte e agro
                  │
                  ├── gera portal/assets/js/dados.js        (o painel)
                  ├── gera portal/relatorios/jornal-AAAA-MM-DD.html  (o jornal)
                  ├── publica os dois no HTMLy (merge: o resto fica intacto)
-                 └── commita histórico e edições de volta no repositório
+                 └── grava o que aconteceu em logs\AAAA-MM-DD_HHMM.txt
 ```
+
+### Por que no seu computador e não no GitHub
+
+Começou no GitHub Actions e não funcionou: o Cloudflare da Abicom recusa
+pedidos vindos de servidores (erro 403) e apresenta uma verificação anti-robô.
+Contornar essa verificação está fora de questão. Da internet comum do
+escritório a página abre normalmente — é o uso que o site permite (o
+`robots.txt` dela libera `/ppi/`). Por isso a coleta roda aqui.
+
+**A contrapartida: o computador precisa estar ligado.** Se estiver desligado
+no horário, a tarefa roda assim que ele ligar. Se ficar dias desligado, o
+portal congela na última edição — e o selo do topo avisa o leitor da data.
+
+O workflow do GitHub continua no repositório com a agenda **desligada**. Ele
+serve só de backup do código e para execução manual.
 
 ---
 
@@ -26,19 +43,39 @@ portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
 |---|---|---|
 | Defasagem do diesel e da gasolina | Abicom, análise com a StoneX | diária |
 | Faixa por polo, dias de janela fechada | Abicom | diária |
-| Dólar | Banco Central, PTAX de venda | diária |
-| Brent | Contrato futuro BZ=F | diária |
-| **Preço na bomba, média nacional** | **ANP, dados abertos** | **semanal** |
-| **Preço por região e por estado** | **ANP** | **semanal** |
-| **Variação semanal do S10** | **ANP** | **semanal** |
-| **Notícias: mundo, Brasil, transporte, agro** | **13 veículos, via RSS** | **diária** |
+| Dólar PTAX (painel e jornal) | Banco Central, PTAX de venda | diária |
+| **Faixa de mercado: Ibovespa, dólar, euro, Brent, WTI** | **Yahoo Finance** | **2x por dia útil** |
+| Preço na bomba, média nacional | ANP, dados abertos | semanal |
+| Preço por região e por estado | ANP | semanal |
+| Variação semanal do S10 | ANP | semanal |
+| Notícias: mundo, Brasil, transporte, agro | 13 veículos, via RSS | diária |
 | Gráfico de 30 dias | Histórico acumulado | diária |
-| **Jornal do dia (página A4)** | **Gerado dos dados + manchetes** | **diária** |
+| Jornal do dia (página A4) | Gerado dos dados + manchetes | diária |
 | Arquivo de edições | Gerado | diária |
 
 O `conteudo/editorial.json` guarda só o que nenhuma fonte publica em formato
 aberto: o preço da Petrobras nas refinarias (muda poucas vezes por ano) e a
 agenda. **Dá para nunca mais abrir esse arquivo** — o portal funciona sozinho.
+
+### Sobre a faixa de mercado
+
+**Não é cotação ao vivo.** O InfoMoney atualiza a cada segundo; aqui os números
+são uma foto tirada às 08:20 e às 10:30. Por isso a faixa diz de quando é cada
+cotação. Às 08:20 a B3 ainda não abriu: o Ibovespa aparece com
+**"fech. DD/MM"** — o fechamento do pregão anterior — em vez de fingir ser o
+número do dia.
+
+**A variação é sobre o fechamento anterior do mesmo ativo**, o critério dos
+portais econômicos. Pequenas diferenças no dólar entre sites são normais: cada
+um usa um horário de referência.
+
+**Cores ao contrário do painel, de propósito.** Na faixa, alta é verde e queda
+é vermelha (convenção de bolsa). No painel de combustível, alta é vermelha,
+porque preço subindo é a notícia ruim para quem compra diesel.
+
+**O Brent aparece uma vez só.** Quando a faixa traz o Brent, ele sai do painel
+do topo e do quadro de números do jornal — são números de momentos diferentes
+(cotação atual x fechamento), e dois Brents na mesma tela só confundiriam.
 
 ---
 
@@ -61,33 +98,37 @@ assim, uma hora vai passar algo fora de tom. É o preço de não colocar a mão.
 
 ---
 
-## Instalação (uma vez só)
+## Instalação (uma vez só, ou ao trocar/formatar o computador)
 
-### 1. Chave do HTMLy
-Em `htmly.com.br`, vá em **Perfil** (`/profile`) e copie a **API key**.
+Tudo no terminal, dentro da pasta do projeto.
 
-### 2. Repositório no GitHub
-1. Em `github.com/new`, crie um repositório **privado** chamado `supriprice`.
-2. Não marque nada para inicializar.
-3. Na pasta do projeto:
-
+**1. Instalar o Node.js**
 ```bash
-git remote add origin https://github.com/SEU-USUARIO/supriprice.git
-git branch -M main
-git push -u origin main
+winget install OpenJS.NodeJS.LTS
 ```
 
-### 3. Guarde a chave
-**Settings → Secrets and variables → Actions → New repository secret**
-Name `HTMLY_API_KEY`, valor a chave do passo 1.
-Se o slug do site não for `supriprice`, crie a *variable* `HTMLY_SLUG`.
+**2. Cadastrar a chave do HTMLy.** Em `htmly.com.br` → **Perfil** → copie a
+**API key** (Ctrl+C). Depois rode — não há nada para editar no comando:
+```bash
+powershell -ExecutionPolicy Bypass -File "automacao\cadastrar-chave.ps1"
+```
+Ele lê a chave da área de transferência, mostra mascarada para você conferir,
+guarda no seu usuário do Windows (fora do projeto e do GitHub) e limpa a área
+de transferência. **Nunca cole a chave em chat, e-mail ou arquivo.** Se isso
+acontecer, gere uma nova no HTMLy — a antiga fica sem valor.
 
-### 4. Primeira execução
-**Actions → Atualizar Panorama do Diesel → Run workflow**, marque
-**backfill** e **simular**. Ele busca ~30 dias de histórico da Abicom e gera
-tudo **sem publicar**. Confira o log e o `dados.js` gerado.
+**3. Criar a tarefa automática**
+```bash
+powershell -ExecutionPolicy Bypass -File "automacao\instalar-tarefa.ps1"
+```
+Cria a tarefa "SupriPrice - atualizar portal" (08:20 e 10:30, seg a sex).
+Não precisa de administrador. Confere o Node e a chave antes de criar.
 
-Depois rode de novo com as duas caixas desmarcadas. A partir daí é sozinho.
+**4. Testar na hora**
+```bash
+powershell -Command "Start-ScheduledTask -TaskName 'SupriPrice - atualizar portal'"
+```
+Em 1–2 minutos o site está atualizado. O resultado fica em `logs\`.
 
 ---
 
@@ -100,15 +141,18 @@ O robô **nunca publica número que não conseguiu confirmar**.
 | Fim de semana | Sai sem publicar. |
 | Abicom ainda não publicou às 8h20 | Sai sem publicar; a execução das 10h30 tenta de novo. |
 | **ANP fora do ar** | Publica sem o bloco da bomba; o resto sai normal. |
+| **Um indicador de mercado falhou** | A faixa sai sem aquele item; o resto sai normal. |
+| **Indicador com variação acima de 15%** | Tratado como erro de dado: o item some da faixa. |
 | **Um feed fora do ar** | Registra no log e segue com os outros 12. |
 | **Todos os feeds fora** | Publica sem notícias; os números saem normal. |
-| Abicom mudou o layout | **Falha** com mensagem clara e e-mail do GitHub. |
+| Abicom mudou o layout | **Falha** com mensagem clara no log. |
 | Defasagem fora de faixa plausível | **Falha** antes de publicar. |
-| HTMLy recusou | **Falha** e mostra a resposta deles. |
+| HTMLy recusou a chave (401) | **Falha**. Refaça o passo 2 da instalação. |
+| Computador desligado no horário | Roda assim que ligar. |
 
 Em qualquer falha o site segue no ar com os dados anteriores, e o selo do topo
 passa a dizer "Atualizado ontem" ou a data cheia. Número velho nunca passa
-por novo.
+por novo. **Para ver o que houve, abra o arquivo mais recente em `logs\`.**
 
 ---
 
@@ -126,16 +170,24 @@ acrescente um termo em `palavrasBloqueadas`.
 
 **Esconder a gasolina do topo:** `mostrarGasolina: false` no `editorial.json`.
 
+**Mudar os indicadores da faixa de mercado:** lista `INDICADORES` em
+`automacao/fontes.mjs`. Cada item usa o símbolo do Yahoo Finance (`^BVSP`,
+`USDBRL=X`, `BZ=F`...). Leia o comentário acima da lista antes de mexer no
+cálculo da variação — ele registra, com números, por que o método é esse.
+
+**Mudou o CSS ou o JavaScript do portal:** troque o `?v=` nas duas linhas do
+`portal/index.html` que carregam `style.css` e `app.js`. Senão, quem já visitou
+o site pode ficar com a versão antiga guardada no navegador.
+
 ---
 
 ## Limites
 
-- **HTMLy gratuito:** 3 atualizações/dia (o robô usa 1 ou 2), 10 MB por site.
-  Cada jornal novo pesa ~15 KB, então cabem centenas.
+- **HTMLy Pro:** domínio próprio e 500 MB por site. Cada jornal pesa ~16 KB.
 - **A raspagem da Abicom depende do layout deles.** Um dia vai quebrar e avisar.
-- **O CSV da ANP tem 3,5 MB** e é baixado a cada execução. É rápido no GitHub,
-  mas é o passo mais demorado.
+- **Depende do computador ligado** (ver no começo).
+- **O CSV da ANP tem 3,5 MB** e é baixado a cada execução. É o passo mais demorado.
 - **Fontes usadas:** Abicom/StoneX, ANP (dados abertos), Banco Central, ICE,
-  EIA, OilPrice, Hellenic Shipping, Petronotícias, Click Petróleo e Gás,
-  Agência Brasil, InfoMoney, NTC&Logística, Transporte Moderno, Canal Rural,
-  Agrolink, Compre Rural. Mantenha a atribuição de cada uma.
+  Yahoo Finance, EIA, OilPrice, Hellenic Shipping, Petronotícias, Click Petróleo
+  e Gás, Agência Brasil, InfoMoney, NTC&Logística, Transporte Moderno, Canal
+  Rural, Agrolink, Compre Rural. Mantenha a atribuição de cada uma.
