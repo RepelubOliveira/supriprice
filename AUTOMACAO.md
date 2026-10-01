@@ -6,7 +6,7 @@ Todo dia útil de manhã, um robô **no seu computador** busca dados e notícias
 monta o portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
 
 ```
-   08:20 e 10:30 (Brasília), segunda a sexta — Tarefa Agendada do Windows
+   07:00, 12:00 e 17:00 (Brasília), segunda a sexta — Tarefa Agendada do Windows
         │
         ├── Abicom/StoneX ──► defasagem do diesel e da gasolina, faixa por polo
         ├── Banco Central ──► dólar PTAX
@@ -60,8 +60,8 @@ agenda. **Dá para nunca mais abrir esse arquivo** — o portal funciona sozinho
 ### Sobre a faixa de mercado
 
 **Não é cotação ao vivo.** O InfoMoney atualiza a cada segundo; aqui os números
-são uma foto tirada às 08:20 e às 10:30. Por isso a faixa diz de quando é cada
-cotação. Às 08:20 a B3 ainda não abriu: o Ibovespa aparece com
+são uma foto tirada às 07:00, 12:00 e 17:00. Por isso a faixa diz de quando é cada
+cotação. Às 07:00 a B3 ainda não abriu: o Ibovespa aparece com
 **"fech. DD/MM"** — o fechamento do pregão anterior — em vez de fingir ser o
 número do dia.
 
@@ -121,7 +121,7 @@ acontecer, gere uma nova no HTMLy — a antiga fica sem valor.
 ```bash
 powershell -ExecutionPolicy Bypass -File "automacao\instalar-tarefa.ps1"
 ```
-Cria a tarefa "SupriPrice - atualizar portal" (08:20 e 10:30, seg a sex).
+Cria a tarefa "SupriPrice - atualizar portal" (07:00, 12:00 e 17:00, seg a sex).
 Não precisa de administrador. Confere o Node e a chave antes de criar.
 
 **4. Testar na hora**
@@ -139,7 +139,7 @@ O robô **nunca publica número que não conseguiu confirmar**.
 | Situação | O que acontece |
 |---|---|
 | Fim de semana | Sai sem publicar. |
-| Abicom ainda não publicou às 8h20 | Sai sem publicar; a execução das 10h30 tenta de novo. |
+| **Abicom ainda não publicou** (comum às 07:00 — ela publica entre ~6h30 e ~9h) | **Atualização parcial:** mercado, ANP e notícias de hoje; a defasagem fica a do último boletim (`conteudo/abicom-ultimo.json`), e o selo diz "Defasagem de DD/MM · mercado e notícias de hoje". Jornal e gráfico só andam com boletim novo. |
 | **ANP fora do ar ou lenta** | Tenta duas vezes. Se falhar, usa a **última leitura válida** (`conteudo/anp-ultima.json`), que mostra o próprio período — nunca números fixos. Sem leitura guardada, os blocos da bomba saem. |
 | **Um indicador de mercado falhou** | A faixa sai sem aquele item; o resto sai normal. |
 | **Indicador com variação acima de 15%** | Tratado como erro de dado: o item some da faixa. |
@@ -182,6 +182,24 @@ mudaram** — sem um endereço novo, quem já visitou o site fica com a versão
 antiga. O `?v=` do **`dados.js` não se mexe à mão**: o robô reescreve a cada
 atualização e publica o `index.html` junto (a página em si nunca fica guardada
 no navegador, então a versão nova é sempre encontrada).
+
+---
+
+## "Sua conexão não é privada" nos computadores da empresa
+
+Na rede da Repelub o site abre com **NET::ERR_CERT_AUTHORITY_INVALID**. Não é
+defeito do site: o firewall da empresa (FortiGate) bloqueia o domínio
+(categoria "Newly Observed Domain", depois "Unrated") e se põe no meio da
+conexão com um certificado próprio. O site usa HSTS, que manda o navegador
+recusar qualquer certificado que não seja o verdadeiro — por isso não aparece
+nem a opção "continuar mesmo assim". Fora da empresa (4G, casa) o site abre
+normalmente, com certificado válido (nota A+ no SSL Labs).
+
+A correção é na empresa, não no site:
+1. **TI:** liberar `www.supriprice.com.br` no filtro web do FortiGate.
+2. **Classificação:** pedir ao FortiGuard que classifique o domínio (hoje
+   "Unrated") — fortiguard.com, consulta de "Web Filter", opção de envio para
+   revisão. Sugestão de categoria: notícias / negócios.
 
 ---
 

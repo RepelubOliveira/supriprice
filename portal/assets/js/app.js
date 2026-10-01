@@ -60,10 +60,16 @@
     var ddmm = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
 
     var texto;
-    // Só a data, sem hora: o horário fixo "às 08:00" nem era verdadeiro (o
-    // robô roda às 08:20 ou 10:30). A data é o que importa — é ela que avisa
-    // o leitor quando o número não é de hoje.
-    if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
+    // Atualização parcial (rodada das 07:00, antes de a Abicom publicar):
+    // mercado e notícias são de hoje, a defasagem é do último boletim. O selo
+    // diz as duas coisas — "Atualizado ontem" daria a entender que o portal
+    // inteiro parou.
+    var atu = meta.atualizadoISO;
+    var hojeISO = hoje.getFullYear() + '-' + ('0' + (hoje.getMonth() + 1)).slice(-2) + '-' + ('0' + hoje.getDate()).slice(-2);
+    // Só a data, sem hora: a data é o que avisa o leitor quando o número não é de hoje.
+    if (atu && atu === hojeISO && meta.dataISO < atu) {
+      texto = 'Defasagem de ' + ddmm + ' · mercado e notícias de hoje';
+    } else if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
     else if (dias === 1) texto = 'Atualizado ontem, ' + ddmm;
     else texto = 'Atualizado em ' + ddmm + '/' + d.getFullYear();
 
@@ -163,7 +169,9 @@
     var caixa = $('#mercado'), lista = $('#mercadoLista'), meta = $('#mercadoMeta');
     var ind = D.indicadores || [];
     if (!caixa || !lista || !ind.length) return;
-    var hoje = D.meta && D.meta.dataISO;
+    // O dia da EXECUÇÃO, não o do boletim: na atualização parcial das 07:00 o
+    // boletim é de ontem, mas a cotação do dólar das 06:50 é de hoje.
+    var hoje = D.meta && (D.meta.atualizadoISO || D.meta.dataISO);
 
     /** Um item da faixa. eco=true é cópia só visual: some do leitor de tela. */
     function item(i, eco) {

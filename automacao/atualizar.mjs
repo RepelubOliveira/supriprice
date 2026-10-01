@@ -37,6 +37,7 @@ const P = {
   historico: path.join(RAIZ, 'conteudo', 'historico.json'),
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
+  abicomUltimo: path.join(RAIZ, 'conteudo', 'abicom-ultimo.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
   index: path.join(RAIZ, 'portal', 'index.html'),
   relatorios: path.join(RAIZ, 'portal', 'relatorios')
@@ -203,10 +204,30 @@ async function principal() {
   // A defasagem é obrigatória. ANP e notícias são desejáveis: se uma delas
   // falhar, o portal sai sem aquele bloco em vez de não sair.
   log('Buscando Abicom, Banco Central e Brent...');
-  const { abicom, dolar, brent } = await coletarTudo(hoje);
-  if (!abicom) {
-    log('A Abicom ainda não publicou o boletim de hoje. Saindo sem publicar.');
-    return;
+  const coleta = await coletarTudo(hoje);
+  const { dolar, brent } = coleta;
+  let abicom = coleta.abicom;
+
+  // MODO PARCIAL. A Abicom publica entre ~6h30 e ~9h (medido de 24/09 a
+  // 01/10/2026). Na rodada das 07:00 o boletim do dia quase nunca existe — e
+  // antes o robô saía sem publicar NADA, nem cotação nem notícia. Agora,
+  // sem boletim novo, ele atualiza mercado, ANP e notícias e mantém a
+  // defasagem do último boletim, com a data dele à mostra. O jornal do dia e
+  // o histórico só andam com boletim novo.
+  let parcial = false;
+  let dataAbicomISO = iso(hoje);
+  if (abicom) {
+    await writeFile(P.abicomUltimo, JSON.stringify({ dataISO: iso(hoje), abicom }) + '\n', 'utf8');
+  } else {
+    const ultimo = await lerJson(P.abicomUltimo, null);
+    if (!ultimo) {
+      log('A Abicom ainda não publicou o boletim de hoje e não há boletim anterior guardado. Saindo sem publicar.');
+      return;
+    }
+    abicom = ultimo.abicom;
+    dataAbicomISO = ultimo.dataISO;
+    parcial = true;
+    log(`A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
   }
   const def = abicom.diesel.defasagem;
   if (!(def > 0 && def < 20)) throw new Error(`Defasagem implausível (${def}). Abortando.`);
@@ -253,27 +274,41 @@ async function principal() {
   }
 
   const histAntes = await lerJson(P.historico, []);
-  const ontem = histAntes.filter((p) => p.data !== iso(hoje)).slice(-1)[0];
+  // "Ontem" é o boletim anterior ao que está sendo mostrado — no modo
+  // parcial, o anterior ao último guardado, não ao dia de hoje.
+  const ontem = histAntes.filter((p) => p.data < dataAbicomISO).slice(-1)[0];
   const anteriores = { diesel: ontem?.valor, gasolina: ontem?.gasolina };
-  const historico = registrarHistorico(histAntes, hoje, def, abicom.gasolina?.defasagem);
+  const historico = parcial
+    ? histAntes
+    : registrarHistorico(histAntes, hoje, def, abicom.gasolina?.defasagem);
 
   // --- jornal do dia -------------------------------------------------------
-  const jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores });
-  await mkdir(P.relatorios, { recursive: true });
-  await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
-  log(`Jornal: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
-
+  // Só com boletim novo: a manchete do jornal nasce da defasagem do dia.
+  let jornal = null;
   const edicoesAntes = await lerJson(P.edicoes, []);
-  const edicoes = [
-    { data: iso(hoje), rotulo: ddmm(hoje), titulo: jornal.titulo, chamada: jornal.chamada,
-      arquivo: `relatorios/${jornal.nomeArquivo}`, slug: `supriprice-${iso(hoje)}` },
-    ...edicoesAntes.filter((e) => e.data !== iso(hoje))
-  ].slice(0, MAX_EDICOES);
+  let edicoes = edicoesAntes;
+  if (!parcial) {
+    jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores });
+    await mkdir(P.relatorios, { recursive: true });
+    await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
+    log(`Jornal: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
+    edicoes = [
+      { data: iso(hoje), rotulo: ddmm(hoje), titulo: jornal.titulo, chamada: jornal.chamada,
+        arquivo: `relatorios/${jornal.nomeArquivo}`, slug: `supriprice-${iso(hoje)}` },
+      ...edicoesAntes.filter((e) => e.data !== iso(hoje))
+    ].slice(0, MAX_EDICOES);
+  } else {
+    log('Jornal: mantido o da última edição (sem boletim novo da Abicom).');
+  }
 
   // --- dados.js ------------------------------------------------------------
   const dados = {
     meta: {
-      dataISO: iso(hoje),
+      // dataISO = data do boletim da Abicom (o selo do topo fala dele);
+      // atualizadoISO = dia desta execução (a faixa de mercado decide por ele
+      // o que é cotação de hoje e o que é fechamento anterior).
+      dataISO: dataAbicomISO,
+      atualizadoISO: iso(hoje),
       fonte: `Fonte: Abicom/StoneX, fechamento ${abicom.data}`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()
@@ -319,9 +354,11 @@ async function principal() {
   }
   const indexHtml = indexAntes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
   await writeFile(P.index, indexHtml, 'utf8');
-  await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
-  await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
-  log(`dados.js?v=${versao} ${(conteudo.length / 1024).toFixed(1)} KB · histórico ${historico.length} pontos · ${edicoes.length} edições`);
+  if (!parcial) {
+    await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
+    await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
+  }
+  log(`${parcial ? '[parcial] ' : ''}dados.js?v=${versao} ${(conteudo.length / 1024).toFixed(1)} KB · histórico ${historico.length} pontos · ${edicoes.length} edições`);
 
   if (SIMULAR) { log('Modo simulação: nada publicado.'); return; }
 
@@ -334,7 +371,7 @@ async function principal() {
       // do dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
       { path: 'index.html', content: indexHtml },
-      { path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }
+      ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : [])
     ]
   });
   log(`Publicado: ${res.url || ''} · ${res.storage_bytes ?? '?'} bytes`);

@@ -1,8 +1,12 @@
 # SupriPrice - cria a Tarefa Agendada do Windows (roda uma vez so)
 # -----------------------------------------------------------------------------
-# Cria UMA tarefa com DOIS horarios: 08:20 e 10:30, de segunda a sexta. Dois
-# porque a Abicom publica o boletim ao longo da manha - se as 8h20 ainda nao
-# saiu, a segunda tentativa pega.
+# Cria UMA tarefa com TRES horarios: 07:00, 12:00 e 17:00, de segunda a sexta.
+#   07:00 - a Abicom quase nunca publicou ainda (sai entre ~6h30 e ~9h):
+#           atualizacao PARCIAL - cotacoes da manha, ANP e noticias, com a
+#           defasagem do ultimo boletim e a data dele a mostra.
+#   12:00 - boletim do dia ja saiu: atualizacao completa e jornal do dia.
+#   17:00 - cotacoes perto do fechamento e noticias da tarde; o jornal do dia
+#           e refeito com elas.
 #
 # StartWhenAvailable: se o computador estiver desligado no horario, a tarefa
 # roda assim que ele ligar, em vez de simplesmente perder o dia.
@@ -46,8 +50,9 @@ $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
 
 $dias = 'Monday','Tuesday','Wednesday','Thursday','Friday'
 $gatilhos = @(
-  (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dias -At '08:20'),
-  (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dias -At '10:30')
+  (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dias -At '07:00'),
+  (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dias -At '12:00'),
+  (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dias -At '17:00')
 )
 
 $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable `
@@ -59,6 +64,6 @@ Register-ScheduledTask -TaskName $nome -Action $acao -Trigger $gatilhos `
   -Settings $opcoes -Description 'Busca Abicom, ANP, BCB, Brent e noticias; publica o portal SupriPrice.' -Force | Out-Null
 
 Write-Host ""
-Write-Host "Pronto. A tarefa '$nome' roda 08:20 e 10:30, de segunda a sexta." -ForegroundColor Green
+Write-Host "Pronto. A tarefa '$nome' roda 07:00, 12:00 e 17:00, de segunda a sexta." -ForegroundColor Green
 Write-Host "Para testar agora:  Start-ScheduledTask -TaskName '$nome'"
 Write-Host "Os registros ficam em: $(Join-Path $raiz 'logs')"

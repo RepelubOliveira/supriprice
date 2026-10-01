@@ -36,6 +36,10 @@ if (-not $env:HTMLY_API_KEY) {
 
 Set-Location $raiz
 
+# O Node escreve em UTF-8, mas o PowerShell le a saida dele pela pagina de
+# codigo do console (850): os acentos chegavam ao log como "refer├¬ncia".
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # O script sai com codigo 1 quando uma fonte obrigatoria falha; nesse caso nada
 # e publicado e o site continua com os dados do dia anterior, com o selo do topo
 # avisando a data. Isso e intencional: melhor nao publicar do que publicar errado.
