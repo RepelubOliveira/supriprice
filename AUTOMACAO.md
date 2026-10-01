@@ -220,6 +220,15 @@ LinkedIn/YouTube). **Os números do vídeo são os do dia em que ele foi gerado*
 
 Os MP4 e as capas saem em `video/`. Não vão para o git (pesam ~55 MB cada).
 
+**Vídeo de lançamento (Instagram):** `video/lancamento.html` gera dois MP4 de
+30 s com trilha original — Stories (1080×1920) e Feed (1080×1350). A música é
+composta no próprio navegador (Web Audio), sem faixa de terceiros: não há risco
+de direitos autorais nem de o Instagram tirar o som. Depois das capturas do
+passo 2 (só as de celular e a do jornal do dia), abra
+`http://localhost:8767/video/lancamento.html` e rode
+`await Lanc.renderizar('stories')` e `await Lanc.renderizar('feed')`.
+Números e manchetes vêm do `dados.js` do dia.
+
 ---
 
 ## Limites

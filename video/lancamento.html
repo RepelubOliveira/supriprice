@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Lançamento SupriPrice — compositor</title>
+<!--
+  Vídeo de LANÇAMENTO para o Instagram (Stories 9:16 e Feed 4:5), 30 s, com
+  trilha ORIGINAL sintetizada aqui mesmo (Web Audio) — sem música de terceiros,
+  sem risco de direitos autorais ou de o Instagram tirar o som.
+
+  Tudo é desenhado quadro a quadro num <canvas> e codificado com WebCodecs:
+  vídeo H.264 + áudio AAC, empacotados em MP4 pelo mp4-muxer. Os cortes de
+  cena caem nas batidas da trilha (120 BPM: 1 tempo = 0,5 s, 1 compasso = 2 s).
+
+  Entradas: video/capturas/m_*.png e jornal.png (capturar.js), o dados.js do
+            portal (números e manchetes reais) e o mapa-múndi do world-atlas.
+  Saída:    video/lancamento-stories.mp4, video/lancamento-feed.mp4 e capas.
+
+  Uso no console:  await Lanc.renderizar('stories')
+                   await Lanc.previa('feed', [1.2, 5, 12])
+-->
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 14px system-ui, sans-serif; }
+  canvas { display: block; max-width: 100%; max-height: 90vh; margin: 0 auto; }
+  #status { padding: 8px 12px; }
+</style>
+</head>
+<body>
+<div id="status">pronto</div>
+<canvas id="quadro"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-array@3/dist/d3-array.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo@3/dist/d3-geo.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var FPS = 30, DUR = 30, SR = 48000;
+  var BATIDA = 0.5;                    // 120 BPM
+  var COR = {
+    tinta: '#060E19', navy: '#0E2A47', navy2: '#16365A', navy3: '#27496F',
+    marca: '#B3341F', marcaClara: '#E0533A', salmao: '#FFB4A6',
+    sobreNavy: '#C9D5E3', verde: '#58B17B', branco: '#FFFFFF'
+  };
+  var FONTE = 'Plex';
+
+  /*
+   * Zonas seguras. Stories: o Instagram cobre o topo (barra de progresso,
+   * nome da conta) e a base (campo de resposta). Feed 4:5: quase nada cobre,
+   * mas mantemos respiro de agência.
+   */
+  var FORMATOS = {
+    stories: { W: 1080, H: 1920, topo: 250, base: 1580, mx: 90, bitrate: 14e6 },
+    feed:    { W: 1080, H: 1350, topo: 90,  base: 1262, mx: 90, bitrate: 12e6 }
+  };
+
+  /* ------------------------------------------------------------ utilidades */
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function fase(t, ini, dur) { return clamp((t - ini) / dur, 0, 1); }
+  function suave(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+  function chega(p) { return 1 - Math.pow(1 - p, 3); }
+  function salta(p) { var c = 1.70158, d = c + 1; return 1 + d * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+  function fonte(peso, tam) { return peso + ' ' + tam + 'px ' + FONTE; }
+  function brl(v, c) { return 'R$ ' + Number(v).toFixed(c == null ? 2 : c).replace('.', ','); }
+
+  function retRedondo(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function quebrar(ctx, texto, max) {
+    var palavras = String(texto).split(/\s+/), linhas = [], atual = '';
+    palavras.forEach(function (p) {
+      var teste = atual ? atual + ' ' + p : p;
+      if (ctx.measureText(teste).width > max && atual) { linhas.push(atual); atual = p; }
+      else atual = teste;
+    });
+    if (atual) linhas.push(atual);
+    return linhas;
+  }
+
+  function espacar(ctx, px) { if ('letterSpacing' in ctx) ctx.letterSpacing = px + 'px'; }
+
+  function carregarImagem(src) {
+    return new Promise(function (ok, erro) {
+      var i = new Image();
+      i.onload = function () { ok(i); };
+      i.onerror = function () { erro(new Error('não carregou ' + src)); };
+      i.src = src;
+    });
+  }
+
+  function status(msg) { document.getElementById('status').textContent = msg; }
+
+  /** Pseudoaleatório determinístico: o mesmo quadro sai sempre igual. */
+  function acaso(semente) { var x = Math.sin(semente * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+  /* ------------------------------------------------------------- recursos */
+
+  var R = null;
+
+  async function preparar() {
+    if (R) return R;
+    var faces = [
+      new FontFace(FONTE, 'url(/portal/assets/fonts/plex-latin.woff2)', { weight: '100 900' }),
+      new FontFace(FONTE, 'url(/portal/assets/fonts/plex-latin-ext.woff2)', { weight: '100 900' })
+    ];
+    for (var i = 0; i < faces.length; i++) document.fonts.add(await faces[i].load());
+
+    var cache = '?t=' + Date.now();
+    await new Promise(function (ok, erro) {
+      var s = document.createElement('script');
+      s.src = '/portal/assets/js/dados.js' + cache; s.onload = ok;
+      s.onerror = function () { erro(new Error('dados.js não carregou')); };
+      document.head.appendChild(s);
+    });
+    var imgs = await Promise.all([
+      carregarImagem('/video/capturas/m_topo.png' + cache),
+      carregarImagem('/video/capturas/jornal.png' + cache),
+      carregarImagem('/video/capturas/m_faixa.png' + cache),
+      carregarImagem('/portal/assets/supriprice-logo.png')
+    ]);
+    var mapaTopo = await fetch('/video/capturas/m_mapa.json' + cache).then(function (r) { return r.json(); });
+
+    // Mapa-múndi pontilhado: um ponto a cada 1,5° onde há terra; os do
+    // Brasil ficam marcados para acender em vermelho.
+    var terraTopo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(function (r) { return r.json(); });
+    var paisesTopo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function (r) { return r.json(); });
+    var terra = topojson.feature(terraTopo, terraTopo.objects.land);
+    var brasil = topojson.feature(paisesTopo, paisesTopo.objects.countries).features
+      .filter(function (f) { return String(f.id) === '076'; })[0];
+    var pontos = [];
+    for (var lat = -56; lat <= 78; lat += 1.5) {
+      for (var lon = -168; lon <= 180; lon += 1.5) {
+        if (d3.geoContains(terra, [lon, lat])) pontos.push([lon, lat, brasil && d3.geoContains(brasil, [lon, lat])]);
+      }
+    }
+
+    // Granulação de filme: um ladrilho de ruído desenhado por cima de tudo.
+    var grao = document.createElement('canvas');
+    grao.width = grao.height = 256;
+    var gctx = grao.getContext('2d'), gd = gctx.createImageData(256, 256);
+    for (var k = 0; k < gd.data.length; k += 4) {
+      var v = Math.floor(acaso(k + 1) * 255);
+      gd.data[k] = gd.data[k + 1] = gd.data[k + 2] = v; gd.data[k + 3] = 255;
+    }
+    gctx.putImageData(gd, 0, 0);
+
+    R = {
+      D: window.DADOS, topo: { img: imgs[0], css: mapaTopo.capturas.topo },
+      jornal: imgs[1], faixa: imgs[2], logo: imgs[3],
+      terra: terra, pontos: pontos, grao: grao
+    };
+    return R;
+  }
+
+  /* ============================================================== TRILHA */
+  /*
+   * Trilha original em lá menor, 120 BPM. Estrutura colada no roteiro:
+   *   0–4   quatro batidas de impacto (uma por palavra) + subida de tensão
+   *   4     IMPACTO grande (logo)
+   *   4–6   respiro: drone e acorde
+   *   6–24  pulsação: bumbo, baixo em colcheias, caixa, chimbal, acordes
+   *         (Am – F – C – G), com impactos nas trocas de cena
+   *   24–26 virada: caixa acelerando, subida, silêncio de meio tempo
+   *   26    IMPACTO final + acorde longo até o fim
+   */
+  async function comporTrilha() {
+    var ctx = new OfflineAudioContext(2, SR * DUR, SR);
+    var mestre = ctx.createGain(); mestre.gain.value = 0.85;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 8; comp.ratio.value = 4;
+    comp.attack.value = 0.004; comp.release.value = 0.22;
+    // Ganho final: a primeira versão ficou em ~-17 dB de média, baixa para o
+    // Instagram. O excesso de pico que esse ganho cria é tratado DEPOIS da
+    // renderização pelo limitar() abaixo — o compressor do Web Audio não é
+    // rápido o bastante: com ele, 6.224 amostras estouraram nos impactos.
+    var ganhoFinal = ctx.createGain(); ganhoFinal.gain.value = 1.45;
+    mestre.connect(comp); comp.connect(ganhoFinal); ganhoFinal.connect(ctx.destination);
+    // Fade final
+    mestre.gain.setValueAtTime(0.85, 28.6);
+    mestre.gain.linearRampToValueAtTime(0.0001, 29.95);
+
+    // Reverberação sintética (ruído com decaimento) para dar "sala de cinema".
+    function impulso(seg, decai) {
+      var n = SR * seg, b = ctx.createBuffer(2, n, SR);
+      for (var c = 0; c < 2; c++) {
+        var d = b.getChannelData(c);
+        for (var i = 0; i < n; i++) d[i] = (acaso(i * 7 + c * 13 + 3) * 2 - 1) * Math.pow(1 - i / n, decai);
+      }
+      return b;
+    }
+    var rev = ctx.createConvolver(); rev.buffer = impulso(3.2, 2.6);
+    var revGanho = ctx.createGain(); revGanho.gain.value = 0.32;
+    rev.connect(revGanho); revGanho.connect(mestre);
+
+    var ruido = ctx.createBuffer(1, SR * 2, SR);
+    var rd = ruido.getChannelData(0);
+    for (var i = 0; i < rd.length; i++) rd[i] = acaso(i + 99) * 2 - 1;
+
+    function fonteRuido(t, dur) {
+      var s = ctx.createBufferSource(); s.buffer = ruido; s.loop = true;
+      s.start(t); s.stop(t + dur); return s;
+    }
+    function ganho(v) { var g = ctx.createGain(); g.gain.value = v; return g; }
+    function filtro(tipo, f, q) { var b = ctx.createBiquadFilter(); b.type = tipo; b.frequency.value = f; if (q) b.Q.value = q; return b; }
+    function envio(no, mix) { no.connect(mestre); if (mix) { var g = ganho(mix); no.connect(g); g.connect(rev); } }
+
+    // Impacto: grave que despenca + estalo de ruído + cauda na reverberação.
+    function impacto(t, forca) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(26, t + 1.3);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.0 * forca, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4 * forca);
+      o.connect(g); envio(g, 0.4); o.start(t); o.stop(t + 2.6);
+
+      var n = fonteRuido(t, 1.2), lp = filtro('lowpass', 1400), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.7 * forca, t + 0.005);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      n.connect(lp); lp.connect(gn); envio(gn, 0.8);
+
+      var n2 = fonteRuido(t, 0.3), bp = filtro('bandpass', 2600, 1.4), g2 = ctx.createGain();
+      g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.35 * forca, t + 0.003);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      n2.connect(bp); bp.connect(g2); envio(g2, 0.6);
+    }
+
+    // Batida curta de palavra (tom grave + estalo).
+    function golpe(t) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.35);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.85, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      o.connect(g); envio(g, 0.35); o.start(t); o.stop(t + 0.8);
+      var n = fonteRuido(t, 0.2), hp = filtro('highpass', 1800), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.3, t + 0.003);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      n.connect(hp); hp.connect(gn); envio(gn, 0.5);
+    }
+
+    // Subida de tensão: ruído com filtro varrendo + tom que sobe.
+    function subida(t0, t1) {
+      var dur = t1 - t0;
+      var n = fonteRuido(t0, dur), bp = filtro('bandpass', 300, 2.5), g = ctx.createGain();
+      bp.frequency.setValueAtTime(300, t0); bp.frequency.exponentialRampToValueAtTime(8000, t1);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.45, t1 - 0.02);
+      g.gain.linearRampToValueAtTime(0.0001, t1);
+      n.connect(bp); bp.connect(g); envio(g, 0.3);
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(880, t1);
+      var lp = filtro('lowpass', 2200), go = ctx.createGain();
+      go.gain.setValueAtTime(0.0001, t0); go.gain.exponentialRampToValueAtTime(0.06, t1 - 0.02);
+      go.gain.linearRampToValueAtTime(0.0001, t1);
+      o.connect(lp); lp.connect(go); envio(go, 0.2); o.start(t0); o.stop(t1);
+    }
+
+    function bumbo(t, v) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.11);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.9, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+      o.connect(g); envio(g, 0); o.start(t); o.stop(t + 0.4);
+    }
+    function chimbal(t, v) {
+      var n = fonteRuido(t, 0.08), hp = filtro('highpass', 7500), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.12, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      n.connect(hp); hp.connect(g); envio(g, 0.1);
+    }
+    function caixa(t, v) {
+      var n = fonteRuido(t, 0.25), bp = filtro('bandpass', 1900, 0.7), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.4, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      n.connect(bp); bp.connect(g); envio(g, 0.35);
+      var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 190;
+      var go = ctx.createGain();
+      go.gain.setValueAtTime(0.0001, t); go.gain.exponentialRampToValueAtTime((v || 0.4) * 0.6, t + 0.002);
+      go.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o.connect(go); envio(go, 0.2); o.start(t); o.stop(t + 0.12);
+    }
+    function baixo(t, f, dur) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+      var o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = f / 2;
+      var lp = filtro('lowpass', 900, 6), g = ctx.createGain();
+      lp.frequency.setValueAtTime(1100, t); lp.frequency.exponentialRampToValueAtTime(160, t + dur * 0.9);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      var g2 = ganho(0.5);
+      o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); envio(g, 0);
+      o.start(t); o.stop(t + dur + 0.02); o2.start(t); o2.stop(t + dur + 0.02);
+    }
+    function acorde(t0, t1, freqs, v, brilho) {
+      freqs.forEach(function (f) {
+        [-7, 7].forEach(function (cents) {
+          var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents;
+          var lp = filtro('lowpass', brilho || 1500, 0.5), g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.35);
+          g.gain.setValueAtTime(v, Math.max(t0 + 0.35, t1 - 0.5));
+          g.gain.exponentialRampToValueAtTime(0.0001, t1);
+          o.connect(lp); lp.connect(g); envio(g, 0.45); o.start(t0); o.stop(t1 + 0.05);
+        });
+      });
+    }
+    function sino(t, f, v) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+      o.connect(g); envio(g, 0.7); o.start(t); o.stop(t + 1.7);
+    }
+
+    // --- drone de fundo (lá) do começo ao fim ----------------------------
+    [55, 82.41].forEach(function (f, i) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = i ? 4 : -4;
+      var lp = filtro('lowpass', 240, 0.8), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, 0); g.gain.exponentialRampToValueAtTime(0.09, 1.8);
+      g.gain.setValueAtTime(0.09, 25.6); g.gain.exponentialRampToValueAtTime(0.02, 25.95);
+      g.gain.exponentialRampToValueAtTime(0.11, 26.4); g.gain.exponentialRampToValueAtTime(0.0001, 29.9);
+      o.connect(lp); lp.connect(g); envio(g, 0.3); o.start(0); o.stop(30);
+    });
+
+    // --- 0–4: palavras + subida + impacto do logo ------------------------
+    [0.0, 1.0, 2.0, 3.0].forEach(golpe);
+    subida(2.2, 4.0);
+    impacto(4.0, 1.0);
+    acorde(4.05, 6.1, [220, 261.63, 329.63, 493.88], 0.022, 1200);
+    sino(4.5, 1318.5, 0.05); sino(5.0, 987.77, 0.04);
+
+    // --- 6–24: pulsação ----------------------------------------------------
+    var CIFRA = [  // raiz do baixo, notas do acorde
+      [55.0, [220, 261.63, 329.63]],    // Am
+      [43.65, [174.61, 220, 261.63]],   // F
+      [65.41, [261.63, 329.63, 392.0]], // C
+      [49.0, [196.0, 246.94, 293.66]]   // G
+    ];
+    for (var compasso = 0; compasso < 9; compasso++) {
+      var t0 = 6 + compasso * 2;
+      var c = CIFRA[compasso % 4];
+      acorde(t0, t0 + 2.02, c[1], compasso < 2 ? 0.014 : 0.018, compasso < 2 ? 1100 : 1700);
+      for (var b = 0; b < 4; b++) {
+        var tb = t0 + b * BATIDA;
+        if (tb >= 25.6) continue;
+        bumbo(tb, b === 0 ? 0.95 : 0.8);
+        if (t0 >= 10 && (b === 1 || b === 3)) caixa(tb, 0.32);
+        if (t0 >= 8) chimbal(tb + 0.25, 0.1);
+        if (t0 >= 12) chimbal(tb + 0.125, 0.05);
+      }
+      for (var e = 0; e < 8; e++) {
+        var tc = t0 + e * 0.25;
+        if (tc >= 25.6) continue;
+        baixo(tc, e % 4 === 3 ? c[0] * 2 : c[0], 0.22);
+      }
+    }
+    // Impactos nas trocas de cena e nos cortes rápidos
+    [6, 10, 20].forEach(function (t) { impacto(t, 0.55); });
+    [16, 17, 18, 19].forEach(function (t) { golpe(t); });
+    // Pequenos sinos nas manchetes do mapa
+    [11.0, 12.0, 13.0, 14.0].forEach(function (t, i) { sino(t + 0.25, [880, 987.77, 1046.5, 1318.5][i], 0.03); });
+    // Pílulas PDF / PNG / JPEG
+    [20.5, 21.0, 21.5].forEach(function (t) { sino(t, 1760, 0.03); });
+
+    // --- 24–26: virada --------------------------------------------------
+    var tt = 24.0, passo = 0.25;
+    while (tt < 25.75) {
+      caixa(tt, 0.18 + 0.3 * fase(tt, 24, 1.75));
+      tt += passo;
+      if (tt >= 25.0) passo = 0.0625; else if (tt >= 24.5) passo = 0.125;
+    }
+    subida(24.0, 25.98);
+
+    // --- 26: impacto final + acorde longo -------------------------------
+    impacto(26.0, 1.15);
+    acorde(26.02, 29.95, [110, 220, 261.63, 329.63, 493.88], 0.02, 1600);
+    [26.5, 27.0, 27.5, 28.25].forEach(function (t, i) { sino(t, [1318.5, 987.77, 1174.66, 880][i], 0.035); });
+
+    var pronto = await ctx.startRendering();
+    limitar(pronto, 0.89);
+    return pronto;
+  }
+
+  /**
+   * Limitador com antecipação (lookahead), como o de um estúdio: olha 5 ms à
+   * frente, já chega ao volume necessário quando o pico passa e solta devagar
+   * (80 ms). Teto em 0,89 (-1 dBFS): a margem que a recompressão AAC do
+   * Instagram precisa para não gerar estouro entre amostras.
+   */
+  function limitar(buf, teto) {
+    var n = buf.length, L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+    var olhar = Math.round(SR * 0.005);
+    var soltar = Math.exp(-1 / (SR * 0.08)), atacar = Math.exp(-1 / (SR * 0.0008));
+    var exigido = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var p = Math.max(Math.abs(L[i]), Math.abs(Rc[i]));
+      exigido[i] = p > teto ? teto / p : 1;
+    }
+    // Mínimo móvel na janela [i, i + olhar] com fila monotônica: O(n).
+    var minimo = new Float32Array(n), fila = new Int32Array(n), ini = 0, fim = 0;
+    for (var j = n - 1; j >= 0; j--) {
+      while (fim > ini && exigido[fila[fim - 1]] >= exigido[j]) fim--;
+      fila[fim++] = j;
+      while (fila[ini] > j + olhar) ini++;
+      minimo[j] = exigido[fila[ini]];
+    }
+    var g = 1;
+    for (var k = 0; k < n; k++) {
+      var alvo = minimo[k];
+      g = alvo < g ? alvo + (g - alvo) * atacar : alvo + (g - alvo) * soltar;
+      var a = L[k] * g, b = Rc[k] * g;
+      // Rede de segurança para o resto que o ataque suave não pegar.
+      L[k] = Math.max(-teto, Math.min(teto, a));
+      Rc[k] = Math.max(-teto, Math.min(teto, b));
+    }
+  }
+
+  /* =========================================================== DESENHO */
+
+  function fundo(ctx, F, T) {
+    var g = ctx.createLinearGradient(0, 0, 0, F.H);
+    g.addColorStop(0, '#081A2E'); g.addColorStop(0.55, COR.tinta); g.addColorStop(1, '#0A1F37');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, F.W, F.H);
+    // Dois brilhos que derivam devagar (vermelho da marca e azul).
+    var r = Math.max(F.W, F.H) * 0.65;
+    var bx = F.W * (0.85 + 0.06 * Math.sin(T * 0.35)), by = F.H * (0.15 + 0.04 * Math.cos(T * 0.3));
+    var gr = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+    gr.addColorStop(0, 'rgba(179,52,31,0.32)'); gr.addColorStop(1, 'rgba(179,52,31,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, F.W, F.H);
+    var cx = F.W * (0.1 + 0.05 * Math.cos(T * 0.25)), cy = F.H * 0.92;
+    var gb = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.9);
+    gb.addColorStop(0, 'rgba(39,73,111,0.6)'); gb.addColorStop(1, 'rgba(39,73,111,0)');
+    ctx.fillStyle = gb; ctx.fillRect(0, 0, F.W, F.H);
+    // Grade técnica bem discreta, deslizando.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(201,213,227,0.045)'; ctx.lineWidth = 1;
+    var passo = 90, off = (T * 12) % passo;
+    ctx.beginPath();
+    for (var x = -passo + off; x < F.W + passo; x += passo) { ctx.moveTo(x, 0); ctx.lineTo(x, F.H); }
+    for (var y = -passo + off; y < F.H + passo; y += passo) { ctx.moveTo(0, y); ctx.lineTo(F.W, y); }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function acabamento(ctx, F, n, T) {
+    // Vinheta
+    var v = ctx.createRadialGradient(F.W / 2, F.H / 2, Math.min(F.W, F.H) * 0.35, F.W / 2, F.H / 2, Math.max(F.W, F.H) * 0.78);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, F.W, F.H);
+    // Granulação que muda a cada quadro
+    ctx.save();
+    ctx.globalAlpha = 0.045;
+    ctx.globalCompositeOperation = 'overlay';
+    var ox = Math.floor(acaso(n + 1) * 256), oy = Math.floor(acaso(n + 7) * 256);
+    var pat = ctx.createPattern(R.grao, 'repeat');
+    ctx.translate(-ox, -oy);
+    ctx.fillStyle = pat; ctx.fillRect(ox, oy, F.W + 256, F.H + 256);
+    ctx.restore();
+    // Clarões nas batidas grandes
+    var flash = Math.max(
+      1 - fase(T, 4.0, 0.35), 1 - fase(T, 26.0, 0.45)
+    );
+    if ((T >= 4.0 && T < 4.35) || (T >= 26.0 && T < 26.45)) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * flash) + ')';
+      ctx.fillRect(0, 0, F.W, F.H);
+    }
+    [6, 10, 16, 17, 18, 19, 20].forEach(function (b) {
+      if (T >= b && T < b + 0.12) {
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * (1 - fase(T, b, 0.12))) + ')';
+        ctx.fillRect(0, 0, F.W, F.H);
+      }
+    });
+  }
+
+  /** Kicker + título (+ subtítulo) alinhados à esquerda no topo da zona segura. */
+  function cabecalho(ctx, F, t, cap, y, opc) {
+    opc = opc || {};
+    var x = F.mx, w = F.W - 2 * F.mx;
+    var p = chega(fase(t, opc.atraso || 0.05, 0.45));
+    ctx.save();
+    ctx.globalAlpha *= p;
+    ctx.translate(0, (1 - p) * 30);
+    ctx.textBaseline = 'top';
+    ctx.font = fonte(700, opc.k || 28); ctx.fillStyle = COR.salmao; espacar(ctx, 5);
+    ctx.fillText(cap.kicker.toUpperCase(), x, y);
+    espacar(ctx, 0);
+    ctx.fillStyle = COR.marcaClara;
+    ctx.fillRect(x, y + (opc.k || 28) * 1.35, 64 * chega(fase(t, 0.2, 0.5)), 5);
+    var tam = opc.t || 66;
+    ctx.font = fonte(800, tam); espacar(ctx, -1);
+    var linhas = quebrar(ctx, cap.titulo, w);
+    while (linhas.length > (opc.maxLinhas || 2) && tam > 40) {
+      tam -= 4; ctx.font = fonte(800, tam); linhas = quebrar(ctx, cap.titulo, w);
+    }
+    ctx.fillStyle = COR.branco;
+    var ty = y + (opc.k || 28) * 1.35 + 30;
+    linhas.forEach(function (l, i) { ctx.fillText(l, x, ty + i * tam * 1.06); });
+    espacar(ctx, 0);
+    var fim = ty + linhas.length * tam * 1.06;
+    if (cap.sub) {
+      var ps = chega(fase(t, (opc.atraso || 0.05) + 0.25, 0.45));
+      ctx.globalAlpha = (ctx.globalAlpha / p) * ps;
+      ctx.font = fonte(500, opc.s || 32); ctx.fillStyle = COR.sobreNavy;
+      quebrar(ctx, cap.sub, w).forEach(function (l, i) { ctx.fillText(l, x, fim + 18 + i * (opc.s || 32) * 1.3); });
+    }
+    ctx.restore();
+    return fim;
+  }
+
+  function pilula(ctx, texto, cx, cy, tam, cor, fundoCor, alfa, escala) {
+    ctx.save();
+    ctx.globalAlpha *= alfa;
+    ctx.font = fonte(700, tam);
+    var w = ctx.measureText(texto).width + tam * 1.5, h = tam * 2;
+    ctx.translate(cx, cy); ctx.scale(escala, escala);
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+    retRedondo(ctx, -w / 2, -h / 2, w, h, h / 2);
+    ctx.fillStyle = fundoCor; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = cor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(texto, 0, 2);
+    ctx.restore();
+  }
+
+  /** Celular com a captura do site rolando dentro. */
+  function celular(ctx, x, y, w, rot, rolagem) {
+    var h = w * 2.06, r = w * 0.15, borda = w * 0.035;
+    ctx.save();
+    ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot * Math.PI / 180); ctx.translate(-w / 2, -h / 2);
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 70; ctx.shadowOffsetY = 40;
+    retRedondo(ctx, 0, 0, w, h, r); ctx.fillStyle = '#05080C'; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(201,213,227,0.25)'; ctx.stroke();
+    // Tela
+    var sx = borda, sy = borda, sw = w - 2 * borda, sh = h - 2 * borda;
+    ctx.save();
+    retRedondo(ctx, sx, sy, sw, sh, r - borda); ctx.clip();
+    ctx.fillStyle = COR.navy; ctx.fillRect(sx, sy, sw, sh);
+    var cap = R.topo, esc = sw / cap.css.w;               // px de tela por px de CSS
+    var s = cap.img.width / cap.css.w;                    // px de imagem por px de CSS
+    var cssVisivel = sh / esc;
+    var y0 = clamp(rolagem, 0, cap.css.h - cssVisivel);
+    ctx.drawImage(cap.img, 0, y0 * s, cap.img.width, cssVisivel * s, sx, sy, sw, sh);
+    // Barra de status
+    ctx.fillStyle = 'rgba(14,42,71,0.92)'; ctx.fillRect(sx, sy, sw, sh * 0.045);
+    ctx.fillStyle = COR.branco; ctx.font = fonte(700, Math.round(sw * 0.04)); ctx.textBaseline = 'middle';
+    ctx.fillText('12:00', sx + sw * 0.08, sy + sh * 0.024);
+    // Reflexo de vidro
+    var gref = ctx.createLinearGradient(sx, sy, sx + sw, sy + sh);
+    gref.addColorStop(0, 'rgba(255,255,255,0.10)'); gref.addColorStop(0.35, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gref; ctx.fillRect(sx, sy, sw, sh);
+    ctx.restore();
+    // Ilha dinâmica
+    retRedondo(ctx, w / 2 - w * 0.14, borda + h * 0.012, w * 0.28, h * 0.024, h * 0.012);
+    ctx.fillStyle = '#000'; ctx.fill();
+    ctx.restore();
+    return { h: h };
+  }
+
+  /* -------------------------------------------------------------- cenas */
+
+  function cenas(F) {
+    var V = F.nome === 'stories', D = R.D;
+    var cx = F.W / 2, zona = F.base - F.topo;
+    var diesel = D.produtos[0];
+    var mundo = (D.noticias && D.noticias.mundo) || [];
+    function manchete(re, padrao) {
+      var n = mundo.filter(function (x) { return re.test(x.titulo); })[0] || mundo[padrao] || {};
+      return n;
+    }
+
+    // Projeção do mapa, ajustada à faixa reservada para ele em cada formato.
+    var mapaArea = V ? [[60, 520], [F.W - 60, 1030]] : [[60, 300], [F.W - 60, 760]];
+    var proj = d3.geoNaturalEarth1().fitExtent(mapaArea, R.terra);
+    var pts = R.pontos.map(function (p) { var xy = proj([p[0], p[1]]); return [xy[0], xy[1], p[2]]; });
+    var SANTOS = proj([-46.33, -23.96]);
+    var ROTAS = [
+      { nome: 'Rússia', lonlat: [37.77, 44.72], n: manchete(/russia/i, 0), t: 0.9 },
+      { nome: 'EUA', lonlat: [-95.36, 29.76], n: manchete(/u\.s\.|trump|america/i, 1), t: 1.9 },
+      { nome: 'Golfo', lonlat: [50.16, 26.64], n: manchete(/gulf|middle east/i, 2), t: 2.9 },
+      { nome: 'China', lonlat: [121.47, 31.23], n: manchete(/china/i, 3), t: 3.9 }
+    ].map(function (r) { r.xy = proj(r.lonlat); return r; });
+
+    return [
+      /* A — 0 a 4: palavras de impacto -------------------------------- */
+      { ini: 0, fim: 4, desenhar: function (ctx, t) {
+        var palavras = [
+          ['DEFASAGEM', 'Diesel × paridade de importação'],
+          ['CÂMBIO', 'Dólar e euro'],
+          ['PETRÓLEO', 'Brent e WTI'],
+          ['NOTÍCIAS', 'Do Brasil e do mundo']
+        ];
+        var i = Math.min(3, Math.floor(t));
+        var tl = t - i;
+        var p = chega(fase(tl, 0, 0.16));
+        var sai = fase(tl, 0.86, 0.14);
+        var cy = F.topo + zona * 0.47;
+        // kicker fixo
+        ctx.save();
+        ctx.globalAlpha = chega(fase(t, 0.2, 0.6)) * (1 - fase(t, 3.75, 0.25));
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = fonte(700, 26); ctx.fillStyle = COR.salmao; espacar(ctx, 8);
+        ctx.fillText('SUPRIPRICE APRESENTA', cx, F.topo + 40);
+        espacar(ctx, 0);
+        // contador 01/04
+        ctx.font = fonte(600, 24); ctx.fillStyle = 'rgba(201,213,227,0.55)';
+        ctx.fillText('0' + (i + 1) + ' / 04', cx, F.base - 30);
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = (1 - sai);
+        ctx.translate(cx, cy);
+        var esc = lerp(1.35, 1, p) * (1 - 0.04 * sai);
+        ctx.scale(esc, esc);
+        if (p < 1) ctx.filter = 'blur(' + ((1 - p) * 14).toFixed(1) + 'px)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var tam = 150;
+        ctx.font = fonte(800, tam); espacar(ctx, -3);
+        while (ctx.measureText(palavras[i][0]).width > F.W - 2 * F.mx && tam > 60) { tam -= 6; ctx.font = fonte(800, tam); }
+        ctx.fillStyle = COR.branco;
+        ctx.fillText(palavras[i][0], 0, 0);
+        ctx.filter = 'none';
+        espacar(ctx, 0);
+        // traço vermelho que corre embaixo
+        var lw = ctx.measureText(palavras[i][0]).width;
+        ctx.fillStyle = COR.marcaClara;
+        ctx.fillRect(-lw / 2, tam * 0.62, lw * chega(fase(tl, 0.08, 0.4)), 8);
+        ctx.font = fonte(500, 34); ctx.fillStyle = COR.sobreNavy;
+        ctx.globalAlpha *= chega(fase(tl, 0.15, 0.3));
+        ctx.fillText(palavras[i][1], 0, tam * 0.62 + 60);
+        ctx.restore();
+        // nos últimos instantes, linhas de luz convergindo para o centro
+        var conv = fase(t, 3.3, 0.7);
+        if (conv > 0) {
+          ctx.save();
+          ctx.globalAlpha = conv * 0.8;
+          ctx.strokeStyle = COR.salmao; ctx.lineWidth = 3;
+          for (var k = 0; k < 14; k++) {
+            var ang = k / 14 * Math.PI * 2, rr = lerp(F.W, 40, suave(conv));
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr);
+            ctx.lineTo(cx + Math.cos(ang) * (rr + 90), cy + Math.sin(ang) * (rr + 90));
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      } },
+
+      /* B — 4 a 6: revelação do logotipo ------------------------------ */
+      { ini: 4, fim: 6, desenhar: function (ctx, t) {
+        var L = R.logo, lh = V ? 120 : 104, lw = L.width * lh / L.height;
+        var cy = F.topo + zona * (V ? 0.42 : 0.4);
+        // raios de luz atrás
+        ctx.save();
+        ctx.globalAlpha = (1 - fase(t, 0, 1.6)) * 0.5;
+        ctx.translate(cx, cy);
+        ctx.rotate(t * 0.25);
+        for (var k = 0; k < 18; k++) {
+          ctx.rotate(Math.PI * 2 / 18);
+          var g = ctx.createLinearGradient(0, 0, F.H * 0.6, 0);
+          g.addColorStop(0, 'rgba(255,180,166,0.5)'); g.addColorStop(1, 'rgba(255,180,166,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(F.H * 0.6, -18); ctx.lineTo(F.H * 0.6, 18); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        var p = salta(fase(t, 0, 0.55));
+        // Brilho passando pelas LETRAS: logo e brilho são compostos numa tela
+        // à parte. Aplicado direto na tela principal, o 'source-atop' pegava
+        // também o fundo e desenhava um retângulo cinza sobre o logo.
+        var off = R.logoBrilho || (R.logoBrilho = document.createElement('canvas'));
+        off.width = Math.ceil(lw); off.height = Math.ceil(lh);
+        var oc = off.getContext('2d');
+        oc.clearRect(0, 0, off.width, off.height);
+        oc.drawImage(L, 0, 0, lw, lh);
+        var bx = lerp(-lw * 0.3, lw * 1.3, fase(t, 0.35, 0.9));
+        var gb = oc.createLinearGradient(bx - 90, 0, bx + 90, 0);
+        gb.addColorStop(0, 'rgba(255,255,255,0)'); gb.addColorStop(0.5, 'rgba(255,255,255,0.85)'); gb.addColorStop(1, 'rgba(255,255,255,0)');
+        oc.globalCompositeOperation = 'source-atop';
+        oc.fillStyle = gb; oc.fillRect(0, 0, lw, lh);
+        oc.globalCompositeOperation = 'source-over';
+        ctx.save();
+        ctx.translate(cx, cy);
+        var esc = lerp(1.25, 1, chega(fase(t, 0, 0.6)));
+        ctx.scale(esc, esc);
+        ctx.globalAlpha = Math.min(1, p * 1.3);
+        ctx.drawImage(off, -lw / 2, -lh / 2, lw, lh);
+        ctx.restore();
+        // assinatura
+        var ps = chega(fase(t, 0.45, 0.5));
+        ctx.save();
+        ctx.globalAlpha = ps;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = fonte(600, V ? 40 : 36); ctx.fillStyle = COR.branco;
+        ctx.fillText('Inteligência de mercado', cx, cy + lh / 2 + 70 + (1 - ps) * 20);
+        ctx.fillText('de combustíveis', cx, cy + lh / 2 + 70 + (V ? 52 : 46) + (1 - ps) * 20);
+        ctx.restore();
+      } },
+
+      /* C — 6 a 10: celular com o site + número do dia ---------------- */
+      { ini: 6, fim: 10, desenhar: function (ctx, t) {
+        var valor = diesel.defasagem;
+        var pv = suave(fase(t, 0.35, 1.2));
+        if (V) {
+          cabecalho(ctx, F, t, { kicker: 'Defasagem do diesel · hoje', titulo: brl(valor * pv) + ' por litro' },
+            F.topo, { t: 86, maxLinhas: 1 });
+          ctx.save();
+          ctx.globalAlpha = chega(fase(t, 0.9, 0.5));
+          ctx.font = fonte(600, 34); ctx.fillStyle = COR.sobreNavy; ctx.textBaseline = 'top';
+          ctx.fillText(diesel.pct + '% abaixo da paridade de importação · Abicom/StoneX', F.mx, F.topo + 190);
+          ctx.restore();
+          var ent = chega(fase(t, 0, 0.8));
+          var w = 470;
+          celular(ctx, cx - w / 2, F.topo + 290 + (1 - ent) * 500, w, lerp(-8, -3, ent) + Math.sin(t * 1.4) * 0.6,
+            lerp(0, R.topo.css.destaques.diesel.y - 60, suave(fase(t, 1.2, 1.8))));
+        } else {
+          var w2 = 450;
+          var ent2 = chega(fase(t, 0, 0.8));
+          // Centralizado na vertical da zona útil (antes sobrava espaço embaixo).
+          celular(ctx, F.W - F.mx - w2 + 20 + (1 - ent2) * 300, F.topo + (zona - w2 * 2.06) / 2, w2, lerp(8, 4, ent2) + Math.sin(t * 1.4) * 0.6,
+            lerp(0, R.topo.css.destaques.diesel.y - 60, suave(fase(t, 1.2, 1.8))));
+          ctx.save();
+          var x = F.mx, larg = F.W - 2 * F.mx - w2 - 40;
+          var p = chega(fase(t, 0.05, 0.45));
+          ctx.globalAlpha = p; ctx.textBaseline = 'top';
+          ctx.font = fonte(700, 24); ctx.fillStyle = COR.salmao; espacar(ctx, 5);
+          ctx.fillText('DEFASAGEM DO DIESEL', x, F.topo + 330);
+          ctx.fillText('HOJE', x, F.topo + 364);
+          espacar(ctx, 0);
+          ctx.fillStyle = COR.marcaClara; ctx.fillRect(x, F.topo + 404, 64, 5);
+          ctx.font = fonte(800, 92); ctx.fillStyle = COR.branco; espacar(ctx, -2);
+          ctx.fillText(brl(valor * pv), x, F.topo + 430);
+          espacar(ctx, 0);
+          ctx.font = fonte(600, 30); ctx.fillStyle = COR.sobreNavy;
+          ctx.globalAlpha = chega(fase(t, 0.9, 0.5));
+          quebrar(ctx, 'por litro · ' + diesel.pct + '% abaixo da paridade de importação', larg)
+            .forEach(function (l, i) { ctx.fillText(l, x, F.topo + 545 + i * 40); });
+          ctx.font = fonte(500, 24); ctx.fillStyle = 'rgba(201,213,227,0.7)';
+          ctx.fillText('Fonte: Abicom/StoneX', x, F.topo + 650);
+          ctx.restore();
+        }
+      } },
+
+      /* D — 10 a 16: mapa-múndi, rotas e manchetes ------------------- */
+      { ini: 10, fim: 16, desenhar: function (ctx, t) {
+        cabecalho(ctx, F, t, { kicker: 'Notícias do mundo', titulo: 'Importação e exportação no mapa do dia' },
+          F.topo, { t: V ? 62 : 54, maxLinhas: 2 });
+        // pontos de terra
+        var pm = chega(fase(t, 0, 0.9));
+        ctx.save();
+        for (var i = 0; i < pts.length; i++) {
+          var p = pts[i];
+          var atraso = (p[0] / F.W) * 0.5;
+          var a = chega(fase(t, atraso, 0.5)) * pm;
+          if (a <= 0) continue;
+          ctx.globalAlpha = a * (p[2] ? 1 : 0.42);
+          ctx.fillStyle = p[2] ? COR.marcaClara : COR.sobreNavy;
+          ctx.beginPath(); ctx.arc(p[0], p[1], p[2] ? 3.2 : 2.3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        // Santos pulsando
+        var pul = (t * 1.2) % 1;
+        ctx.save();
+        ctx.strokeStyle = COR.salmao; ctx.lineWidth = 3;
+        ctx.globalAlpha = (1 - pul) * pm;
+        ctx.beginPath(); ctx.arc(SANTOS[0], SANTOS[1], 8 + pul * 34, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = pm; ctx.fillStyle = COR.branco;
+        ctx.beginPath(); ctx.arc(SANTOS[0], SANTOS[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // Rotas chegando ao Brasil
+        ROTAS.forEach(function (r) {
+          var pr = suave(fase(t, r.t, 0.9));
+          if (pr <= 0) return;
+          var ax = r.xy[0], ay = r.xy[1], bx2 = SANTOS[0], by2 = SANTOS[1];
+          var mx = (ax + bx2) / 2, my = (ay + by2) / 2 - Math.hypot(bx2 - ax, by2 - ay) * 0.28;
+          ctx.save();
+          ctx.strokeStyle = COR.salmao; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+          ctx.shadowColor = COR.marcaClara; ctx.shadowBlur = 18;
+          ctx.beginPath();
+          var N = 40, k;
+          for (k = 0; k <= N * pr; k++) {
+            var u = k / N;
+            var qx = (1 - u) * (1 - u) * ax + 2 * (1 - u) * u * mx + u * u * bx2;
+            var qy = (1 - u) * (1 - u) * ay + 2 * (1 - u) * u * my + u * u * by2;
+            if (k === 0) ctx.moveTo(qx, qy); else ctx.lineTo(qx, qy);
+          }
+          ctx.stroke();
+          // cabeça da rota
+          var uu = pr, hx = (1 - uu) * (1 - uu) * ax + 2 * (1 - uu) * uu * mx + uu * uu * bx2;
+          var hy = (1 - uu) * (1 - uu) * ay + 2 * (1 - uu) * uu * my + uu * uu * by2;
+          ctx.fillStyle = COR.branco;
+          ctx.beginPath(); ctx.arc(hx, hy, 6, 0, Math.PI * 2); ctx.fill();
+          // origem
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = COR.salmao;
+          ctx.beginPath(); ctx.arc(ax, ay, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.font = fonte(700, 24); ctx.fillStyle = COR.branco;
+          ctx.textAlign = ax > F.W * 0.8 ? 'right' : 'left';
+          // O Golfo fica no caminho da rota da China: o nome dele vai por baixo.
+          var embaixo = r.nome === 'Golfo';
+          ctx.textBaseline = embaixo ? 'top' : 'bottom';
+          espacar(ctx, 2);
+          ctx.fillText(r.nome.toUpperCase(), ax + (ax > F.W * 0.8 ? -10 : 10), embaixo ? ay + 12 : ay - 10);
+          espacar(ctx, 0);
+          ctx.restore();
+        });
+        // Cartões de manchete (reais, do dia, com a fonte)
+        var cards = V ? ROTAS.slice(0, 3) : ROTAS.slice(0, 2);
+        var cy0 = V ? 1075 : 815, ch = V ? 158 : 190, cw = F.W - 2 * F.mx;
+        cards.forEach(function (r, i) {
+          var pc = chega(fase(t, r.t + 0.5, 0.5));
+          if (pc <= 0 || !r.n.titulo) return;
+          var y = cy0 + i * (ch + 14) + (1 - pc) * 40;
+          ctx.save();
+          ctx.globalAlpha = pc;
+          retRedondo(ctx, F.mx, y, cw, ch, 18);
+          ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+          ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(201,213,227,0.18)'; ctx.stroke();
+          ctx.fillStyle = COR.marcaClara; ctx.fillRect(F.mx, y + 18, 6, ch - 36);
+          ctx.textBaseline = 'top';
+          ctx.font = fonte(700, 22); ctx.fillStyle = COR.salmao; espacar(ctx, 3);
+          ctx.fillText(r.nome.toUpperCase() + '  ·  ' + String(r.n.fonte || '').toUpperCase(), F.mx + 32, y + 22);
+          espacar(ctx, 0);
+          ctx.font = fonte(700, V ? 32 : 34); ctx.fillStyle = COR.branco;
+          quebrar(ctx, r.n.titulo, cw - 64).slice(0, V ? 2 : 3).forEach(function (l, j) {
+            ctx.fillText(l, F.mx + 32, y + 60 + j * (V ? 40 : 44));
+          });
+          ctx.restore();
+        });
+      } },
+
+      /* E — 16 a 20: cortes rápidos ---------------------------------- */
+      { ini: 16, fim: 20, desenhar: function (ctx, t) {
+        var i = Math.min(3, Math.floor(t)), tl = t - i;
+        var p = chega(fase(tl, 0, 0.2));
+        var caps = [
+          { kicker: 'Histórico', titulo: 'Defasagem dos últimos 30 dias' },
+          { kicker: 'ANP · posto a posto', titulo: 'Preço do diesel por região' },
+          { kicker: 'Mercado', titulo: 'Ibovespa · Dólar · Euro · Brent · WTI' },
+          { kicker: 'Sempre atual', titulo: 'Atualizado 3 vezes ao dia' }
+        ];
+        ctx.save();
+        if (p < 1) { ctx.filter = 'blur(' + ((1 - p) * 10).toFixed(1) + 'px)'; }
+        ctx.translate((1 - p) * 120, 0);
+        cabecalho(ctx, F, 1, caps[i], F.topo, { t: V ? 64 : 56, maxLinhas: 2 });
+        var top = F.topo + (V ? 300 : 250), alt = F.base - top - (V ? 40 : 20);
+        var x0 = F.mx, w = F.W - 2 * F.mx;
+        if (i === 0) {
+          // gráfico se desenhando
+          var serie = D.serieS10.pontos, vals = serie.map(function (s) { return s[1]; });
+          var lo = Math.min.apply(null, vals) - 0.15, hi = Math.max.apply(null, vals) + 0.15;
+          var pr = suave(fase(tl, 0.05, 0.8));
+          ctx.strokeStyle = 'rgba(201,213,227,0.12)'; ctx.lineWidth = 1;
+          for (var g = 0; g <= 4; g++) { var gy = top + alt * g / 4; ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x0 + w, gy); ctx.stroke(); }
+          ctx.save();
+          ctx.beginPath(); ctx.rect(x0, top - 20, w * pr, alt + 40); ctx.clip();
+          var X = function (k) { return x0 + w * k / (serie.length - 1); };
+          var Y = function (v) { return top + alt - alt * (v - lo) / (hi - lo); };
+          var ga = ctx.createLinearGradient(0, top, 0, top + alt);
+          ga.addColorStop(0, 'rgba(224,83,58,0.35)'); ga.addColorStop(1, 'rgba(224,83,58,0)');
+          ctx.beginPath(); ctx.moveTo(X(0), top + alt);
+          serie.forEach(function (s, k) { ctx.lineTo(X(k), Y(s[1])); });
+          ctx.lineTo(X(serie.length - 1), top + alt); ctx.closePath(); ctx.fillStyle = ga; ctx.fill();
+          ctx.beginPath(); serie.forEach(function (s, k) { if (k) ctx.lineTo(X(k), Y(s[1])); else ctx.moveTo(X(k), Y(s[1])); });
+          ctx.strokeStyle = COR.salmao; ctx.lineWidth = 6; ctx.shadowColor = COR.marcaClara; ctx.shadowBlur = 20; ctx.stroke();
+          ctx.restore();
+          var ult = serie[serie.length - 1];
+          ctx.globalAlpha = fase(tl, 0.7, 0.2);
+          ctx.font = fonte(800, 56); ctx.fillStyle = COR.branco; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+          ctx.fillText(brl(ult[1]), x0 + w, Y(ult[1]) - 24);
+        } else if (i === 1) {
+          var polos = D.polos || [], max = Math.max.apply(null, polos.map(function (q) { return q[2]; }));
+          var bh = Math.min(V ? 150 : 110, alt / polos.length - 26);
+          var y0b = top + (alt - polos.length * (bh + 26)) / 2;   // centralizado na área livre
+          polos.forEach(function (q, k) {
+            var y = y0b + k * (bh + 26);
+            var pb = suave(fase(tl, 0.05 + k * 0.06, 0.5));
+            ctx.font = fonte(700, 30); ctx.fillStyle = COR.sobreNavy; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+            ctx.fillText(q[0], x0, y + bh / 2);
+            var bx = x0 + 250, bw = (w - 250 - 170) * (q[2] / max) * pb;
+            retRedondo(ctx, bx, y + bh * 0.22, Math.max(8, bw), bh * 0.56, 8);
+            ctx.fillStyle = k === 0 ? COR.marcaClara : 'rgba(224,83,58,0.55)'; ctx.fill();
+            ctx.font = fonte(800, 40); ctx.fillStyle = COR.branco; ctx.textAlign = 'right';
+            ctx.globalAlpha = pb; ctx.fillText(brl(q[2]), x0 + w, y + bh / 2); ctx.globalAlpha = 1;
+          });
+        } else if (i === 2) {
+          var fh = V ? 120 : 104, esc = fh / R.faixa.height, passo = R.faixa.width * esc;
+          var fy = top + (V ? 40 : 10);
+          ctx.save();
+          retRedondo(ctx, x0, fy, w, fh, 18); ctx.fillStyle = '#fff'; ctx.fill(); ctx.clip();
+          var desl = ((t + 16) * 80 * esc) % passo;
+          for (var px = x0 - desl; px < x0 + w; px += passo) ctx.drawImage(R.faixa, px, fy, passo, fh);
+          ctx.restore();
+          (D.indicadores || []).forEach(function (ind, k) {
+            var y = fy + fh + 40 + k * (V ? 104 : 74);
+            var pk = chega(fase(tl, 0.05 + k * 0.07, 0.35));
+            ctx.globalAlpha = pk;
+            ctx.font = fonte(700, V ? 30 : 26); ctx.fillStyle = COR.sobreNavy; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText(ind.nome.toUpperCase(), x0, y + 30);
+            var sobe = ind.variacao > 0, desce = ind.variacao < 0;
+            ctx.font = fonte(800, V ? 46 : 40); ctx.textAlign = 'right';
+            ctx.fillStyle = sobe ? COR.verde : desce ? COR.marcaClara : COR.sobreNavy;
+            ctx.fillText((sobe ? '▲ +' : desce ? '▼ −' : '') + Math.abs(ind.variacao).toFixed(2).replace('.', ',') + '%', x0 + w, y + 30);
+          });
+          ctx.globalAlpha = 1;
+        } else {
+          var horas = ['07h', '12h', '17h'];
+          var hy = top + alt * 0.38;
+          horas.forEach(function (h, k) {
+            var ph = salta(fase(tl, 0.05 + k * 0.12, 0.4));
+            var hx = x0 + w * (k + 0.5) / 3;
+            ctx.save();
+            ctx.translate(hx, hy); ctx.scale(ph, ph);
+            ctx.beginPath(); ctx.arc(0, 0, V ? 130 : 110, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fill();
+            ctx.lineWidth = 6; ctx.strokeStyle = COR.marcaClara;
+            ctx.beginPath(); ctx.arc(0, 0, V ? 130 : 110, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * suave(fase(tl, 0.1 + k * 0.12, 0.6))); ctx.stroke();
+            ctx.font = fonte(800, V ? 64 : 54); ctx.fillStyle = COR.branco; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(h, 0, 4);
+            ctx.restore();
+          });
+          ctx.globalAlpha = chega(fase(tl, 0.4, 0.3));
+          ctx.font = fonte(600, V ? 34 : 30); ctx.fillStyle = COR.sobreNavy; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.fillText('de segunda a sexta, sozinho', cx, hy + (V ? 190 : 160));
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      } },
+
+      /* F — 20 a 26: exportar e compartilhar ------------------------- */
+      { ini: 20, fim: 26, desenhar: function (ctx, t) {
+        cabecalho(ctx, F, t, { kicker: 'Compartilhe', titulo: 'Exporte o jornal do dia e envie em segundos',
+          sub: 'PDF, PNG ou JPEG · por WhatsApp ou e-mail' }, F.topo, { t: V ? 60 : 52, maxLinhas: 2, s: V ? 32 : 28 });
+        var top = F.topo + (V ? 330 : 270);
+        var J = R.jornal, jw = V ? 560 : 430, jh = J.height * jw / J.width;
+        var fase1 = 1 - suave(fase(t, 1.8, 0.6));       // jornal grande → miniatura
+        var pe = chega(fase(t, 0, 0.6));
+        var mini = { w: 120, x: cx - 60, y: top + 40 };
+        var gx = lerp(mini.x, V ? cx - jw / 2 - 60 : F.mx, fase1);
+        var gw = lerp(mini.w, jw, fase1);
+        var gy = lerp(mini.y, top + 10 + (1 - pe) * 200, fase1);
+        var vis = lerp(mini.w * 1.3, V ? 880 : 760, fase1);
+        // folha do jornal (recortada: mostra o alto, com o cabeçalho)
+        if (fase1 > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = pe;
+          ctx.translate(gx + gw / 2, gy + vis / 2); ctx.rotate(lerp(-4, -2, pe) * Math.PI / 180 * fase1); ctx.translate(-(gx + gw / 2), -(gy + vis / 2));
+          ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 26;
+          ctx.fillStyle = '#FBF9F4'; ctx.fillRect(gx, gy, gw, vis);
+          ctx.shadowColor = 'transparent';
+          var srcH = vis / gw * J.width;
+          ctx.drawImage(J, 0, 0, J.width, Math.min(J.height, srcH), gx, gy, gw, Math.min(vis, J.height * gw / J.width));
+          var gf = ctx.createLinearGradient(0, gy + vis - 120, 0, gy + vis);
+          gf.addColorStop(0, 'rgba(251,249,244,0)'); gf.addColorStop(1, 'rgba(251,249,244,1)');
+          ctx.fillStyle = gf; ctx.fillRect(gx, gy + vis - 120, gw, 120);
+          ctx.restore();
+        }
+        // Formatos — os rótulos são os do botão "Baixar" do portal.
+        var fmts = [['PDF', 'Para imprimir em A4'], ['PNG', 'Para mandar no WhatsApp'], ['JPEG', 'Arquivo mais leve']];
+        fmts.forEach(function (f, k) {
+          var pf = salta(fase(t, 0.5 + k * 0.5, 0.35)) * fase1;
+          if (pf <= 0.01) return;
+          // Largura medida pelo texto e cartão encostado na margem direita:
+          // antes "Para mandar no WhatsApp" vazava para fora da tela.
+          var tamTxt = V ? 24 : 20;
+          ctx.font = fonte(600, tamTxt);
+          var cardW = 20 + 92 + 18 + ctx.measureText(f[1]).width + 30;
+          var fx = F.W - F.mx - cardW, fy = top + 120 + k * (V ? 150 : 130);
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, pf);
+          ctx.translate(fx + cardW, fy); ctx.scale(pf, pf); ctx.translate(-cardW, 0);
+          ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+          retRedondo(ctx, 0, -52, cardW, 104, 20); ctx.fillStyle = COR.branco; ctx.fill();
+          ctx.shadowColor = 'transparent';
+          retRedondo(ctx, 20, -34, 92, 68, 12); ctx.fillStyle = COR.marca; ctx.fill();
+          ctx.font = fonte(800, 28); ctx.fillStyle = COR.branco; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(f[0], 66, 1);
+          ctx.textAlign = 'left'; ctx.font = fonte(600, tamTxt); ctx.fillStyle = '#2A2F36';
+          ctx.fillText(f[1], 130, 1);
+          ctx.restore();
+        });
+        // Destinos: WhatsApp e e-mail
+        var pd = chega(fase(t, 2.2, 0.6));
+        if (pd > 0) {
+          var cw = V ? F.W - 2 * F.mx : (F.W - 2 * F.mx - 30) / 2;
+          var chh = V ? 440 : 600;
+          var d1 = { x: F.mx, y: V ? top + 40 : top + 50 };
+          var d2 = { x: V ? F.mx : F.mx + cw + 30, y: V ? top + 40 + chh + 40 : top + 50 };
+          // WhatsApp (mensagem com o jornal anexado)
+          ctx.save();
+          ctx.globalAlpha = pd;
+          ctx.translate((1 - pd) * -200, 0);
+          retRedondo(ctx, d1.x, d1.y, cw, chh, 26); ctx.fillStyle = '#0B141A'; ctx.fill();
+          ctx.save(); retRedondo(ctx, d1.x, d1.y, cw, chh, 26); ctx.clip();
+          ctx.fillStyle = '#1F7A5A'; ctx.fillRect(d1.x, d1.y, cw, 76);
+          ctx.restore();
+          ctx.font = fonte(700, 30); ctx.fillStyle = COR.branco; ctx.textBaseline = 'middle';
+          ctx.fillText('WhatsApp', d1.x + 32, d1.y + 38);
+          // Balão de mensagem: miniatura grande do jornal + legenda ao lado.
+          var bw = cw - (V ? 140 : 60), bxx = d1.x + cw - bw - 24, byy = d1.y + 100;
+          var bH = chh - 124;
+          retRedondo(ctx, bxx, byy, bw, bH, 20); ctx.fillStyle = '#005C4B'; ctx.fill();
+          var th = bH - 28, tw = th * 0.62;
+          if (!V) { tw = bw - 28; th = Math.min(bH - 110, tw / 0.62); }
+          ctx.save();
+          retRedondo(ctx, bxx + 14, byy + 14, tw, th, 10); ctx.clip();
+          ctx.drawImage(J, 0, 0, J.width, J.width * th / tw, bxx + 14, byy + 14, tw, th);
+          ctx.restore();
+          var lx = V ? bxx + 14 + tw + 22 : bxx + 18, ly = V ? byy + 30 : byy + 14 + th + 18;
+          ctx.font = fonte(700, V ? 30 : 24); ctx.fillStyle = '#E9EDEF'; ctx.textBaseline = 'top';
+          quebrar(ctx, 'Jornal do dia · SupriPrice', V ? bw - tw - 60 : bw - 36).forEach(function (l, k) {
+            ctx.fillText(l, lx, ly + k * (V ? 38 : 30));
+          });
+          ctx.font = fonte(500, V ? 24 : 20); ctx.fillStyle = 'rgba(233,237,239,0.75)';
+          if (V) ctx.fillText('PDF · 1 página', lx, ly + 92);
+          ctx.font = fonte(500, 20); ctx.textAlign = 'right';
+          ctx.fillText('12:01 ✓✓', bxx + bw - 16, byy + bH - 36);
+          ctx.restore();
+          // E-mail
+          var pe2 = chega(fase(t, 2.5, 0.6));
+          ctx.save();
+          ctx.globalAlpha = pe2;
+          ctx.translate((1 - pe2) * 200, 0);
+          retRedondo(ctx, d2.x, d2.y, cw, chh, 26); ctx.fillStyle = COR.branco; ctx.fill();
+          ctx.save(); retRedondo(ctx, d2.x, d2.y, cw, chh, 26); ctx.clip();
+          ctx.fillStyle = COR.navy; ctx.fillRect(d2.x, d2.y, cw, 76);
+          ctx.restore();
+          ctx.font = fonte(700, 30); ctx.fillStyle = COR.branco; ctx.textBaseline = 'middle';
+          ctx.fillText('E-mail', d2.x + 32, d2.y + 38);
+          var linhas = [['Para', 'Equipe comercial'], ['Assunto', 'Panorama do Diesel · ' + (D.edicoes[0] ? D.edicoes[0].rotulo : '')]];
+          ctx.textBaseline = 'top';
+          var colValor = V ? 170 : 128;
+          linhas.forEach(function (l, k) {
+            var ly = d2.y + 102 + k * 58;
+            ctx.font = fonte(700, V ? 24 : 21); ctx.fillStyle = '#6A7480'; ctx.fillText(l[0], d2.x + 32, ly);
+            // Fonte do valor encolhe até caber: no Feed o cartão é estreito.
+            var tv = V ? 28 : 24;
+            ctx.font = fonte(600, tv);
+            while (ctx.measureText(l[1]).width > cw - colValor - 40 && tv > 16) { tv--; ctx.font = fonte(600, tv); }
+            ctx.fillStyle = '#14171A'; ctx.fillText(l[1], d2.x + colValor, ly - 2);
+            ctx.fillStyle = '#E6E0D0'; ctx.fillRect(d2.x + 32, ly + 42, cw - 64, 2);
+          });
+          // Corpo da mensagem, no espaço entre o assunto e o anexo.
+          ctx.font = fonte(500, V ? 26 : 22); ctx.fillStyle = '#2A2F36';
+          quebrar(ctx, 'Bom dia! Segue o Panorama do Diesel de hoje: defasagem, ANP e as manchetes do mercado.', cw - 64)
+            .slice(0, V ? 2 : 4).forEach(function (l, k) { ctx.fillText(l, d2.x + 32, d2.y + 236 + k * (V ? 36 : 31)); });
+          var ay = d2.y + chh - (V ? 100 : 130);
+          retRedondo(ctx, d2.x + 32, ay, cw - 64, 70, 14); ctx.fillStyle = '#F2EFE7'; ctx.fill();
+          retRedondo(ctx, d2.x + 46, ay + 13, 64, 44, 8); ctx.fillStyle = COR.marca; ctx.fill();
+          ctx.font = fonte(800, 20); ctx.fillStyle = COR.branco; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('PDF', d2.x + 78, ay + 36);
+          ctx.textAlign = 'left'; ctx.font = fonte(600, V ? 24 : 20); ctx.fillStyle = '#14171A';
+          ctx.fillText('supriprice-' + (D.edicoes[0] ? D.edicoes[0].data : '') + '.pdf', d2.x + 126, ay + 36);
+          ctx.restore();
+        }
+        // a miniatura "voa" para os dois destinos
+        if (fase1 < 0.98 && pd < 1) {
+          ctx.save();
+          ctx.globalAlpha = 1 - pd;
+          retRedondo(ctx, gx, gy, gw, gw * 1.3, 8); ctx.fillStyle = '#FBF9F4'; ctx.fill();
+          ctx.drawImage(J, 0, 0, J.width, J.width * 1.3, gx, gy, gw, gw * 1.3);
+          ctx.restore();
+        }
+      } },
+
+      /* G — 26 a 30: encerramento ------------------------------------ */
+      { ini: 26, fim: 30, desenhar: function (ctx, t) {
+        var L = R.logo, lh = V ? 110 : 96, lw = L.width * lh / L.height;
+        var cy = F.topo + zona * (V ? 0.36 : 0.37);
+        ctx.save();
+        ctx.globalAlpha = 0.35 * (1 - fase(t, 0.2, 2.5));
+        ctx.translate(cx, cy + 140); ctx.rotate(t * 0.15);
+        for (var k = 0; k < 24; k++) {
+          ctx.rotate(Math.PI * 2 / 24);
+          var g = ctx.createLinearGradient(0, 0, F.H * 0.7, 0);
+          g.addColorStop(0, 'rgba(224,83,58,0.6)'); g.addColorStop(1, 'rgba(224,83,58,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(F.H * 0.7, -14); ctx.lineTo(F.H * 0.7, 14); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        var pl = chega(fase(t, 0, 0.6));
+        ctx.save();
+        ctx.globalAlpha = pl;
+        ctx.translate(cx, cy); var e = lerp(1.2, 1, pl); ctx.scale(e, e);
+        ctx.drawImage(L, -lw / 2, -lh / 2, lw, lh);
+        ctx.restore();
+        var pj = salta(fase(t, 0.3, 0.45));
+        pilula(ctx, 'JÁ NO AR', cx, cy + lh / 2 + 80, 26, COR.branco, COR.marca, Math.min(1, pj), pj);
+        var pu = chega(fase(t, 0.55, 0.5));
+        ctx.save();
+        ctx.globalAlpha = pu;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        var tam = V ? 78 : 70;
+        ctx.font = fonte(800, tam); espacar(ctx, -2);
+        while (ctx.measureText('supriprice.com.br').width > F.W - 2 * F.mx && tam > 40) { tam -= 4; ctx.font = fonte(800, tam); }
+        ctx.fillStyle = COR.branco;
+        ctx.fillText('supriprice.com.br', cx, cy + lh / 2 + 150 + (1 - pu) * 30);
+        espacar(ctx, 0);
+        var ps = chega(fase(t, 0.85, 0.5));
+        ctx.globalAlpha = ps;
+        ctx.font = fonte(600, V ? 36 : 32); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText('Defasagem · ANP · Mercado · Notícias · Jornal do dia', cx, cy + lh / 2 + 150 + tam * 1.25);
+        ctx.font = fonte(700, V ? 34 : 30); ctx.fillStyle = COR.salmao;
+        ctx.fillText('Link na bio', cx, cy + lh / 2 + 150 + tam * 1.25 + (V ? 70 : 60));
+        ctx.restore();
+      } }
+    ];
+  }
+
+  /* --------------------------------------------------------- linha do tempo */
+
+  var roteiro = {};
+
+  function montar(nome) {
+    var F = Object.assign({ nome: nome }, FORMATOS[nome]);
+    roteiro[nome] = { F: F, cenas: cenas(F) };
+    return roteiro[nome];
+  }
+
+  function desenharQuadro(ctx, nome, n) {
+    var T = n / FPS, r = roteiro[nome], F = r.F;
+    fundo(ctx, F, T);
+    r.cenas.forEach(function (c, i) {
+      if (T < c.ini || T >= c.fim) return;
+      var t = T - c.ini, dur = c.fim - c.ini;
+      // Corte "chicote": a cena nova entra com desfoque e deslize curtos; a
+      // que sai some nos últimos 0,15 s. Cortes no tempo da batida.
+      var entra = i === 0 ? 1 : chega(fase(t, 0, 0.22));
+      var sai = i === r.cenas.length - 1 ? 1 : 1 - fase(t, dur - 0.15, 0.15);
+      ctx.save();
+      ctx.globalAlpha = entra * sai;
+      if (entra < 1) {
+        ctx.filter = 'blur(' + ((1 - entra) * 18).toFixed(1) + 'px)';
+        ctx.translate(0, (1 - entra) * 60);
+      }
+      c.desenhar(ctx, t);
+      ctx.restore();
+    });
+    acabamento(ctx, F, n, T);
+  }
+
+  /* ------------------------------------------------------------- saída */
+
+  function gravar(caminho, corpo) {
+    return fetch('/__gravar?path=' + encodeURIComponent(caminho), { method: 'POST', body: corpo })
+      .then(function (r) { if (!r.ok) throw new Error('gravar ' + caminho + ': HTTP ' + r.status); return r.text(); });
+  }
+
+  async function previa(nome, tempos) {
+    await preparar();
+    montar(nome);
+    var F = roteiro[nome].F, c = document.getElementById('quadro');
+    c.width = F.W; c.height = F.H;
+    var ctx = c.getContext('2d');
+    var salvos = [];
+    for (var i = 0; i < tempos.length; i++) {
+      desenharQuadro(ctx, nome, Math.round(tempos[i] * FPS));
+      var b = await new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.88); });
+      var arq = 'video/capturas/lanc-' + nome + '-' + String(tempos[i]).replace('.', '_') + '.jpg';
+      await gravar(arq, b); salvos.push(arq);
+    }
+    return salvos;
+  }
+
+  var trilha = null;
+  async function obterTrilha() {
+    if (!trilha) trilha = await comporTrilha();
+    return trilha;
+  }
+
+  /** Salva a trilha sozinha em WAV, para ouvir e conferir. */
+  async function salvarTrilhaWav() {
+    var buf = await obterTrilha(), n = buf.length, canais = 2;
+    var dv = new DataView(new ArrayBuffer(44 + n * canais * 2));
+    function str(o, s) { for (var i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, 'RIFF'); dv.setUint32(4, 36 + n * canais * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, canais, true);
+    dv.setUint32(24, SR, true); dv.setUint32(28, SR * canais * 2, true); dv.setUint16(32, canais * 2, true);
+    dv.setUint16(34, 16, true); str(36, 'data'); dv.setUint32(40, n * canais * 2, true);
+    var L = buf.getChannelData(0), Rr = buf.getChannelData(1), o = 44, pico = 0;
+    for (var i = 0; i < n; i++) {
+      pico = Math.max(pico, Math.abs(L[i]), Math.abs(Rr[i]));
+      dv.setInt16(o, clamp(L[i], -1, 1) * 32767, true); o += 2;
+      dv.setInt16(o, clamp(Rr[i], -1, 1) * 32767, true); o += 2;
+    }
+    await gravar('video/capturas/trilha-lancamento.wav', new Blob([dv.buffer], { type: 'audio/wav' }));
+    return { segundos: n / SR, pico: +pico.toFixed(3) };
+  }
+
+  var progresso = { estado: 'parado' };
+
+  async function renderizar(nome) {
+    progresso = { estado: 'preparando', formato: nome };
+    await preparar();
+    var r = montar(nome), F = r.F;
+    var c = document.getElementById('quadro');
+    c.width = F.W; c.height = F.H;
+    var ctx = c.getContext('2d', { alpha: false });
+    var quadros = DUR * FPS;
+
+    var codec = null, cands = ['avc1.640033', 'avc1.640032', 'avc1.64002A'];
+    for (var i = 0; i < cands.length && !codec; i++) {
+      var s = await VideoEncoder.isConfigSupported({ codec: cands[i], width: F.W, height: F.H, bitrate: F.bitrate, framerate: FPS });
+      if (s.supported) codec = cands[i];
+    }
+    if (!codec) throw new Error('H.264 não suportado em ' + F.W + 'x' + F.H);
+
+    var muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      video: { codec: 'avc', width: F.W, height: F.H, frameRate: FPS },
+      audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 2 },
+      fastStart: 'in-memory'
+    });
+
+    // --- áudio: trilha → AAC ----------------------------------------------
+    var erroA = null;
+    var aenc = new AudioEncoder({
+      output: function (chunk, meta) { muxer.addAudioChunk(chunk, meta); },
+      error: function (e) { erroA = e; }
+    });
+    aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 192000 });
+    var buf = await obterTrilha(), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+    var BLOCO = 1024;
+    for (var a = 0; a < buf.length; a += BLOCO) {
+      var nf = Math.min(BLOCO, buf.length - a), plano = new Float32Array(nf * 2);
+      plano.set(L.subarray(a, a + nf), 0); plano.set(Rc.subarray(a, a + nf), nf);
+      var ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: nf, numberOfChannels: 2,
+        timestamp: Math.round(a / SR * 1e6), data: plano });
+      aenc.encode(ad); ad.close();
+    }
+    await aenc.flush();
+    if (erroA) throw erroA;
+
+    // --- vídeo ------------------------------------------------------------
+    var erroV = null;
+    var enc = new VideoEncoder({
+      output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
+      error: function (e) { erroV = e; }
+    });
+    enc.configure({ codec: codec, width: F.W, height: F.H, bitrate: F.bitrate, framerate: FPS,
+      latencyMode: 'quality', avc: { format: 'avc' } });
+    var inicio = performance.now();
+    for (var n = 0; n < quadros; n++) {
+      if (erroV) throw erroV;
+      desenharQuadro(ctx, nome, n);
+      var vf = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      enc.encode(vf, { keyFrame: n % FPS === 0 });
+      vf.close();
+      while (enc.encodeQueueSize > 6) {
+        await new Promise(function (ok) { enc.addEventListener('dequeue', ok, { once: true }); });
+      }
+      if (n % 30 === 0) { progresso = { estado: 'codificando', formato: nome, quadro: n, de: quadros }; status(nome + ': ' + n + '/' + quadros); }
+    }
+    await enc.flush();
+    if (erroV) throw erroV;
+    muxer.finalize();
+    var saida = muxer.target.buffer;
+    var arquivo = 'video/lancamento-' + nome + '.mp4';
+    await gravar(arquivo, new Blob([saida], { type: 'video/mp4' }));
+
+    // Capa: o logotipo já revelado.
+    desenharQuadro(ctx, nome, Math.round(5.2 * FPS));
+    await gravar('video/capa-lancamento-' + nome + '.jpg', await new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.92); }));
+
+    progresso = { estado: 'pronto', formato: nome, arquivo: arquivo, bytes: saida.byteLength, codec: codec,
+      levou: +((performance.now() - inicio) / 1000).toFixed(1) };
+    status(nome + ': pronto');
+    return progresso;
+  }
+
+  window.Lanc = {
+    previa: previa, renderizar: renderizar, salvarTrilhaWav: salvarTrilhaWav,
+    progresso: function () { return progresso; }
+  };
+})();
+</script>
+</body>
+</html>
