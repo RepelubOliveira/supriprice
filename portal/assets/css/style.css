@@ -476,6 +476,34 @@ button { cursor: pointer; }
 .rank__vazio { font-size: 14px; color: var(--muted); padding: 8px 0; }
 #shareUfs .filter { min-width: 44px; padding-inline: 10px; }
 
+/* Números do mercado: quatro destaques lado a lado (empilhados no celular). */
+.kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden;
+}
+.kpi { background: var(--surface); padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; }
+.kpi__label { font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi__val b { font-size: 28px; font-weight: 700; color: var(--navy); }
+.kpi__val span { font-size: 14px; font-weight: 600; color: var(--muted); }
+.kpi__foot { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+/* Composição do volume (produto, canal): barra = participação real. */
+.mix { display: flex; flex-direction: column; gap: 12px; }
+.mix__row { display: flex; flex-direction: column; gap: 6px; }
+.mix .rank__bar > i { background: var(--navy-3); }
+.mix__row:first-child .rank__bar > i { background: var(--brand); }
+
+.share__baixar p:not(.card__note) { font-size: 14.5px; color: var(--ink-3); }
+.share__baixar .btn { justify-content: center; margin-top: auto; }
+
+/* Por estado: distribuidoras e TRRs lado a lado (empilhados no celular). */
+.share__uf { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px 40px; }
+.share__sub {
+  font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  margin: 4px 0 8px;
+}
+
 /* --- Arquivo ------------------------------------------------------------- */
 .archive-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .filter {

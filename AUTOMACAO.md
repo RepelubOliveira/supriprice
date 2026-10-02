@@ -52,7 +52,7 @@ serve só de backup do código e para execução manual.
 | Gráfico de 30 dias | Histórico acumulado | diária |
 | Jornal do dia (página A4) | Gerado dos dados + manchetes | diária |
 | Arquivo de edições | Gerado | diária |
-| **Market share de TRR: top 5 distribuidoras, top 5 TRRs, top 5 por estado** | **ANP, SIMP (trr.zip)** | **confere 1x por dia; a ANP muda dia 1 e dia 20** |
+| **Mercado de distribuição: volume total, mix por produto e canal, top 5 distribuidoras, top 5 TRRs, por estado, ranking completo em CSV** | **ANP, SIMP (liquidos.zip e trr.zip)** | **confere 1x por dia; a ANP muda dia 1 e dia 20** |
 
 O `conteudo/editorial.json` guarda só o que nenhuma fonte publica em formato
 aberto: o preço da Petrobras nas refinarias (muda poucas vezes por ano) e a
@@ -88,29 +88,49 @@ porque preço subindo é a notícia ruim para quem compra diesel.
 do topo e do quadro de números do jornal — são números de momentos diferentes
 (cotação atual x fechamento), e dois Brents na mesma tela só confundiriam.
 
-### Sobre o market share de TRR
+### Sobre o mercado de distribuição e o market share
 
-Vem da **mesma base de dados do Painel Dinâmico do Mercado Brasileiro de TRR**
-(o Power BI da ANP): a ANP publica essa base como planilha aberta, o `trr.zip`,
-e o robô lê a planilha em vez do Power BI. Conferido em 02/10/2026: somando de
-2017 em diante, o robô chega a 91.159 mil m³ e Vibra 25,5%, Raízen 15,1%,
-Ipiranga 14,6% — os mesmos números do painel.
+Vem das **mesmas bases dos Painéis Dinâmicos da ANP** (o Power BI), que a ANP
+publica como planilhas abertas; o robô lê as planilhas, não o Power BI:
 
-- **Top 5 distribuidoras**: quanto cada distribuidora vendeu aos TRRs (aba
-  "Fornecimento por Distribuidor" do painel).
-- **Top 5 TRRs**: quanto cada TRR vendeu ao consumidor final ("Mercado TRR").
-- **Por estado** (MG, SP, MS, RJ, DF, GO, BA, SC, PR): vendas **dentro** do
-  estado, de TRRs de qualquer origem (UF de destino).
-- Todos os produtos somados, em mil m³. O visitante escolhe **o último mês**
-  (com setas de ganho ou perda de participação sobre o mês anterior, em pontos
-  percentuais) ou **os últimos 12 meses**.
+| Arquivo | Painel da ANP | O que dá |
+|---|---|---|
+| `liquidos.zip` (21 MB) | Mercado Brasileiro de Combustíveis Líquidos | tudo o que as distribuidoras venderam: produto, estado de destino e canal |
+| `trr.zip` (5 MB) | Mercado Brasileiro de TRR | o que cada distribuidora vendeu aos TRRs e o que cada TRR vendeu |
+
+Conferido em 02/10/2026 contra o painel de TRR: somando de 2017 em diante, o
+robô chega a 91.159 mil m³ e Vibra 25,5%, Raízen 15,1%, Ipiranga 14,6% — os
+mesmos números do painel. E os totais por ano batem centavo a centavo.
+
+O que aparece no portal (seção "Market share"):
+- **Números do mercado**: volume total vendido pelas distribuidoras (com a
+  variação sobre o mês anterior e sobre o mesmo mês do ano anterior), o volume
+  do canal TRR e quanto ele pesa, e quantas distribuidoras e TRRs venderam.
+- **Top 5 distribuidoras** no mercado total, **Top 5 fornecedoras de TRR** e
+  **Top 5 TRRs** no Brasil.
+- **Volume por produto** (diesel B, gasolina C, etanol hidratado, óleo
+  combustível) e **por canal** (postos bandeirados, bandeira branca,
+  consumidor final, TRRs).
+- **Por estado** (MG, SP, MS, RJ, DF, GO, BA, SC, PR): Top 5 distribuidoras e
+  Top 5 TRRs **dentro** do estado, de empresas de qualquer origem.
+- O visitante escolhe **o último mês** (setas de ganho ou perda de
+  participação, em pontos percentuais) ou **os últimos 12 meses**.
+- **Ranking completo em CSV**: todas as empresas, posição a posição, no Brasil
+  e nos 27 estados, mês e 12 meses (~6 mil linhas, ~700 KB). Abre direto no
+  Excel. Fica em `dados/market-share-AAAA-MM-DD.csv` (data da base da ANP) e
+  sobe uma vez por versão da base.
+
+Detalhes:
+- Volumes em mil m³; GLP, QAV e lubrificantes não entram (são outros painéis).
+- Empresas do mesmo grupo com CNPJ próprio aparecem separadas, como a ANP as
+  registra (ex.: "Raízen" e "Raizen Mime" em SC).
 - **Quando muda:** a ANP atualiza dia 1 (mês retrasado, consolidado) e dia 20
   (mês anterior, preliminar — o site marca "prévia"). A primeira rodada de cada
-  dia baixa o arquivo (5 MB, segundos); as outras reaproveitam
+  dia baixa os dois arquivos (~10 s); as outras reaproveitam
   `conteudo/share-trr.json`. Se a ANP não responder, fica o último resultado,
   com o mês de referência à mostra.
 - Para mudar os estados destacados: lista `ESTADOS` em `automacao/share.mjs`.
-- Teste isolado: `node automacao/share.mjs` mostra os rankings no terminal.
+- Teste isolado: `node automacao/share.mjs` mostra tudo no terminal.
 
 ---
 

@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias } from './noticias.mjs';
-import { lerShareTrr } from './share.mjs';
+import { lerShare } from './share.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { publicarArquivos } from './publicar.mjs';
 
@@ -44,6 +44,10 @@ const P = {
   index: path.join(RAIZ, 'portal', 'index.html'),
   relatorios: path.join(RAIZ, 'portal', 'relatorios')
 };
+
+// Sobe quando muda o formato do bloco de market share: força uma nova coleta
+// mesmo que o guardado seja de hoje.
+const VERSAO_SHARE = 2;
 
 const args = process.argv.slice(2);
 const SIMULAR = args.includes('--simular');
@@ -275,25 +279,39 @@ async function principal() {
     console.warn(`  ! Notícias indisponíveis: ${e.message}`);
   }
 
-  // Market share do mercado de TRR (ANP). O arquivo da ANP só muda dia 1 e
-  // dia 20, então basta a primeira rodada do dia baixar; as outras usam o
-  // guardado. Falhou? Vale o último resultado bom — o portal mostra o mês de
-  // referência — e a próxima rodada tenta de novo. Nunca derruba a atualização.
+  // Mercado de distribuição e market share (ANP). Os arquivos da ANP só mudam
+  // dia 1 e dia 20, então basta a primeira rodada do dia baixar; as outras
+  // usam o guardado. Falhou? Vale o último resultado bom — o portal mostra o
+  // mês de referência — e a próxima rodada tenta de novo. Nunca derruba a
+  // atualização.
   let share = await lerJson(P.shareTrr, null);
-  if (share?.coletadoISO === iso(hoje)) {
-    log(`Market share TRR: já coletado hoje (referência ${share.referencia.rotulo}).`);
+  let csvShare = null;
+  if (share?.coletadoISO === iso(hoje) && share?.versao === VERSAO_SHARE) {
+    log(`Market share: já coletado hoje (referência ${share.referencia.rotulo}).`);
   } else {
-    log('Buscando market share de TRR (ANP)...');
+    log('Buscando mercado de distribuição e market share (ANP)...');
     try {
-      share = { coletadoISO: iso(hoje), ...(await lerShareTrr()) };
+      const r = await lerShare();
+      const arquivo = `dados/market-share-${r.share.baseANP}.csv`;
+      share = { versao: VERSAO_SHARE, coletadoISO: iso(hoje), csv: arquivo, ...r.share };
+      await mkdir(path.join(RAIZ, 'portal', 'dados'), { recursive: true });
+      await writeFile(path.join(RAIZ, 'portal', arquivo), r.csv, 'utf8');
       await writeFile(P.shareTrr, JSON.stringify(share) + '\n', 'utf8');
-      const top = share.distribuidoras.mes.top[0], trr = share.trrs.mes.top[0];
-      log(`Market share TRR ${share.referencia.rotulo}${share.referencia.preliminar ? ' (preliminar)' : ''}: ` +
-        `distribuidora líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}%`);
+      const m = share.mercado, top = m.mes.top[0], trr = share.trrs.mes.top[0];
+      log(`Mercado ${m.referencia.rotulo}${m.referencia.preliminar ? ' (preliminar)' : ''}: ${m.mes.total} mil m³ · ` +
+        `líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}% · CSV ${(r.csv.length / 1024).toFixed(0)} KB`);
     } catch (e) {
       console.warn(`  ! Market share indisponível: ${e.message}`);
-      if (share) log(`Market share TRR: usando o último guardado (referência ${share.referencia.rotulo}).`);
+      if (share) log(`Market share: usando o último guardado (referência ${share.referencia.rotulo}).`);
     }
+  }
+  // O ranking completo (CSV, ~700 KB) sobe UMA vez por versão da base: o
+  // share-trr.json lembra qual já foi publicado. Se o arquivo local sumiu
+  // antes de subir, o portal sai sem o botão em vez de apontar para o nada.
+  if (share?.csv && share.csvPublicado !== share.csv) {
+    const local = path.join(RAIZ, 'portal', share.csv);
+    if (existsSync(local)) csvShare = { path: share.csv, content: await readFile(local, 'utf8') };
+    else share = { ...share, csv: null };
   }
 
   const histAntes = await lerJson(P.historico, []);
@@ -395,10 +413,15 @@ async function principal() {
       // do dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
       { path: 'index.html', content: indexHtml },
-      ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : [])
+      ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : []),
+      ...(csvShare ? [csvShare] : [])
     ]
   });
   log(`Publicado: ${res.url || ''} · ${res.storage_bytes ?? '?'} bytes`);
+  if (csvShare) {
+    await writeFile(P.shareTrr, JSON.stringify({ ...share, csvPublicado: csvShare.path }) + '\n', 'utf8');
+    log(`Ranking completo publicado: ${csvShare.path}`);
+  }
 }
 
 principal().catch((e) => {
