@@ -35,8 +35,13 @@
 
 <!-- Quem é o site, para buscadores (schema.org). -->
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://www.supriprice.com.br/#org", "name": "SupriPrice", "url": "https://www.supriprice.com.br/", "logo": "https://www.supriprice.com.br/assets/supriprice-logo.png", "description": "Inteligência do mercado brasileiro de combustíveis: defasagem do diesel e da gasolina, preço na bomba, market share de distribuidoras e TRRs e notícias do setor."}, {"@type": "WebSite", "@id": "https://www.supriprice.com.br/#site", "name": "SupriPrice", "url": "https://www.supriprice.com.br/", "inLanguage": "pt-BR", "publisher": {"@id": "https://www.supriprice.com.br/#org"}}]}</script>
-<link rel="icon" href="assets/supriprice-logo.png" type="image/png">
-<link rel="apple-touch-icon" href="assets/supriprice-logo.png">
+<!-- Ícone: só o símbolo da marca (etiqueta + S + ponto laranja). Gerado a
+     partir de "SupriPrice Logo.dc.html", com a letra em contorno. O .ico
+     serve navegadores antigos e o Google; o .svg fica nítido em qualquer tela. -->
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <!-- Sem <link rel="preload"> para a fonte: o CDN do HTMLy devolve 404 quando a
      requisição vem com crossorigin, enchendo o console de erro. A fonte carrega
      normalmente pelo @font-face do style.css. -->
@@ -229,7 +234,7 @@
      immutable" — sem um endereço novo a cada atualização, quem já visitou o
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
-<script src="assets/js/dados.js?v=20261002-132756"></script>
+<script src="assets/js/dados.js?v=20261002-134911"></script>
 <script src="assets/js/app.js?v=20261002d"></script>
 </body>
 </html>

@@ -299,6 +299,8 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
 <title>SupriPrice · Panorama do Diesel — ${esc(iso.split('-').reverse().join('/'))}</title>
 <meta name="description" content="${esc(manchete)}. Boletim diário do mercado de combustíveis.">
 <meta name="robots" content="index, follow">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   @page { size: A4 portrait; margin: 12mm; }
   * { box-sizing: border-box; }

@@ -1,0 +1,21 @@
+{
+  "name": "SupriPrice · Inteligência do mercado de combustíveis",
+  "short_name": "SupriPrice",
+  "start_url": "/",
+  "display": "browser",
+  "theme_color": "#0E2A47",
+  "background_color": "#F7F4EC",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
