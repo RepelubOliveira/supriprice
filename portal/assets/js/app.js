@@ -8,6 +8,12 @@
 (function () {
   'use strict';
 
+  // Endereço limpo: quem chega por /index.html (link antigo, favorito) passa
+  // a ver só www.supriprice.com.br/, sem recarregar a página.
+  if (/\/index\.html$/.test(location.pathname) && window.history && history.replaceState) {
+    history.replaceState(null, '', location.pathname.replace(/index\.html$/, '') + location.search + location.hash);
+  }
+
   var D = window.DADOS;
   if (!D) { console.error('[SupriPrice] dados.js não carregou.'); return; }
 
