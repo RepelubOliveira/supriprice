@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market share · Mercado de distribuição de combustíveis — SupriPrice</title>
+<meta name="description" content="Market share das distribuidoras e dos TRRs no Brasil e por estado, com filtro de período: volumes da ANP (SIMP), ranking completo e evolução mês a mês.">
+<meta name="author" content="SupriPrice">
+<meta name="theme-color" content="#0E2A47">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://www.supriprice.com.br/market-share.html">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="SupriPrice">
+<meta property="og:title" content="Market share · Mercado de distribuição de combustíveis">
+<meta property="og:description" content="Distribuidoras e TRRs: quem vende quanto, no Brasil e por estado, mês a mês. Dados da ANP.">
+<meta property="og:url" content="https://www.supriprice.com.br/market-share.html">
+<meta property="og:image" content="https://www.supriprice.com.br/assets/supriprice-logo.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assets/supriprice-logo.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/supriprice-logo.png">
+<!-- ?v= muda a cada alteração do CSS/JS (ver index.html). -->
+<link rel="stylesheet" href="assets/css/style.css?v=20261002c">
+</head>
+<body class="pg-share">
+
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- Faixa de mercado: a mesma da página inicial (montada pelo app.js). -->
+<section class="mkt" id="mercado" aria-label="Indicadores de mercado" hidden>
+  <div class="wrap mkt__bar">
+    <div class="mkt__viewport">
+      <ul class="mkt__list" id="mercadoLista"></ul>
+    </div>
+    <p class="mkt__meta" id="mercadoMeta"></p>
+    <button class="mkt__pause" id="mercadoPausa" type="button"
+            aria-pressed="false" aria-label="Pausar a faixa de cotações">
+      <span aria-hidden="true">❚❚</span>
+    </button>
+  </div>
+</section>
+
+<header class="site-header">
+  <div class="wrap site-header__bar">
+    <a class="site-header__logo" href="index.html" aria-label="SupriPrice — início">
+      <img src="assets/supriprice-logo.png" alt="SupriPrice" width="140" height="32">
+    </a>
+
+    <button class="nav-toggle" type="button" id="navToggle"
+            aria-expanded="false" aria-controls="navPrincipal">Menu</button>
+
+    <nav class="nav" id="navPrincipal" aria-label="Navegação principal">
+      <a href="index.html#arbitragem">Arbitragem</a>
+      <a href="index.html#painel">Mercado</a>
+      <a href="market-share.html" aria-current="page">Market share</a>
+      <a href="index.html#noticias">Notícias</a>
+      <a href="index.html#jornal">Jornal do dia</a>
+      <a href="index.html#arquivo">Arquivo</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ====================== Topo ====================== -->
+<section class="hero ms-hero">
+  <div class="wrap ms-hero__inner">
+    <p class="hero__eyebrow">Market share · ANP</p>
+    <h1 class="hero__title">Mercado de distribuição de combustíveis</h1>
+    <p class="ms-hero__lead">Quem vende quanto: distribuidoras e TRRs, no Brasil e por estado,
+      mês a mês. Escolha o período e o recorte abaixo.</p>
+    <p class="hero__source" id="msBase"></p>
+  </div>
+</section>
+
+<!-- ====================== Filtros ======================
+     Fixos no topo ao rolar: período e recorte valem para a página toda. O
+     estado da escolha vai para o endereço (#de=…&ate=…&uf=…), então um link
+     copiado abre exatamente a mesma visão. -->
+<div class="ms-filtros" id="msFiltros">
+  <div class="wrap ms-filtros__inner">
+    <div class="ms-filtro">
+      <span class="ms-filtro__rotulo" id="msRotPeriodo">Período</span>
+      <div class="archive-filters" id="msAtalhos" role="group" aria-labelledby="msRotPeriodo"></div>
+      <div class="ms-datas">
+        <label>De <select id="msDe"></select></label>
+        <label>até <select id="msAte"></select></label>
+      </div>
+    </div>
+    <div class="ms-filtro">
+      <span class="ms-filtro__rotulo" id="msRotRecorte">Recorte</span>
+      <div class="archive-filters" id="msUfs" role="group" aria-labelledby="msRotRecorte"></div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap main ms-main" id="conteudo">
+
+  <p class="ms-status" id="msStatus" role="status">Carregando os números da ANP…</p>
+
+  <div id="msConteudo" hidden>
+    <p class="ms-resumo" id="msResumo" aria-live="polite"></p>
+
+    <div class="kpis" id="msKpis"></div>
+
+    <section class="card ms-graf" aria-labelledby="msBarrasTitulo">
+      <div class="card__head">
+        <h2 class="card__title" id="msBarrasTitulo">Volume mensal das distribuidoras</h2>
+        <p class="card__note">mil m³ · em destaque, o período escolhido · clique num mês para vê-lo</p>
+      </div>
+      <div class="ms-chart" id="msBarras"></div>
+    </section>
+
+    <div class="ms-sec">
+      <h2 class="ms-sec__titulo">Rankings</h2>
+      <div class="archive-filters" id="msTopN" role="group" aria-label="Quantas empresas mostrar"></div>
+    </div>
+
+    <div class="panel">
+      <section class="card" aria-labelledby="msMercTitulo">
+        <div class="card__head">
+          <h3 class="card__title" id="msMercTitulo">Distribuidoras</h3>
+          <p class="card__note">Mercado total</p>
+        </div>
+        <ol class="rank" id="msMerc"></ol>
+        <p class="card__note" id="msMercNota"></p>
+      </section>
+      <section class="card" aria-labelledby="msFornTitulo">
+        <div class="card__head">
+          <h3 class="card__title" id="msFornTitulo">Fornecedoras de TRR</h3>
+          <p class="card__note">Distribuidoras, vendas aos TRRs</p>
+        </div>
+        <ol class="rank" id="msForn"></ol>
+        <p class="card__note" id="msFornNota"></p>
+      </section>
+      <section class="card" aria-labelledby="msTrrTitulo">
+        <div class="card__head">
+          <h3 class="card__title" id="msTrrTitulo">TRRs</h3>
+          <p class="card__note">Vendas ao consumidor final</p>
+        </div>
+        <ol class="rank" id="msTrr"></ol>
+        <p class="card__note" id="msTrrNota"></p>
+      </section>
+    </div>
+
+    <section class="card ms-graf" aria-labelledby="msEvoTitulo">
+      <div class="card__head">
+        <h2 class="card__title" id="msEvoTitulo">Evolução da participação</h2>
+        <div class="archive-filters" id="msEvoSeg" role="group" aria-label="Segmento do gráfico"></div>
+      </div>
+      <p class="card__note" id="msEvoNota"></p>
+      <div class="ms-legenda" id="msEvoLegenda"></div>
+      <div class="ms-chart ms-chart--linhas" id="msEvo"></div>
+      <details class="ms-tabela">
+        <summary>Ver os números em tabela</summary>
+        <div class="ms-tabela__rolagem" id="msEvoTabela"></div>
+      </details>
+    </section>
+
+    <div class="panel">
+      <section class="card">
+        <h3 class="card__title">Volume por produto</h3>
+        <div class="mix" id="msProdutos"></div>
+      </section>
+      <section class="card">
+        <h3 class="card__title">Volume por canal de venda</h3>
+        <div class="mix" id="msCanais"></div>
+      </section>
+      <section class="card share__baixar">
+        <h3 class="card__title">Ranking completo</h3>
+        <p id="msCsvTexto"></p>
+        <a class="btn btn--primary" id="msCsv" download>Baixar planilha (CSV)</a>
+        <p class="card__note">Abre no Excel. Separador ponto e vírgula, vírgula decimal.</p>
+      </section>
+    </div>
+
+    <p class="card__note ms-fonte" id="msFonte"></p>
+  </div>
+</main>
+
+<footer class="wrap site-footer">
+  <span>
+    Mercado de distribuição e market share: ANP, SIMP (dados abertos), volumes declarados
+    pelos agentes. Indicadores de mercado: Yahoo Finance. Conteúdo informativo, não
+    constitui recomendação comercial.
+  </span>
+  <span>© <span id="ano">2026</span> SupriPrice</span>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<noscript>
+  <p style="padding:24px; max-width:70ch; margin:0 auto;">
+    Esta página precisa de JavaScript para montar os números da ANP.
+  </p>
+</noscript>
+
+<!-- O ?v= do dados.js é REESCRITO PELO ROBÔ a cada atualização, como no index. -->
+<script src="assets/js/dados.js?v=20261002-094800"></script>
+<script src="assets/js/app.js?v=20261002c"></script>
+<script src="assets/js/share.js?v=20261002c"></script>
+</body>
+</html>

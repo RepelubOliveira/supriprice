@@ -912,209 +912,36 @@
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   }
 
-  /** Lembra a escolha do visitante (estado, período). Sem storage, segue sem. */
-  function lembrar(chave, valor) {
-    try {
-      if (valor === undefined) return window.localStorage.getItem('sp.' + chave);
-      window.localStorage.setItem('sp.' + chave, valor);
-    } catch (e) { /* aba anônima ou storage bloqueado */ }
-    return null;
-  }
-
+  /**
+   * Chamada da aba de Market share na página inicial: o último mês divulgado
+   * pela ANP em três linhas. Os números completos, com filtro de período e de
+   * estado, ficam em market-share.html (share.js).
+   */
   function montarShare() {
     var S = D.share, caixa = $('#share');
-    if (!caixa || !S || !S.trrs || !S.distribuidoras) {
+    var M = S && S.mercado;
+    if (!caixa) return; // outra página (a própria aba não tem a chamada)
+    if (!M || !M.mes || !M.mes.top || !M.mes.top.length) {
       // Sem números ainda: o atalho do menu também some, para não levar a nada.
-      var atalho = $('.nav a[href="#share"]'); if (atalho) atalho.hidden = true;
+      var atalho = $('.nav a[href="market-share.html"]'); if (atalho) atalho.hidden = true;
       return;
     }
-    var M = S.mercado || null;         // mercado total das distribuidoras
-    var ref = S.referencia || {};
-    var periodo = lembrar('sharePeriodo') === 'ano' ? 'ano' : 'mes';
-    var ufs = (S.estados || []).filter(function (e) {
-      return (e.mes && e.mes.top && e.mes.top.length) || (e.dist && e.dist.mes && e.dist.mes.top.length);
-    });
-    var uf = lembrar('shareUf');
-    if (!ufs.some(function (e) { return e.uf === uf; })) uf = ufs.length ? ufs[0].uf : null;
+    var ref = M.referencia || {};
+    // "Novo" por uma semana depois que a ANP divulga números.
+    var novo = S.divulgadoISO && (Date.now() - new Date(S.divulgadoISO + 'T12:00:00').getTime()) < 7 * 864e5;
+    $('#shareEyebrow').innerHTML = 'Market share · ANP · ' + esc(ref.rotulo || '') +
+      (ref.preliminar ? ' (prévia)' : '') + (novo ? '<span class="share-teaser__novo">NOVO</span>' : '');
 
-    /** Seta de variação: verde sobe, vermelha desce. */
-    function seta(v, sufixo, dica) {
-      var sentido = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
-      return '<span class="rank__delta rank__delta--' + sentido + ' tnum"' + (dica ? ' title="' + esc(dica) + '"' : '') + '>' +
-        (sentido === 'flat' ? 'estável' :
-          '<span aria-hidden="true">' + (sentido === 'up' ? '▲' : '▼') + '</span> ' +
-          (sentido === 'up' ? '+' : '−') + dec1(Math.abs(v)) + sufixo) +
-        '</span>';
+    var partes = ['As distribuidoras venderam <b>' + dec1(M.mes.total) + ' mil m³</b> em ' + esc(ref.rotulo || '')];
+    if (typeof M.varMesPct === 'number') {
+      partes[0] += ' (' + (M.varMesPct > 0 ? '+' : M.varMesPct < 0 ? '−' : '') + dec1(Math.abs(M.varMesPct)) + '% no mês)';
     }
+    if (M.canalTrr) partes.push('o canal TRR ficou com ' + dec1(M.canalTrr.share) + '%');
+    $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.';
 
-    /*
-     * Uma linha do ranking. A barra é proporcional ao LÍDER da lista (o 1º
-     * ocupa a largura toda), para as diferenças ficarem visíveis mesmo com
-     * participações de 2 ou 3%; o número ao lado é a participação real.
-     * Variação em pontos percentuais sobre o mês anterior: ganhar mercado é
-     * verde, perder é vermelho.
-     */
-    function linhas(bloco, mesAnterior) {
-      if (!bloco || !bloco.top || !bloco.top.length) {
-        return '<li class="rank__vazio">Sem vendas declaradas neste período.</li>';
-      }
-      var maior = bloco.top[0].share || 1;
-      return bloco.top.map(function (x) {
-        var delta = '';
-        if (periodo === 'mes' && typeof x.deltaPP === 'number') {
-          delta = seta(Math.round(x.deltaPP * 10) / 10, ' p.p.',
-            'Variação da participação sobre ' + (mesAnterior || 'o mês anterior'));
-        }
-        return '' +
-          '<li class="rank__row">' +
-            '<span class="rank__pos tnum">' + x.pos + '</span>' +
-            '<div class="rank__body">' +
-              '<div class="rank__top">' +
-                '<span class="rank__name" title="' + esc(x.nome) + '">' + esc(x.curto || x.nome) + '</span>' +
-                '<b class="rank__pct tnum">' + dec1(x.share) + '%</b>' +
-              '</div>' +
-              '<span class="rank__bar" aria-hidden="true"><i style="width:' +
-                Math.max(2, Math.min(100, (x.share / maior) * 100)).toFixed(1) + '%"></i></span>' +
-              '<div class="rank__meta">' +
-                '<span class="tnum">' + dec1(x.volume) + ' mil m³</span>' + delta +
-              '</div>' +
-            '</div>' +
-          '</li>';
-      }).join('');
-    }
-
-    /** "Top 5 somam 42,3% de 899,2 mil m³ · 109 distribuidoras". */
-    function nota(bloco, quem) {
-      if (!bloco || !bloco.top || !bloco.top.length) return '';
-      var soma = bloco.top.reduce(function (a, x) { return a + x.share; }, 0);
-      return 'Top ' + bloco.top.length + ' somam ' + dec1(soma) + '% de ' + dec1(bloco.total) +
-        ' mil m³ · ' + bloco.agentes.toLocaleString('pt-BR') + ' ' + quem;
-    }
-
-    /** Barras de composição (produto, canal): a participação de cada parte. */
-    function mix(itens) {
-      if (!itens || !itens.length) return '<p class="card__note">Sem dados neste período.</p>';
-      return itens.map(function (p) {
-        return '' +
-          '<div class="mix__row">' +
-            '<div class="rank__top"><span class="rank__name">' + esc(p.nome) + '</span>' +
-              '<b class="rank__pct tnum">' + dec1(p.share) + '%</b></div>' +
-            '<span class="rank__bar" aria-hidden="true"><i style="width:' +
-              Math.max(1, Math.min(100, p.share)).toFixed(1) + '%"></i></span>' +
-            '<div class="rank__meta"><span class="tnum">' + dec1(p.volume) + ' mil m³</span></div>' +
-          '</div>';
-      }).join('');
-    }
-
-    function kpi(rotulo, valor, unidade, rodape) {
-      return '<div class="kpi"><p class="kpi__label">' + esc(rotulo) + '</p>' +
-        '<p class="kpi__val tnum"><b>' + esc(valor) + '</b>' + (unidade ? ' <span>' + esc(unidade) + '</span>' : '') + '</p>' +
-        (rodape ? '<p class="kpi__foot">' + rodape + '</p>' : '') + '</div>';
-    }
-
-    function desenhar() {
-      var mref = M ? M.referencia : ref;
-
-      // Números do mercado.
-      var k = '';
-      if (M) {
-        var mm = M[periodo];
-        var rod = '';
-        if (periodo === 'mes') {
-          if (typeof M.varMesPct === 'number') {
-            rod += seta(M.varMesPct, '%') + ' sobre ' + esc(mref.anterior || 'o mês anterior');
-          }
-          if (typeof M.varAnoPct === 'number') rod += '<br>' + seta(M.varAnoPct, '%') + ' sobre um ano antes';
-        } else {
-          rod = esc(M.janela.de + ' a ' + M.janela.ate);
-        }
-        k += kpi('Vendas das distribuidoras · ' + (periodo === 'mes' ? mref.rotulo : '12 meses'),
-          dec1(mm.total), 'mil m³', rod);
-        var trrCanal = (mm.canais || []).filter(function (c) { return c.nome === 'TRRs'; })[0];
-        if (trrCanal) {
-          k += kpi('Canal TRR', dec1(trrCanal.volume), 'mil m³', dec1(trrCanal.share) + '% do volume das distribuidoras');
-        }
-        k += kpi('Distribuidoras com vendas', mm.agentes.toLocaleString('pt-BR'), '', 'declaradas à ANP no período');
-      }
-      k += kpi('TRRs com vendas', S.trrs[periodo].agentes.toLocaleString('pt-BR'), '',
-        dec1(S.trrs[periodo].total) + ' mil m³ ao consumidor final');
-      $('#shareKpis').innerHTML = k;
-
-      $('#shareMerc').innerHTML = M ? linhas(M[periodo], mref.anterior) : '';
-      $('#shareMercNota').textContent = M ? nota(M[periodo], 'distribuidoras') : '';
-      $('#shareDist').innerHTML = linhas(S.distribuidoras[periodo], ref.anterior);
-      $('#shareDistNota').textContent = nota(S.distribuidoras[periodo], 'distribuidoras');
-      $('#shareTrr').innerHTML = linhas(S.trrs[periodo], ref.anterior);
-      $('#shareTrrNota').textContent = nota(S.trrs[periodo], 'TRRs');
-      $('#shareProdutos').innerHTML = M ? mix(M[periodo].produtos) : '';
-      $('#shareCanais').innerHTML = M ? mix(M[periodo].canais) : '';
-
-      var e = ufs.filter(function (x) { return x.uf === uf; })[0];
-      $('#shareUfTitulo').textContent = 'Por estado' + (e ? ' · ' + e.nome : '');
-      $('#shareUfDist').innerHTML = e && e.dist ? linhas(e.dist[periodo], mref.anterior) : '';
-      $('#shareUfDistNota').textContent = e && e.dist ? nota(e.dist[periodo], 'distribuidoras venderam no estado') : '';
-      $('#shareUf').innerHTML = e ? linhas(e[periodo], ref.anterior) : '';
-      $('#shareUfNota').textContent = e ? nota(e[periodo], 'TRRs venderam no estado') : '';
-
-      var lead = 'Volume declarado à ANP pelas distribuidoras e pelos TRRs, ' +
-        (periodo === 'mes' ? ref.rotulo : '12 meses, ' + S.janela.de + ' a ' + S.janela.ate) +
-        '. Diesel, gasolina, etanol e óleo combustível, em mil m³.';
-      if (periodo === 'mes' && ref.preliminar) lead += ' Dados preliminares: a ANP ainda pode revisar este mês.';
-      if (periodo === 'mes' && ref.anterior) lead += ' Setas nos rankings: ganho ou perda de participação sobre ' + ref.anterior + '.';
-      $('#shareLead').textContent = lead;
-
-      Array.prototype.forEach.call($('#sharePeriodo').children, function (b) {
-        b.setAttribute('aria-pressed', b.getAttribute('data-periodo') === periodo ? 'true' : 'false');
-      });
-      Array.prototype.forEach.call($('#shareUfs').children, function (b) {
-        b.setAttribute('aria-pressed', b.getAttribute('data-uf') === uf ? 'true' : 'false');
-      });
-    }
-
-    $('#sharePeriodo').innerHTML =
-      '<button class="filter" type="button" data-periodo="mes">' + esc(ref.rotulo) +
-        (ref.preliminar ? ' (prévia)' : '') + '</button>' +
-      '<button class="filter" type="button" data-periodo="ano">12 meses</button>';
-    $('#sharePeriodo').addEventListener('click', function (ev) {
-      var b = ev.target.closest('[data-periodo]'); if (!b) return;
-      periodo = b.getAttribute('data-periodo'); lembrar('sharePeriodo', periodo); desenhar();
-    });
-
-    $('#shareUfs').innerHTML = ufs.map(function (e) {
-      return '<button class="filter" type="button" data-uf="' + esc(e.uf) + '" title="' + esc(e.nome) + '">' +
-        esc(e.uf) + '</button>';
+    $('#shareTop').innerHTML = M.mes.top.slice(0, 3).map(function (x) {
+      return '<li><span>' + x.pos + '. ' + esc(x.curto || x.nome) + '</span><b>' + dec1(x.share) + '%</b></li>';
     }).join('');
-    $('#shareUfs').addEventListener('click', function (ev) {
-      var b = ev.target.closest('[data-uf]'); if (!b) return;
-      uf = b.getAttribute('data-uf'); lembrar('shareUf', uf); desenhar();
-    });
-
-    // Planilha completa: todas as empresas, Brasil e os 27 estados.
-    var csv = S.csv && urlSegura(S.csv), baixar = $('#shareCsv');
-    if (baixar && csv && M) {
-      baixar.href = csv;
-      baixar.setAttribute('download', 'supriprice-market-share-' + (M.referencia.mes || '') + '.csv');
-      $('#shareCsvTexto').textContent = 'Todas as ' + M.mes.agentes.toLocaleString('pt-BR') +
-        ' distribuidoras e os ' + S.trrs.mes.agentes.toLocaleString('pt-BR') +
-        ' TRRs, posição a posição, no Brasil e em cada um dos 27 estados, em ' +
-        M.referencia.rotulo + ' e nos últimos 12 meses.';
-    } else {
-      var cartao = baixar && baixar.closest('.card'); if (cartao) cartao.hidden = true;
-    }
-
-    var base = S.baseANP ? S.baseANP.split('-').reverse().join('/') : '';
-    var lnk = function (u, t) {
-      u = urlSegura(u);
-      return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t;
-    };
-    $('#shareFonte').innerHTML = 'Fonte: ANP, SIMP (volumes declarados pelos agentes), bases dos painéis ' +
-      lnk(S.urlPainelLiquidos, 'Mercado Brasileiro de Combustíveis Líquidos') + ' e ' +
-      lnk(S.urlPainel, 'Mercado Brasileiro de TRR') + (base ? ', atualizadas em ' + esc(base) : '') +
-      '. A ANP publica no dia 1 (mês retrasado, consolidado) e no dia 20 (mês anterior, preliminar); ' +
-      'o portal confere uma vez por dia. Empresas do mesmo grupo com CNPJ próprio aparecem separadas, ' +
-      'como a ANP as registra.';
-
-    desenhar();
     caixa.hidden = false;
   }
 
@@ -1296,7 +1123,7 @@
           }
         });
       }, { rootMargin: '-72px 0px -70% 0px' });
-      ['arbitragem', 'painel', 'share', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
+      ['arbitragem', 'painel', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
         var el = document.getElementById(id); if (el) io.observe(el);
       });
     }

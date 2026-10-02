@@ -40,7 +40,7 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261002b">
+<link rel="stylesheet" href="assets/css/style.css?v=20261002c">
 </head>
 <body>
 
@@ -78,7 +78,7 @@
     <nav class="nav" id="navPrincipal" aria-label="Navegação principal">
       <a href="#arbitragem">Arbitragem</a>
       <a href="#painel">Mercado</a>
-      <a href="#share">Market share</a>
+      <a href="market-share.html">Market share</a>
       <a href="#noticias">Notícias</a>
       <a href="#jornal">Jornal do dia</a>
       <a href="#arquivo">Arquivo</a>
@@ -150,79 +150,16 @@
     </div>
   </section>
 
-  <!-- Mercado de distribuição e market share (ANP). Preenchido pelo app.js a
-       partir de D.share; fica escondido se o robô ainda não tiver os números. -->
-  <section class="section" id="share" aria-labelledby="shareTitulo" hidden>
-    <div class="section-head">
-      <h2 id="shareTitulo">Mercado de distribuição · market share</h2>
-      <div class="archive-filters" id="sharePeriodo" role="group" aria-label="Período"></div>
+  <!-- Chamada da aba de Market share (market-share.html). Preenchida pelo
+       app.js com o último mês da ANP; escondida se ainda não houver números. -->
+  <section class="share-teaser" id="share" aria-labelledby="shareTitulo" hidden>
+    <div>
+      <p class="share-teaser__eyebrow" id="shareEyebrow">Market share · ANP</p>
+      <h2 id="shareTitulo">Mercado de distribuição</h2>
+      <p id="shareResumo"></p>
     </div>
-    <p class="share__lead" id="shareLead"></p>
-
-    <div class="kpis" id="shareKpis"></div>
-
-    <div class="panel">
-      <div class="card">
-        <div class="card__head">
-          <h3 class="card__title">Top 5 distribuidoras</h3>
-          <p class="card__note">Mercado total</p>
-        </div>
-        <ol class="rank" id="shareMerc"></ol>
-        <p class="card__note" id="shareMercNota"></p>
-      </div>
-      <div class="card">
-        <div class="card__head">
-          <h3 class="card__title">Top 5 fornecedoras de TRR</h3>
-          <p class="card__note">Distribuidoras, vendas aos TRRs</p>
-        </div>
-        <ol class="rank" id="shareDist"></ol>
-        <p class="card__note" id="shareDistNota"></p>
-      </div>
-      <div class="card">
-        <div class="card__head">
-          <h3 class="card__title">Top 5 TRRs · Brasil</h3>
-          <p class="card__note">Vendas ao consumidor final</p>
-        </div>
-        <ol class="rank" id="shareTrr"></ol>
-        <p class="card__note" id="shareTrrNota"></p>
-      </div>
-
-      <div class="card">
-        <h3 class="card__title">Volume por produto</h3>
-        <div class="mix" id="shareProdutos"></div>
-      </div>
-      <div class="card">
-        <h3 class="card__title">Volume por canal de venda</h3>
-        <div class="mix" id="shareCanais"></div>
-      </div>
-      <div class="card share__baixar">
-        <h3 class="card__title">Ranking completo</h3>
-        <p id="shareCsvTexto"></p>
-        <a class="btn btn--primary" id="shareCsv" download>Baixar planilha (CSV)</a>
-        <p class="card__note">Abre no Excel. Separador ponto e vírgula, vírgula decimal.</p>
-      </div>
-
-      <div class="card is-full">
-        <div class="card__head">
-          <h3 class="card__title" id="shareUfTitulo">Por estado</h3>
-          <p class="card__note">Vendas dentro do estado, de empresas de qualquer origem</p>
-        </div>
-        <div class="archive-filters" id="shareUfs" role="group" aria-label="Escolher o estado"></div>
-        <div class="share__uf" aria-live="polite">
-          <div>
-            <h4 class="share__sub">Top 5 distribuidoras</h4>
-            <ol class="rank" id="shareUfDist"></ol>
-            <p class="card__note" id="shareUfDistNota"></p>
-          </div>
-          <div>
-            <h4 class="share__sub">Top 5 TRRs</h4>
-            <ol class="rank" id="shareUf"></ol>
-            <p class="card__note" id="shareUfNota"></p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="card__note" id="shareFonte"></p>
+    <ol class="share-teaser__top" id="shareTop"></ol>
+    <a class="btn btn--primary" href="market-share.html">Ver market share completo →</a>
   </section>
 
   <!-- Notícias -->
@@ -283,7 +220,7 @@
      immutable" — sem um endereço novo a cada atualização, quem já visitou o
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
-<script src="assets/js/dados.js?v=20261002-092911"></script>
-<script src="assets/js/app.js?v=20261002b"></script>
+<script src="assets/js/dados.js?v=20261002-094800"></script>
+<script src="assets/js/app.js?v=20261002c"></script>
 </body>
 </html>

@@ -57,6 +57,8 @@ const UFS = new Set(Object.keys(NOME_UF));
 const REGIOES = new Set(['N', 'NE', 'CO', 'SE', 'S']);
 
 const TOP = 5;
+const SERIE_TOP = 25;   // empresas guardadas por mês na série da aba
+const ANO_INICIO = 2024; // primeiro ano da série
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 /* ------------------------------------------------------------- download */
@@ -358,7 +360,9 @@ export function calcularShare(zipTrr, zipLiquidos) {
   const L = ['Liquidos_Vendas_Atual.csv'];
   const arqT = lerZip(zipTrr, T, 'trr.zip');
   const arqL = lerZip(zipLiquidos, L, 'liquidos.zip');
-  const anoMinimo = new Date().getFullYear() - 2;
+  // A série da aba começa em jan/2024 (início dos arquivos "Atual" da ANP) e
+  // cresce um mês por vez.
+  const anoMinimo = ANO_INICIO;
 
   const dist = lerCsv(arqT[T[0]].dados, T[0], { anoMinimo });
   const trr = lerCsv(arqT[T[1]].dados, T[1], { anoMinimo });
@@ -383,24 +387,17 @@ export function calcularShare(zipTrr, zipLiquidos) {
     ano: ranking(reg, p.doze, { filtro })
   });
 
-  // Mercado total das distribuidoras: volume, variação, mix e líderes.
+  // Resumo do último mês: vai no dados.js (chamada na página inicial) e no
+  // jornal do dia em que a ANP divulga. A aba de market share usa a SÉRIE.
   const volRef = totalDe(liq.reg, pL.soRef);
+  const canais = composicao(liq.reg, pL.soRef, (r) => canal(r.mercado));
   const mercado = {
     referencia: referencia(pL, arqL[L[0]].dataISO),
-    janela: janela(pL),
     baseANP: arqL[L[0]].dataISO,
     varMesPct: pL.temAnterior ? pct(volRef, totalDe(liq.reg, pL.soAnt)) : null,
     varAnoPct: pct(volRef, totalDe(liq.reg, pL.anoAntes)),
-    mes: {
-      ...ranking(liq.reg, pL.soRef, { comparar: pL.temAnterior ? pL.soAnt : null }),
-      produtos: composicao(liq.reg, pL.soRef, (r) => produto(r.produto)),
-      canais: composicao(liq.reg, pL.soRef, (r) => canal(r.mercado))
-    },
-    ano: {
-      ...ranking(liq.reg, pL.doze),
-      produtos: composicao(liq.reg, pL.doze, (r) => produto(r.produto)),
-      canais: composicao(liq.reg, pL.doze, (r) => canal(r.mercado))
-    }
+    canalTrr: canais.find((c) => c.nome === 'TRRs') || null,
+    mes: ranking(liq.reg, pL.soRef, { comparar: pL.temAnterior ? pL.soAnt : null })
   };
 
   const share = {
@@ -409,20 +406,110 @@ export function calcularShare(zipTrr, zipLiquidos) {
     urlPainelLiquidos: URL_PAINEL_LIQUIDOS,
     baseANP: arqT[T[1]].dataISO,
     referencia: referencia(pT, arqT[T[1]].dataISO),
-    janela: janela(pT),
     unidade: 'mil m³',
     mercado,
-    distribuidoras: bloco(dist.reg, pT),
-    trrs: bloco(trr.reg, pT),
-    estados: ESTADOS.map((uf) => ({
-      uf,
-      nome: NOME_UF[uf],
-      ...bloco(trr.reg, pT, (r) => r.uf === uf),
-      dist: bloco(liq.reg, pL, (r) => r.uf === uf)
-    }))
+    distribuidoras: { mes: ranking(dist.reg, pT.soRef, { comparar: pT.temAnterior ? pT.soAnt : null }) },
+    trrs: { mes: ranking(trr.reg, pT.soRef, { comparar: pT.temAnterior ? pT.soAnt : null }) }
   };
 
-  return { share, csv: gerarCsv({ dist, trr, liq, pT, pL }) };
+  return {
+    share,
+    serie: gerarSerie({ dist, trr, liq, base: share.baseANP, refTrr: share.referencia, refMerc: mercado.referencia }),
+    csv: gerarCsv({ dist, trr, liq, pT, pL })
+  };
+}
+
+/* ------------------------------------------------------- série da aba */
+
+/**
+ * Série mensal para a aba de market share, que filtra por qualquer mês ou
+ * período no próprio navegador. Por mês e por recorte (Brasil e os estados em
+ * destaque) guarda o TOTAL exato, o número de empresas e as SERIE_TOP maiores
+ * com o volume de cada uma. Somar meses dá o ranking de qualquer período: uma
+ * empresa fora das 25 maiores de um mês não chega ao Top 20 do período.
+ *
+ * Formato compacto (nomes num dicionário; volumes em mil m³, 2 casas):
+ *   { meses: ["2024-01", ...], nomes: [...], curtos: [...],
+ *     merc: { BR: { t: [total por mês], n: [empresas], a: [[[nome, vol], ...] por mês],
+ *                   prod: { nomes, v: [[vol por produto] por mês] }, canal: {...} }, MG: ... },
+ *     forn: { BR: {...} },  trr: { BR: {...}, MG: ... } }
+ */
+function gerarSerie({ dist, trr, liq, base, refTrr, refMerc }) {
+  const meses = [...new Set([...liq.reg, ...trr.reg].map((r) => r.mes))].sort();
+  const idxMes = new Map(meses.map((m, i) => [m, i]));
+  const recortes = ['BR', ...ESTADOS];
+
+  // Nome de cada empresa: a grafia mais usada em toda a base.
+  const grafias = new Map();
+  const nomeDe = new Map();
+  const dicionario = [];
+  const idNome = (k) => {
+    if (!nomeDe.has(k)) {
+      const g = [...grafias.get(k).entries()].sort((a, b) => b[1] - a[1])[0][0].replace(/\s+/g, ' ').trim();
+      nomeDe.set(k, dicionario.length);
+      dicionario.push(g);
+    }
+    return nomeDe.get(k);
+  };
+  const r2v = (v) => Math.round(v * 100) / 100;
+
+  function serieDe(reg, comUf, comMix) {
+    const saida = {};
+    const acum = {};
+    for (const rc of comUf ? recortes : ['BR']) {
+      acum[rc] = meses.map(() => ({ total: 0, ag: new Map(), prod: new Map(), canal: new Map() }));
+    }
+    for (const r of reg) {
+      const im = idxMes.get(r.mes);
+      if (im == null) continue;
+      const k = chave(r.agente);
+      let g = grafias.get(k);
+      if (!g) { g = new Map(); grafias.set(k, g); }
+      g.set(r.agente, (g.get(r.agente) || 0) + r.qtd);
+      const alvos = [acum.BR[im]];
+      if (comUf && acum[r.uf]) alvos.push(acum[r.uf][im]);
+      for (const a of alvos) {
+        a.total += r.qtd;
+        a.ag.set(k, (a.ag.get(k) || 0) + r.qtd);
+        if (comMix) {
+          const p = produto(r.produto), c = canal(r.mercado);
+          a.prod.set(p, (a.prod.get(p) || 0) + r.qtd);
+          a.canal.set(c, (a.canal.get(c) || 0) + r.qtd);
+        }
+      }
+    }
+    for (const [rc, lista] of Object.entries(acum)) {
+      const o = {
+        t: lista.map((a) => r2v(a.total)),
+        n: lista.map((a) => a.ag.size),
+        a: lista.map((a) => [...a.ag.entries()].sort((x, y) => y[1] - x[1]).slice(0, SERIE_TOP)
+          .map(([k, v]) => [idNome(k), r2v(v)]))
+      };
+      if (comMix) {
+        for (const dim of ['prod', 'canal']) {
+          const nomes = [...new Set(lista.flatMap((a) => [...a[dim].keys()]))]
+            .sort((x, y) => lista.reduce((s, a) => s + (a[dim].get(y) || 0), 0) - lista.reduce((s, a) => s + (a[dim].get(x) || 0), 0));
+          o[dim] = { nomes, v: lista.map((a) => nomes.map((n) => r2v(a[dim].get(n) || 0))) };
+        }
+      }
+      saida[rc] = o;
+    }
+    return saida;
+  }
+
+  const merc = serieDe(liq.reg, true, true);
+  const forn = serieDe(dist.reg, false, false);
+  const trrs = serieDe(trr.reg, true, false);
+  return {
+    versao: 1,
+    base,
+    meses,
+    ref: { merc: refMerc, trr: refTrr },
+    estados: ESTADOS.map((uf) => ({ uf, nome: NOME_UF[uf] })),
+    nomes: dicionario,
+    curtos: dicionario.map(nomeCurto),
+    merc, forn, trr: trrs
+  };
 }
 
 /* ---------------------------------------------------------- CSV completo */
@@ -473,19 +560,20 @@ export async function lerShare() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const t0 = Date.now();
-  const { share: s, csv } = await lerShare();
+  const { share: s, serie, csv } = await lerShare();
   const linha = (t) => t.top.map((x) => `${x.pos}. ${x.curto} ${x.share.toFixed(1)}%` +
     (x.deltaPP != null ? ` (${x.deltaPP > 0 ? '+' : ''}${x.deltaPP.toFixed(2)})` : '')).join(' | ');
   const m = s.mercado;
-  console.log(`Mercado ${m.referencia.rotulo}: ${m.mes.total} mil m³ (${m.varMesPct}% no mês, ${m.varAnoPct}% no ano) · ${m.mes.agentes} distribuidoras`);
-  console.log(`  Produtos: ${m.mes.produtos.map((p) => `${p.nome} ${p.share}%`).join(' · ')}`);
-  console.log(`  Canais: ${m.mes.canais.map((p) => `${p.nome} ${p.share}%`).join(' · ')}`);
+  console.log(`Mercado ${m.referencia.rotulo}: ${m.mes.total} mil m³ (${m.varMesPct}% no mês, ${m.varAnoPct}% no ano) · ` +
+    `${m.mes.agentes} distribuidoras · canal TRR ${m.canalTrr?.share}%`);
   console.log(`  Top: ${linha(m.mes)}`);
   console.log(`Fornecimento a TRRs ${s.referencia.rotulo}: ${linha(s.distribuidoras.mes)}`);
   console.log(`TRRs Brasil (${s.trrs.mes.agentes}, ${s.trrs.mes.total}): ${linha(s.trrs.mes)}`);
-  for (const e of s.estados) {
-    console.log(`  ${e.uf} distribuidoras (${e.dist.mes.total}): ${linha(e.dist.mes)}`);
-    console.log(`  ${e.uf} TRRs (${e.mes.total}): ${linha(e.mes)}`);
-  }
-  console.log(`CSV: ${csv.split('\r\n').length - 2} linhas, ${(csv.length / 1024).toFixed(0)} KB · ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  const js = JSON.stringify(serie);
+  console.log(`Série: ${serie.meses[0]} a ${serie.meses.at(-1)} (${serie.meses.length} meses), ${serie.nomes.length} nomes, ` +
+    `${(js.length / 1024).toFixed(0)} KB`);
+  console.log(`  MG ago/26 distribuidoras: total ${serie.merc.MG.t.at(-1)}, ${serie.merc.MG.n.at(-1)} empresas, ` +
+    serie.merc.MG.a.at(-1).slice(0, 3).map(([i, v]) => `${serie.curtos[i]} ${v}`).join(' | '));
+  console.log(`  Produtos BR: ${serie.merc.BR.prod.nomes.join(', ')} · Canais: ${serie.merc.BR.canal.nomes.join(', ')}`);
+  console.log(`CSV: ${csv.split('\n').length - 2} linhas, ${(csv.length / 1024).toFixed(0)} KB · ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }

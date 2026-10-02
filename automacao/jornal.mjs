@@ -213,10 +213,62 @@ function blocoGrafico(historico) {
 }
 
 /**
+ * Market share da ANP. Só entra na edição do dia em que a ANP divulga números
+ * novos (quem decide é o atualizar.mjs): é notícia nesse dia, não todo dia.
+ */
+function blocoShare(share) {
+  const m = share?.mercado;
+  if (!m?.mes?.top?.length) return '';
+  const mil = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const pp = (v) => {
+    if (v == null) return '';
+    const r = Math.round(v * 10) / 10;
+    return r === 0 ? '0,0' : `${r > 0 ? '+' : '−'}${num(Math.abs(r), 1)}`;
+  };
+  const pctTxt = (v) => (v == null ? null : `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)}%`);
+  const tabela = (titulo, bloco) => `
+      <table class="tabela">
+        <thead><tr><th>${esc(titulo)}</th><th class="n">Part.</th><th class="n">p.p.</th></tr></thead>
+        <tbody>${bloco.top.map((x) => `
+          <tr><td>${x.pos}. ${esc(x.curto || x.nome)}</td><td class="n">${num(x.share, 1)}%</td><td class="n">${pp(x.deltaPP)}</td></tr>`).join('')}
+        </tbody>
+      </table>`;
+  const ref = m.referencia;
+  const variacoes = [
+    pctTxt(m.varMesPct) && `${pctTxt(m.varMesPct)} sobre ${esc(ref.anterior || 'o mês anterior')}`,
+    pctTxt(m.varAnoPct) && `${pctTxt(m.varAnoPct)} sobre um ano antes`
+  ].filter(Boolean).join('; ');
+  const base = share.baseANP ? share.baseANP.split('-').reverse().join('/') : '';
+  return `
+  <section class="bloco">
+    <h2>Market share: ANP divulga ${esc(ref.rotulo)}</h2>
+    <p class="bloco__sub">Volumes declarados pelas distribuidoras e pelos TRRs ao SIMP${base ? `, base da ANP de ${esc(base)}` : ''}${ref.preliminar ? ' (dados preliminares)' : ''}.
+      Part.: participação no volume; p.p.: ganho ou perda sobre ${esc(ref.anterior || 'o mês anterior')}.</p>
+    <div class="numeros numeros--share">
+      <div class="numero"><span class="numero__rotulo">Distribuidoras venderam</span>
+        <span class="numero__valor">${mil(m.mes.total)} <small>mil m³</small></span>
+        <span class="numero__nota">${variacoes}</span></div>
+      ${m.canalTrr ? `<div class="numero"><span class="numero__rotulo">Canal TRR</span>
+        <span class="numero__valor">${mil(m.canalTrr.volume)} <small>mil m³</small></span>
+        <span class="numero__nota">${num(m.canalTrr.share, 1)}% do volume</span></div>` : ''}
+      <div class="numero"><span class="numero__rotulo">Com vendas no mês</span>
+        <span class="numero__valor">${m.mes.agentes}</span>
+        <span class="numero__nota">distribuidoras · ${share.trrs?.mes?.agentes ?? '—'} TRRs</span></div>
+    </div>
+    <div class="share-cols">
+      ${tabela('Distribuidoras · mercado total', m.mes)}
+      ${share.trrs?.mes?.top?.length ? tabela('TRRs · Brasil', share.trrs.mes) : ''}
+    </div>
+    <p class="bloco__nota">Por estado, por período e o ranking completo de todas as empresas:
+      <a href="https://www.supriprice.com.br/market-share.html">supriprice.com.br/market-share.html</a></p>
+  </section>`;
+}
+
+/**
  * Monta o HTML completo do jornal.
  * @returns {{html: string, nomeArquivo: string, titulo: string, chamada: string}}
  */
-export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, historico, indicadores }) {
+export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, historico, indicadores, share }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   const titulos = { mundo: 'Mundo', brasil: 'Brasil', transporte: 'Transporte', agro: 'Agro' };
 
@@ -333,6 +385,11 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
   .editoria a:hover { color: #B3341F; text-decoration: underline; }
   .fonte { display: block; font-size: 10.5px; color: #6A7480; margin-top: 1px; }
   .spark { width: 100%; height: 70px; display: block; }
+  .numeros--share { margin-bottom: 10px; }
+  .numeros--share small { font-size: 12px; font-weight: 600; color: #6A7480; }
+  .share-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 6px 22px; }
+  .share-cols .tabela td:first-child { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bloco__nota a { color: #B3341F; }
   .rodape {
     border-top: 1px solid #14171A; margin-top: 14px; padding-top: 8px;
     font-size: 10.5px; line-height: 1.45; color: #6A7480;
@@ -364,11 +421,12 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
 
   ${blocoNumeros({ abicom, brent, dolar, indicadores })}
   ${blocoAnp(anp)}
+  ${blocoShare(share)}
   ${blocoGrafico(historico)}
   ${blocoNoticias(noticias?.editorias || {}, titulos)}
 
   <footer class="rodape">
-    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
+    <span>Defasagem: Abicom/StoneX · Bomba e market share: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
       Mercado: Yahoo Finance ·
       Manchetes: veículos citados, com link para a matéria original.</span>
     <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial. © ${data.getFullYear()} SupriPrice</span>

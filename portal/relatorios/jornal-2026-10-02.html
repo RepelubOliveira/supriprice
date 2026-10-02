@@ -92,6 +92,11 @@
   .editoria a:hover { color: #B3341F; text-decoration: underline; }
   .fonte { display: block; font-size: 10.5px; color: #6A7480; margin-top: 1px; }
   .spark { width: 100%; height: 70px; display: block; }
+  .numeros--share { margin-bottom: 10px; }
+  .numeros--share small { font-size: 12px; font-weight: 600; color: #6A7480; }
+  .share-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 6px 22px; }
+  .share-cols .tabela td:first-child { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bloco__nota a { color: #B3341F; }
   .rodape {
     border-top: 1px solid #14171A; margin-top: 14px; padding-top: 8px;
     font-size: 10.5px; line-height: 1.45; color: #6A7480;
@@ -128,26 +133,26 @@
       </div>
       <div class="mercado__item">
         <span class="mercado__nome">Dólar</span>
-        <span class="mercado__valor tnum">R$ 5,2195</span>
-        <span class="baixa tnum">▼ −0,06%</span>
+        <span class="mercado__valor tnum">R$ 5,2148</span>
+        <span class="baixa tnum">▼ −0,15%</span>
         
       </div>
       <div class="mercado__item">
         <span class="mercado__nome">Euro</span>
-        <span class="mercado__valor tnum">R$ 5,8648</span>
-        <span class="baixa tnum">▼ −0,19%</span>
+        <span class="mercado__valor tnum">R$ 5,8637</span>
+        <span class="baixa tnum">▼ −0,21%</span>
         
       </div>
       <div class="mercado__item">
         <span class="mercado__nome">Brent</span>
-        <span class="mercado__valor tnum">US$ 99,89</span>
-        <span class="baixa tnum">▼ −2,37%</span>
+        <span class="mercado__valor tnum">US$ 99,42</span>
+        <span class="baixa tnum">▼ −2,82%</span>
         
       </div>
       <div class="mercado__item">
         <span class="mercado__nome">WTI</span>
-        <span class="mercado__valor tnum">US$ 89,77</span>
-        <span class="baixa tnum">▼ −3,34%</span>
+        <span class="mercado__valor tnum">US$ 89,28</span>
+        <span class="baixa tnum">▼ −3,87%</span>
         
       </div>
     </div>
@@ -155,7 +160,7 @@
   </header>
 
   <h2 class="manchete">Defasagem do diesel recua R$ 0,40 e fica em R$ 3,00</h2>
-  <p class="lide">A defasagem média do diesel fechou em <strong>R$ 3,00 por litro</strong>, 89% abaixo da paridade de importação. Entre os polos, a diferença vai de R$ 1,65 a R$ 3,39 por litro. A janela de importação está fechada há 262 dias na média. O Brent fechou a US$ 99,89 e o dólar, a R$ 5,21. Na bomba, o S10 saiu por R$ 7,33 em média nacional — alta de R$ 0,19 na semana.</p>
+  <p class="lide">A defasagem média do diesel fechou em <strong>R$ 3,00 por litro</strong>, 89% abaixo da paridade de importação. Entre os polos, a diferença vai de R$ 1,65 a R$ 3,39 por litro. A janela de importação está fechada há 262 dias na média. O Brent fechou a US$ 99,42 e o dólar, a R$ 5,21. Na bomba, o S10 saiu por R$ 7,33 em média nacional — alta de R$ 0,19 na semana.</p>
 
   
   <section class="numeros">
@@ -207,6 +212,49 @@
   </section>
   
   <section class="bloco">
+    <h2>Market share: ANP divulga ago/26</h2>
+    <p class="bloco__sub">Volumes declarados pelas distribuidoras e pelos TRRs ao SIMP, base da ANP de 01/10/2026.
+      Part.: participação no volume; p.p.: ganho ou perda sobre jul/26.</p>
+    <div class="numeros numeros--share">
+      <div class="numero"><span class="numero__rotulo">Distribuidoras venderam</span>
+        <span class="numero__valor">12.184,5 <small>mil m³</small></span>
+        <span class="numero__nota">−1,5% sobre jul/26; +4,2% sobre um ano antes</span></div>
+      <div class="numero"><span class="numero__rotulo">Canal TRR</span>
+        <span class="numero__valor">901,9 <small>mil m³</small></span>
+        <span class="numero__nota">7,4% do volume</span></div>
+      <div class="numero"><span class="numero__rotulo">Com vendas no mês</span>
+        <span class="numero__valor">144</span>
+        <span class="numero__nota">distribuidoras · 431 TRRs</span></div>
+    </div>
+    <div class="share-cols">
+      
+      <table class="tabela">
+        <thead><tr><th>Distribuidoras · mercado total</th><th class="n">Part.</th><th class="n">p.p.</th></tr></thead>
+        <tbody>
+          <tr><td>1. Vibra Energia</td><td class="n">21,9%</td><td class="n">−0,5</td></tr>
+          <tr><td>2. Ipiranga</td><td class="n">18,3%</td><td class="n">+0,4</td></tr>
+          <tr><td>3. Raízen</td><td class="n">16,8%</td><td class="n">+0,6</td></tr>
+          <tr><td>4. ALE Combustíveis</td><td class="n">2,3%</td><td class="n">−0,3</td></tr>
+          <tr><td>5. Atem</td><td class="n">1,9%</td><td class="n">0,0</td></tr>
+        </tbody>
+      </table>
+      
+      <table class="tabela">
+        <thead><tr><th>TRRs · Brasil</th><th class="n">Part.</th><th class="n">p.p.</th></tr></thead>
+        <tbody>
+          <tr><td>1. Serra Diesel TRR</td><td class="n">3,2%</td><td class="n">+0,2</td></tr>
+          <tr><td>2. Risel Combustíveis</td><td class="n">2,5%</td><td class="n">+0,3</td></tr>
+          <tr><td>3. Agricopel Comércio de Derivados de Petroleo</td><td class="n">2,5%</td><td class="n">+0,2</td></tr>
+          <tr><td>4. Rudipel Rudnick Petróleo</td><td class="n">2,4%</td><td class="n">0,0</td></tr>
+          <tr><td>5. Rio Branco Derivados de Petroleo</td><td class="n">2,1%</td><td class="n">−0,2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="bloco__nota">Por estado, por período e o ranking completo de todas as empresas:
+      <a href="https://www.supriprice.com.br/market-share.html">supriprice.com.br/market-share.html</a></p>
+  </section>
+  
+  <section class="bloco">
     <h2>Defasagem nos últimos 20 pregões</h2>
     <svg class="spark" viewBox="0 0 560 90" preserveAspectRatio="none" aria-hidden="true">
       <path d="M0.0,71.9 L29.5,84.0 L58.9,65.1 L88.4,81.0 L117.9,58.3 L147.4,31.7 L176.8,43.9 L206.3,36.3 L235.8,6.0 L265.3,17.4 L294.7,29.5 L324.2,34.8 L353.7,55.2 L383.2,50.7 L412.6,46.9 L442.1,48.4 L471.6,49.9 L501.1,17.4 L530.5,17.4 L560.0,47.7" fill="none" stroke="#B3341F" stroke-width="2"/>
@@ -243,10 +291,6 @@
         <h3>Brasil</h3>
         <ul>
         <li>
-          <a href="https://www.infomoney.com.br/mercados/petroleo-abertura-fechamento-ira-eua-02102026/" target="_blank" rel="noopener noreferrer">Petróleo cai com notícia de possível liberação de estoques de diesel e petróleo bruto</a>
-          <span class="fonte">InfoMoney</span>
-        </li>
-        <li>
           <a href="https://petronoticias.com.br/alem-de-usar-a-safra-de-cana-para-produzir-biocombustiveis-a-aplus-se-volta-para-o-milho-para-aproveitar-a-entresafra/" target="_blank" rel="noopener noreferrer">ALÉM DE USAR A SAFRA DE CANA PARA PRODUZIR BIOCOMBUSTÍVEIS, A APLUS SE VOLTA PARA O MILHO PARA APROVEITAR A ENTRESSAFRA</a>
           <span class="fonte">Petronotícias</span>
         </li>
@@ -256,6 +300,10 @@
         </li>
         <li>
           <a href="https://petronoticias.com.br/a-melbana-parceira-da-sonangol-em-cuba-reporta-perdas-milionarias-e-abandona-investimentos-em-petroleo-no-pais/" target="_blank" rel="noopener noreferrer">A MELBANA, PARCEIRA DA SONANGOL EM CUBA, REPORTA PERDAS MILIONÁRIAS E ABANDONA INVESTIMENTOS EM PETRÓLEO NO PAÍS</a>
+          <span class="fonte">Petronotícias</span>
+        </li>
+        <li>
+          <a href="https://petronoticias.com.br/exxonmobil-e-totalenergies-arrematam-cargas-de-petroleo-da-uniao-em-leilao-da-ppsa/" target="_blank" rel="noopener noreferrer">EXXONMOBIL E TOTALENERGIES ARREMATAM CARGAS DE PETRÓLEO DA UNIÃO EM LEILÃO DA PPSA</a>
           <span class="fonte">Petronotícias</span>
         </li></ul>
       </div>
@@ -294,7 +342,7 @@
   </section>
 
   <footer class="rodape">
-    <span>Defasagem: Abicom/StoneX · Bomba: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
+    <span>Defasagem: Abicom/StoneX · Bomba e market share: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
       Mercado: Yahoo Finance ·
       Manchetes: veículos citados, com link para a matéria original.</span>
     <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial. © 2026 SupriPrice</span>

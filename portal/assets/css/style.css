@@ -504,6 +504,102 @@ button { cursor: pointer; }
   margin: 4px 0 8px;
 }
 
+/* --- Aba Market share (market-share.html) -------------------------------- */
+.ms-hero__inner { padding-block: 28px 30px; display: flex; flex-direction: column; gap: 8px; }
+.ms-hero__lead { font-size: 16px; color: var(--on-navy-2); max-width: 70ch; }
+
+/* Filtros: fixos logo abaixo do cabeçalho em tela larga (valem para a
+   página toda); no celular rolam junto, para não comer meia tela. */
+.ms-filtros { background: var(--surface); border-bottom: 1px solid var(--line); z-index: 30; }
+@media (min-width: 900px) {
+  .ms-filtros { position: sticky; top: 57px; box-shadow: 0 6px 14px -12px rgba(14, 42, 71, .35); }
+}
+.ms-filtros__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; padding-block: 12px; }
+.ms-filtro { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.ms-filtro__rotulo {
+  font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+}
+.ms-filtros .filter { padding: 6px 12px; font-size: 13px; }
+.ms-datas { display: flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.ms-datas label { display: flex; align-items: center; gap: 6px; }
+.ms-datas select {
+  font: inherit; font-weight: 700; color: var(--navy); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: 34px;
+}
+
+.ms-main { gap: 24px; padding-bottom: 8px; }
+.ms-status { font-size: 15px; color: var(--muted); padding: 40px 0; text-align: center; }
+.ms-status.is-erro { color: var(--brand); }
+#msConteudo { display: flex; flex-direction: column; gap: 24px; }
+#msConteudo[hidden] { display: none; }
+.ms-resumo { font-size: 15px; color: var(--ink-3); }
+.ms-resumo b { color: var(--ink); }
+.ms-prelim { color: var(--brand); font-weight: 600; }
+
+.ms-sec {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px;
+  border-top: 1px solid var(--line); padding-top: 14px;
+}
+.ms-sec__titulo { font-size: 22px; font-weight: 700; }
+
+/* Gráficos (SVG desenhado pelo share.js na largura do cartão). */
+.ms-chart { position: relative; width: 100%; min-height: 120px; }
+.ms-chart svg { display: block; overflow: visible; }
+.ms-grade { stroke: var(--line-3); stroke-width: 1; }
+.ms-eixo { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.ms-barra { fill: #C5D0DC; }
+.ms-barra.is-sel { fill: var(--navy); }
+.ms-alvo { fill: transparent; }
+#msBarras .ms-alvo { cursor: pointer; }
+.ms-cruz { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ms-tip {
+  position: absolute; z-index: 5; pointer-events: none; min-width: 120px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: var(--shadow); padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink);
+}
+.ms-tip[hidden] { display: none; }
+.ms-tip__linha { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ms-tip__linha b { margin-left: auto; padding-left: 12px; }
+.ms-tip__linha i, .ms-legenda__item i, .ms-cor {
+  display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none;
+}
+.ms-cor { margin-right: 7px; vertical-align: 0; }
+/* Na aba, a cor identifica a EMPRESA (quadradinho, linhas do gráfico): a
+   barra do 1º colocado não fica vermelha, para não parecer outra série. */
+.pg-share .rank__row:first-child .rank__bar > i { background: var(--navy-3); }
+.ms-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-3); }
+.ms-legenda__item { display: inline-flex; align-items: center; gap: 6px; }
+
+.ms-tabela summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--navy-3); }
+.ms-tabela__rolagem { overflow-x: auto; margin-top: 10px; }
+.tabela-ms { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.tabela-ms th, .tabela-ms td { padding: 5px 10px; border-bottom: 1px solid var(--line-3); text-align: left; white-space: nowrap; }
+.tabela-ms th { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.tabela-ms .n { text-align: right; }
+.ms-fonte { line-height: 1.6; }
+
+/* Chamada da aba na página inicial. */
+.share-teaser {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: 16px 28px;
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--navy);
+  border-radius: var(--radius); padding: 20px 22px;
+}
+.share-teaser__eyebrow { font-size: 12px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: .06em; }
+.share-teaser h2 { font-size: 22px; font-weight: 700; margin: 2px 0 6px; }
+.share-teaser p { font-size: 14.5px; color: var(--ink-3); }
+.share-teaser__top { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.share-teaser__top li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dotted var(--line); padding-bottom: 4px; }
+.share-teaser__top b { font-variant-numeric: tabular-nums; color: var(--navy); }
+.share-teaser .btn { width: auto; white-space: nowrap; }
+.share-teaser__novo {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  background: var(--brand); color: #fff; font-size: 10.5px; letter-spacing: .04em; vertical-align: 1px;
+}
+@media (max-width: 900px) {
+  .share-teaser { grid-template-columns: 1fr; }
+  .share-teaser .btn { width: 100%; justify-content: center; }
+}
+
 /* --- Arquivo ------------------------------------------------------------- */
 .archive-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .filter {

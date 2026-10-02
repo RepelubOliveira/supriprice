@@ -102,23 +102,44 @@ Conferido em 02/10/2026 contra o painel de TRR: somando de 2017 em diante, o
 robô chega a 91.159 mil m³ e Vibra 25,5%, Raízen 15,1%, Ipiranga 14,6% — os
 mesmos números do painel. E os totais por ano batem centavo a centavo.
 
-O que aparece no portal (seção "Market share"):
-- **Números do mercado**: volume total vendido pelas distribuidoras (com a
-  variação sobre o mês anterior e sobre o mesmo mês do ano anterior), o volume
-  do canal TRR e quanto ele pesa, e quantas distribuidoras e TRRs venderam.
-- **Top 5 distribuidoras** no mercado total, **Top 5 fornecedoras de TRR** e
-  **Top 5 TRRs** no Brasil.
-- **Volume por produto** (diesel B, gasolina C, etanol hidratado, óleo
-  combustível) e **por canal** (postos bandeirados, bandeira branca,
-  consumidor final, TRRs).
-- **Por estado** (MG, SP, MS, RJ, DF, GO, BA, SC, PR): Top 5 distribuidoras e
-  Top 5 TRRs **dentro** do estado, de empresas de qualquer origem.
-- O visitante escolhe **o último mês** (setas de ganho ou perda de
-  participação, em pontos percentuais) ou **os últimos 12 meses**.
+Onde aparece:
+- **Aba "Market share"** (`market-share.html`, no menu do topo): a página
+  própria do mercado de distribuição. Tudo segue dois filtros, que ficam
+  fixos no topo:
+  - **Período:** qualquer mês desde jan/2024, ou um intervalo "de/até", com
+    atalhos (último mês, 3, 6, 12 meses, cada ano). Clicar num mês do gráfico
+    de barras também seleciona o mês.
+  - **Recorte:** Brasil ou um dos estados em destaque (MG, SP, MS, RJ, DF, GO,
+    BA, SC, PR) — vendas dentro do estado, de empresas de qualquer origem.
+  - O filtro vai para o endereço (`#de=2026-06&ate=2026-08&uf=MG`): um link
+    copiado abre exatamente a mesma visão.
+  - Conteúdo: números do mercado (com comparação ao período anterior e ao
+    mesmo período um ano antes), volume mensal em barras, rankings Top
+    5/10/20 de distribuidoras, fornecedoras de TRR e TRRs (com ganho ou perda
+    de participação em p.p.), evolução mês a mês da participação das 5
+    maiores (também em tabela), volume por produto e por canal, e o botão do
+    ranking completo em CSV.
+  - A fornecedora de TRR só existe para o Brasil: a ANP não abre esse dado por
+    estado (a página avisa).
+- **Página inicial:** uma chamada com o último mês (volume total, canal TRR e
+  as 3 maiores) e o botão para a aba. Fica com a etiqueta "NOVO" por uma
+  semana depois que a ANP divulga.
+- **Jornal do dia:** **sempre que a ANP divulga números novos** (base com
+  data nova, dia 1 ou dia 20), o jornal daquele dia ganha o bloco "Market
+  share: ANP divulga <mês>" — volume total, canal TRR e Top 5 distribuidoras
+  e TRRs com a variação em p.p. Nas reedições do mesmo dia o bloco continua;
+  no dia seguinte sai. Se no dia não houver jornal (sem boletim da Abicom), o
+  bloco entra no próximo. O controle fica em `conteudo/share-trr.json`
+  (`jornalBase`, `jornalData`).
 - **Ranking completo em CSV**: todas as empresas, posição a posição, no Brasil
   e nos 27 estados, mês e 12 meses (~6 mil linhas, ~700 KB). Abre direto no
-  Excel. Fica em `dados/market-share-AAAA-MM-DD.csv` (data da base da ANP) e
-  sobe uma vez por versão da base.
+  Excel.
+
+Arquivos que o robô gera (sobem uma vez por base da ANP):
+- `dados/share-serie-AAAA-MM-DD.json` (~230 KB): a série mensal da aba. Por
+  mês e recorte, o total exato e as 25 maiores empresas — dá o ranking certo
+  de qualquer período até o Top 20.
+- `dados/market-share-AAAA-MM-DD.csv`: o ranking completo.
 
 Detalhes:
 - Volumes em mil m³; GLP, QAV e lubrificantes não entram (são outros painéis).

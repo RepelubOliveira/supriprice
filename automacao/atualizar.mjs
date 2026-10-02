@@ -47,7 +47,10 @@ const P = {
 
 // Sobe quando muda o formato do bloco de market share: força uma nova coleta
 // mesmo que o guardado seja de hoje.
-const VERSAO_SHARE = 2;
+const VERSAO_SHARE = 3;
+
+// Páginas que carregam o dados.js (o robô reescreve a versão em todas).
+const PAGINAS = ['index.html', 'market-share.html'];
 
 const args = process.argv.slice(2);
 const SIMULAR = args.includes('--simular');
@@ -285,33 +288,52 @@ async function principal() {
   // mês de referência — e a próxima rodada tenta de novo. Nunca derruba a
   // atualização.
   let share = await lerJson(P.shareTrr, null);
-  let csvShare = null;
   if (share?.coletadoISO === iso(hoje) && share?.versao === VERSAO_SHARE) {
     log(`Market share: já coletado hoje (referência ${share.referencia.rotulo}).`);
   } else {
     log('Buscando mercado de distribuição e market share (ANP)...');
     try {
       const r = await lerShare();
-      const arquivo = `dados/market-share-${r.share.baseANP}.csv`;
-      share = { versao: VERSAO_SHARE, coletadoISO: iso(hoje), csv: arquivo, ...r.share };
+      const base = r.share.baseANP;
+      const csv = `dados/market-share-${base}.csv`;
+      const serie = `dados/share-serie-${base}.json`;
+      // DIVULGAÇÃO: base com data nova = a ANP soltou números novos (dia 1 ou
+      // 20). O jornal do dia ganha o bloco de market share por causa disso.
+      const novaBase = share?.baseANP !== base;
+      share = {
+        versao: VERSAO_SHARE,
+        coletadoISO: iso(hoje),
+        divulgadoISO: novaBase || !share?.divulgadoISO ? iso(hoje) : share.divulgadoISO,
+        publicados: novaBase ? [] : (share?.publicados || []),
+        jornalBase: share?.jornalBase || null,
+        jornalData: share?.jornalData || null,
+        csv, serie,
+        ...r.share
+      };
       await mkdir(path.join(RAIZ, 'portal', 'dados'), { recursive: true });
-      await writeFile(path.join(RAIZ, 'portal', arquivo), r.csv, 'utf8');
+      await writeFile(path.join(RAIZ, 'portal', csv), r.csv, 'utf8');
+      await writeFile(path.join(RAIZ, 'portal', serie), JSON.stringify(r.serie), 'utf8');
       await writeFile(P.shareTrr, JSON.stringify(share) + '\n', 'utf8');
       const m = share.mercado, top = m.mes.top[0], trr = share.trrs.mes.top[0];
       log(`Mercado ${m.referencia.rotulo}${m.referencia.preliminar ? ' (preliminar)' : ''}: ${m.mes.total} mil m³ · ` +
-        `líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}% · CSV ${(r.csv.length / 1024).toFixed(0)} KB`);
+        `líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}%` +
+        (novaBase ? ` · BASE NOVA DA ANP (${base})` : ''));
     } catch (e) {
       console.warn(`  ! Market share indisponível: ${e.message}`);
       if (share) log(`Market share: usando o último guardado (referência ${share.referencia.rotulo}).`);
     }
   }
-  // O ranking completo (CSV, ~700 KB) sobe UMA vez por versão da base: o
-  // share-trr.json lembra qual já foi publicado. Se o arquivo local sumiu
-  // antes de subir, o portal sai sem o botão em vez de apontar para o nada.
-  if (share?.csv && share.csvPublicado !== share.csv) {
-    const local = path.join(RAIZ, 'portal', share.csv);
-    if (existsSync(local)) csvShare = { path: share.csv, content: await readFile(local, 'utf8') };
-    else share = { ...share, csv: null };
+  // Arquivos grandes da aba (série ~230 KB, ranking CSV ~700 KB) sobem UMA vez
+  // por base da ANP: o share-trr.json lembra o que já foi publicado. Se um
+  // deles sumiu do disco antes de subir, o portal sai sem ele em vez de
+  // apontar para o nada.
+  const extrasShare = [];
+  for (const campo of ['csv', 'serie']) {
+    const arq = share?.[campo];
+    if (!arq || (share.publicados || []).includes(arq)) continue;
+    const local = path.join(RAIZ, 'portal', arq);
+    if (existsSync(local)) extrasShare.push({ path: arq, content: await readFile(local, 'utf8') });
+    else share = { ...share, [campo]: null };
   }
 
   const histAntes = await lerJson(P.historico, []);
@@ -326,10 +348,20 @@ async function principal() {
   // --- jornal do dia -------------------------------------------------------
   // Só com boletim novo: a manchete do jornal nasce da defasagem do dia.
   let jornal = null;
+  let jornalComShare = false;
   const edicoesAntes = await lerJson(P.edicoes, []);
   let edicoes = edicoesAntes;
   if (!parcial) {
-    jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores });
+    // Market share no jornal: na edição do dia em que a ANP divulga números
+    // novos (e nas reedições desse mesmo dia). Se nesse dia não houver
+    // edição, entra na próxima.
+    const shareNoJornal = share?.mercado &&
+      (share.jornalBase !== share.baseANP || share.jornalData === iso(hoje)) ? share : null;
+    jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores, share: shareNoJornal });
+    if (shareNoJornal) {
+      jornalComShare = true;
+      log(`Jornal: com o bloco de market share da ANP (${share.mercado.referencia.rotulo}).`);
+    }
     await mkdir(P.relatorios, { recursive: true });
     await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
     log(`Jornal: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
@@ -388,14 +420,19 @@ async function principal() {
     timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(/:/g, '');
-  const indexAntes = await readFile(P.index, 'utf8');
+  // As duas páginas carregam o dados.js: as duas ganham o endereço novo.
   const REF_DADOS = /assets\/js\/dados\.js(\?v=[^"']*)?(["'])/g;
-  const referencias = indexAntes.match(REF_DADOS) || [];
-  if (referencias.length !== 1) {
-    throw new Error(`Esperava 1 referência ao dados.js no index.html e achei ${referencias.length}. Abortando para não publicar uma página que não carrega os números.`);
+  const paginas = [];
+  for (const nome of PAGINAS) {
+    const antes = await readFile(path.join(RAIZ, 'portal', nome), 'utf8');
+    const referencias = antes.match(REF_DADOS) || [];
+    if (referencias.length !== 1) {
+      throw new Error(`Esperava 1 referência ao dados.js em ${nome} e achei ${referencias.length}. Abortando para não publicar uma página que não carrega os números.`);
+    }
+    const html = antes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
+    await writeFile(path.join(RAIZ, 'portal', nome), html, 'utf8');
+    paginas.push({ path: nome, content: html });
   }
-  const indexHtml = indexAntes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
-  await writeFile(P.index, indexHtml, 'utf8');
   if (!parcial) {
     await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
     await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
@@ -409,18 +446,24 @@ async function principal() {
     slug: process.env.HTMLY_SLUG || 'supriprice',
     chave: process.env.HTMLY_API_KEY,
     arquivos: [
-      // Os dois juntos, na mesma chamada: o index aponta para a versão nova
-      // do dados.js no mesmo instante em que ela passa a existir.
+      // Tudo na mesma chamada: as páginas apontam para a versão nova do
+      // dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
-      { path: 'index.html', content: indexHtml },
+      ...paginas,
       ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : []),
-      ...(csvShare ? [csvShare] : [])
+      // Os arquivos da aba vão na MESMA chamada do dados.js que aponta para eles.
+      ...extrasShare
     ]
   });
   log(`Publicado: ${res.url || ''} · ${res.storage_bytes ?? '?'} bytes`);
-  if (csvShare) {
-    await writeFile(P.shareTrr, JSON.stringify({ ...share, csvPublicado: csvShare.path }) + '\n', 'utf8');
-    log(`Ranking completo publicado: ${csvShare.path}`);
+  if (share && (extrasShare.length || jornalComShare)) {
+    share = {
+      ...share,
+      publicados: [...new Set([...(share.publicados || []), ...extrasShare.map((x) => x.path)])],
+      ...(jornalComShare ? { jornalBase: share.baseANP, jornalData: iso(hoje) } : {})
+    };
+    await writeFile(P.shareTrr, JSON.stringify(share) + '\n', 'utf8');
+    for (const x of extrasShare) log(`Market share publicado: ${x.path}`);
   }
 }
 
