@@ -44,7 +44,7 @@ serve só de backup do código e para execução manual.
 | Defasagem do diesel e da gasolina | Abicom, análise com a StoneX | diária |
 | Faixa por polo, dias de janela fechada | Abicom | diária |
 | Dólar PTAX (painel e jornal) | Banco Central, PTAX de venda | diária |
-| **Faixa de mercado: Ibovespa, dólar, euro, Brent, WTI** | **Yahoo Finance** | **2x por dia útil** |
+| **Faixa de mercado: Ibovespa, dólar, euro, Brent, WTI** | **Yahoo Finance** | **ao vivo, a cada minuto** |
 | Preço na bomba, média nacional | ANP, dados abertos | semanal |
 | Preço por região e por estado | ANP | semanal |
 | Variação semanal do S10 | ANP | semanal |
@@ -52,6 +52,7 @@ serve só de backup do código e para execução manual.
 | Gráfico de 30 dias | Histórico acumulado | diária |
 | Jornal do dia (página A4) | Gerado dos dados + manchetes | diária |
 | Arquivo de edições | Gerado | diária |
+| **Market share de TRR: top 5 distribuidoras, top 5 TRRs, top 5 por estado** | **ANP, SIMP (trr.zip)** | **confere 1x por dia; a ANP muda dia 1 e dia 20** |
 
 O `conteudo/editorial.json` guarda só o que nenhuma fonte publica em formato
 aberto: o preço da Petrobras nas refinarias (muda poucas vezes por ano) e a
@@ -59,11 +60,21 @@ agenda. **Dá para nunca mais abrir esse arquivo** — o portal funciona sozinho
 
 ### Sobre a faixa de mercado
 
-**Não é cotação ao vivo.** O InfoMoney atualiza a cada segundo; aqui os números
-são uma foto tirada às 07:00, 12:00 e 17:00. Por isso a faixa diz de quando é cada
-cotação. Às 07:00 a B3 ainda não abriu: o Ibovespa aparece com
-**"fech. DD/MM"** — o fechamento do pregão anterior — em vez de fingir ser o
-número do dia.
+**É ao vivo.** Com a página aberta, a faixa busca as cotações **a cada minuto**
+e troca os números sem parar o letreiro; o ponto verde "Ao vivo" aparece ao lado
+da hora. Bolsas e futuros (Ibovespa, Brent, WTI) vêm com o atraso de até 15 min
+que o Yahoo aplica, o mesmo de portais como o InfoMoney. Às 07:00 a B3 ainda não
+abriu: o Ibovespa aparece com **"fech. DD/MM"**, o fechamento do pregão anterior.
+
+**Como funciona.** O Yahoo não deixa o navegador consultá-lo direto, então há
+um intermediário: a função **`cotacoes`** no Supabase, projeto
+**radar-precos-risel** (plano gratuito). Ela consulta o Yahoo no máximo uma vez
+por minuto, seja quantos forem os visitantes, e só responde ao domínio do
+portal. Código em `supabase/functions/cotacoes/index.ts`.
+- Se a função cair, a faixa continua com os números que o robô gravou às
+  07:00/12:00/17:00, com a hora de cada um. Nada quebra.
+- **Não apague o projeto radar-precos-risel** nem a função `cotacoes` no
+  Supabase: é deles que vem o "ao vivo".
 
 **A variação é sobre o fechamento anterior do mesmo ativo**, o critério dos
 portais econômicos. Pequenas diferenças no dólar entre sites são normais: cada
@@ -76,6 +87,30 @@ porque preço subindo é a notícia ruim para quem compra diesel.
 **O Brent aparece uma vez só.** Quando a faixa traz o Brent, ele sai do painel
 do topo e do quadro de números do jornal — são números de momentos diferentes
 (cotação atual x fechamento), e dois Brents na mesma tela só confundiriam.
+
+### Sobre o market share de TRR
+
+Vem da **mesma base de dados do Painel Dinâmico do Mercado Brasileiro de TRR**
+(o Power BI da ANP): a ANP publica essa base como planilha aberta, o `trr.zip`,
+e o robô lê a planilha em vez do Power BI. Conferido em 02/10/2026: somando de
+2017 em diante, o robô chega a 91.159 mil m³ e Vibra 25,5%, Raízen 15,1%,
+Ipiranga 14,6% — os mesmos números do painel.
+
+- **Top 5 distribuidoras**: quanto cada distribuidora vendeu aos TRRs (aba
+  "Fornecimento por Distribuidor" do painel).
+- **Top 5 TRRs**: quanto cada TRR vendeu ao consumidor final ("Mercado TRR").
+- **Por estado** (MG, SP, MS, RJ, DF, GO, BA, SC, PR): vendas **dentro** do
+  estado, de TRRs de qualquer origem (UF de destino).
+- Todos os produtos somados, em mil m³. O visitante escolhe **o último mês**
+  (com setas de ganho ou perda de participação sobre o mês anterior, em pontos
+  percentuais) ou **os últimos 12 meses**.
+- **Quando muda:** a ANP atualiza dia 1 (mês retrasado, consolidado) e dia 20
+  (mês anterior, preliminar — o site marca "prévia"). A primeira rodada de cada
+  dia baixa o arquivo (5 MB, segundos); as outras reaproveitam
+  `conteudo/share-trr.json`. Se a ANP não responder, fica o último resultado,
+  com o mês de referência à mostra.
+- Para mudar os estados destacados: lista `ESTADOS` em `automacao/share.mjs`.
+- Teste isolado: `node automacao/share.mjs` mostra os rankings no terminal.
 
 ---
 

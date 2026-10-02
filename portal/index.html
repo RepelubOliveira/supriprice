@@ -40,7 +40,7 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261001a">
+<link rel="stylesheet" href="assets/css/style.css?v=20261002a">
 </head>
 <body>
 
@@ -78,6 +78,7 @@
     <nav class="nav" id="navPrincipal" aria-label="Navegação principal">
       <a href="#arbitragem">Arbitragem</a>
       <a href="#painel">Mercado</a>
+      <a href="#share">Market share</a>
       <a href="#noticias">Notícias</a>
       <a href="#jornal">Jornal do dia</a>
       <a href="#arquivo">Arquivo</a>
@@ -149,6 +150,44 @@
     </div>
   </section>
 
+  <!-- Market share do mercado de TRR (ANP). Preenchido pelo app.js a partir
+       de D.share; fica escondido se o robô ainda não tiver os números. -->
+  <section class="section" id="share" aria-labelledby="shareTitulo" hidden>
+    <div class="section-head">
+      <h2 id="shareTitulo">Market share · mercado de TRR</h2>
+      <div class="archive-filters" id="sharePeriodo" role="group" aria-label="Período do market share"></div>
+    </div>
+    <p class="share__lead" id="shareLead"></p>
+    <div class="panel">
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Top 5 distribuidoras</h3>
+          <p class="card__note">Fornecimento aos TRRs</p>
+        </div>
+        <ol class="rank" id="shareDist"></ol>
+        <p class="card__note" id="shareDistNota"></p>
+      </div>
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title">Top 5 TRRs · Brasil</h3>
+          <p class="card__note">Vendas ao consumidor final</p>
+        </div>
+        <ol class="rank" id="shareTrr"></ol>
+        <p class="card__note" id="shareTrrNota"></p>
+      </div>
+      <div class="card">
+        <div class="card__head">
+          <h3 class="card__title" id="shareUfTitulo">Top 5 TRRs por estado</h3>
+          <p class="card__note">Vendas no estado, por TRRs de qualquer origem</p>
+        </div>
+        <div class="archive-filters" id="shareUfs" role="group" aria-label="Escolher o estado"></div>
+        <ol class="rank" id="shareUf" aria-live="polite"></ol>
+        <p class="card__note" id="shareUfNota"></p>
+      </div>
+    </div>
+    <p class="card__note" id="shareFonte"></p>
+  </section>
+
   <!-- Notícias -->
   <section class="section" id="noticias" aria-labelledby="noticiasTitulo">
     <div class="section-head">
@@ -184,6 +223,7 @@
   <span>
     Defasagem: Abicom, em parceria com a StoneX. Preço na bomba: ANP, dados abertos.
     Dólar PTAX: Banco Central. Brent: ICE. Indicadores de mercado: Yahoo Finance.
+    Market share de TRR: ANP, SIMP (dados abertos).
     Manchetes: os veículos citados em cada item,
     com link para a matéria original. Conteúdo informativo, não constitui
     recomendação comercial.
@@ -206,7 +246,7 @@
      immutable" — sem um endereço novo a cada atualização, quem já visitou o
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
-<script src="assets/js/dados.js?v=20261001-104533"></script>
-<script src="assets/js/app.js?v=20261001a"></script>
+<script src="assets/js/dados.js?v=20261002-082659"></script>
+<script src="assets/js/app.js?v=20261002a"></script>
 </body>
 </html>

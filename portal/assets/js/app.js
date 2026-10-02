@@ -165,12 +165,28 @@
   // 10 indicadores, em tela estreita ou larga.
   var MKT_VELOCIDADE = 45;
 
+  // Cotações ao vivo. O Yahoo não deixa o navegador consultá-lo direto (sem
+  // CORS), então quem busca é uma função nossa no Supabase, com cache de 60 s
+  // (código em supabase/functions/cotacoes). Os números do dados.js, gravados
+  // pelo robô, aparecem primeiro e continuam valendo se a função falhar.
+  var COTACOES_URL = 'https://wqoztljdblwuqgaryujd.supabase.co/functions/v1/cotacoes';
+  var COTACOES_INTERVALO = 60000;
+
+  /** AAAA-MM-DD de hoje em Brasília, seja qual for o fuso do visitante. */
+  function hojeBrasilia() {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    } catch (e) { return ''; }
+  }
+
   function montarMercado() {
     var caixa = $('#mercado'), lista = $('#mercadoLista'), meta = $('#mercadoMeta');
+    if (!caixa || !lista) return;
     var ind = D.indicadores || [];
-    if (!caixa || !lista || !ind.length) return;
+    var aoVivo = false;
     // O dia da EXECUÇÃO, não o do boletim: na atualização parcial das 07:00 o
-    // boletim é de ontem, mas a cotação do dólar das 06:50 é de hoje.
+    // boletim é de ontem, mas a cotação do dólar das 06:50 é de hoje. Com as
+    // cotações ao vivo, passa a ser o dia de hoje mesmo.
     var hoje = D.meta && (D.meta.atualizadoISO || D.meta.dataISO);
 
     /** Um item da faixa. eco=true é cópia só visual: some do leitor de tela. */
@@ -185,7 +201,8 @@
       var dica = (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
         ' · variação sobre o fechamento anterior';
       return '' +
-        '<li class="mkt__item" title="' + esc(dica) + '"' + (eco ? ' aria-hidden="true"' : '') + '>' +
+        '<li class="mkt__item" data-ind="' + esc(i.id) + '" title="' + esc(dica) + '"' +
+          (eco ? ' aria-hidden="true"' : '') + '>' +
           '<span class="mkt__name">' + esc(i.nome) + '</span>' +
           '<span class="mkt__val tnum">' + esc(valorIndicador(i)) + '</span>' +
           '<span class="mkt__chg mkt__chg--' + sentido + ' tnum">' +
@@ -198,18 +215,78 @@
     }
     function volta(eco) { return ind.map(function (i) { return item(i, eco); }).join(''); }
 
-    if (meta) {
+    function escreverMeta() {
+      if (!meta) return;
       var horas = ind.filter(function (i) { return !hoje || !i.dataISO || i.dataISO >= hoje; })
         .map(function (i) { return i.hora; }).sort();
-      meta.textContent = (horas.length ? 'Cotações das ' + horas[horas.length - 1] : 'Último fechamento') +
-        ' · Yahoo Finance';
+      var hora = horas.length ? horas[horas.length - 1] : '';
+      if (aoVivo) {
+        meta.innerHTML = '<span class="mkt__live" aria-hidden="true"></span>Ao vivo' +
+          (hora ? ' · ' + esc(hora) : '') + ' · Yahoo Finance';
+        meta.title = 'Atualiza sozinho a cada minuto. Bolsas e futuros com atraso de até 15 min.';
+      } else {
+        meta.textContent = (hora ? 'Cotações das ' + hora : 'Último fechamento') + ' · Yahoo Finance';
+      }
     }
-    caixa.hidden = false;
 
-    // Movimento reduzido pedido no sistema: lista parada, uma vez só. O CSS
-    // quebra os itens em linhas e esconde o botão de pausa.
     var semMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (semMovimento) { lista.innerHTML = volta(false); return; }
+    var larguraMontada = -1;
+
+    /** (Re)monta a faixa inteira: na abertura e quando muda a lista de itens. */
+    function montar() {
+      if (!ind.length) return;
+      escreverMeta();
+      caixa.hidden = false;
+      // Movimento reduzido pedido no sistema: lista parada, uma vez só. O CSS
+      // quebra os itens em linhas e esconde o botão de pausa.
+      if (semMovimento) { lista.innerHTML = volta(false); return; }
+      larguraMontada = -1;
+      montarLaco();
+    }
+
+    /*
+     * Chegou cotação nova. Se os itens são os mesmos, troca só o texto de cada
+     * um, no lugar: a faixa não para nem pula. As duas metades do laço mudam
+     * igual, então o recomeço continua invisível.
+     */
+    function aplicarAoVivo(novos) {
+      var porId = {};
+      novos.forEach(function (n) { if (n && n.id) porId[n.id] = n; });
+      var antes = ind.map(function (i) { return i.id; }).join();
+      var vistos = {};
+      // Mantém a ordem do robô; o que só a função trouxe entra no fim.
+      ind = ind.map(function (i) { vistos[i.id] = 1; return porId[i.id] || i; })
+        .concat(novos.filter(function (n) { return n && n.id && !vistos[n.id]; }));
+      aoVivo = true;
+      hoje = hojeBrasilia() || hoje;
+
+      if (ind.map(function (i) { return i.id; }).join() !== antes || !lista.children.length) {
+        montar();
+        return;
+      }
+      var molde = document.createElement('ul');
+      Array.prototype.forEach.call(lista.querySelectorAll('li[data-ind]'), function (li) {
+        var i = porId[li.getAttribute('data-ind')];
+        if (!i) return;
+        molde.innerHTML = item(i, li.getAttribute('aria-hidden') === 'true');
+        lista.replaceChild(molde.firstChild, li);
+      });
+      escreverMeta();
+    }
+
+    var ultimaBusca = 0;
+    function buscarAoVivo() {
+      if (!window.fetch || document.hidden) return;
+      ultimaBusca = Date.now();
+      var ctrl = window.AbortController ? new AbortController() : null;
+      var limite = ctrl && setTimeout(function () { ctrl.abort(); }, 10000);
+      fetch(COTACOES_URL, { signal: ctrl ? ctrl.signal : undefined, credentials: 'omit' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) { if (j && j.indicadores && j.indicadores.length) aplicarAoVivo(j.indicadores); })
+        // Falhou: fica o que já está na tela, com a hora de cada cotação.
+        .catch(function () {})
+        .then(function () { if (limite) clearTimeout(limite); });
+    }
 
     /*
      * O laço: a animação desliza a lista em -50%. Para o recomeço ser
@@ -219,8 +296,8 @@
      * indicadores se repete quantas vezes for preciso dentro de cada metade.
      * Só a primeira volta é lida pelo leitor de tela; o resto é eco visual.
      */
-    var larguraMontada = -1;
     function montarLaco() {
+      if (semMovimento || !ind.length) return;
       var janela = lista.parentNode;
       var largura = janela.clientWidth;
       if (largura === larguraMontada) return;
@@ -238,7 +315,16 @@
       lista.style.setProperty('--mkt-dur', ((umaVolta * repeticoes) / MKT_VELOCIDADE).toFixed(1) + 's');
     }
 
-    montarLaco();
+    montar();
+
+    // Ao vivo: busca já na abertura e depois a cada minuto, só com a aba à
+    // vista. Voltando a uma aba esquecida, atualiza na hora.
+    buscarAoVivo();
+    setInterval(buscarAoVivo, COTACOES_INTERVALO);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && Date.now() - ultimaBusca > COTACOES_INTERVALO) buscarAoVivo();
+    });
+
     // A fonte carrega depois e muda a largura dos textos; e a janela pode
     // mudar de tamanho. Nos dois casos a conta precisa ser refeita.
     if (document.fonts && document.fonts.ready) {
@@ -819,6 +905,144 @@
     return 'há ' + dias + ' dias';
   }
 
+  /* ------------------------------------------------------- market share */
+
+  /** 160.4 → "160,4" (uma casa, milhar com ponto). */
+  function dec1(v) {
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  /** Lembra a escolha do visitante (estado, período). Sem storage, segue sem. */
+  function lembrar(chave, valor) {
+    try {
+      if (valor === undefined) return window.localStorage.getItem('sp.' + chave);
+      window.localStorage.setItem('sp.' + chave, valor);
+    } catch (e) { /* aba anônima ou storage bloqueado */ }
+    return null;
+  }
+
+  function montarShare() {
+    var S = D.share, caixa = $('#share');
+    if (!caixa || !S || !S.trrs || !S.distribuidoras) {
+      // Sem números ainda: o atalho do menu também some, para não levar a nada.
+      var atalho = $('.nav a[href="#share"]'); if (atalho) atalho.hidden = true;
+      return;
+    }
+    var ref = S.referencia || {};
+    var periodo = lembrar('sharePeriodo') === 'ano' ? 'ano' : 'mes';
+    var ufs = (S.estados || []).filter(function (e) { return e.mes && e.mes.top && e.mes.top.length; });
+    var uf = lembrar('shareUf');
+    if (!ufs.some(function (e) { return e.uf === uf; })) uf = ufs.length ? ufs[0].uf : null;
+
+    /*
+     * Uma linha do ranking. A barra é proporcional ao LÍDER da lista (o 1º
+     * ocupa a largura toda), para as diferenças ficarem visíveis mesmo com
+     * participações de 2 ou 3%; o número ao lado é a participação real.
+     * Variação em pontos percentuais sobre o mês anterior: ganhar mercado é
+     * verde, perder é vermelho.
+     */
+    function linhas(bloco) {
+      if (!bloco || !bloco.top || !bloco.top.length) {
+        return '<li class="rank__vazio">Sem vendas declaradas neste período.</li>';
+      }
+      var maior = bloco.top[0].share || 1;
+      return bloco.top.map(function (x) {
+        var delta = '';
+        if (periodo === 'mes' && typeof x.deltaPP === 'number') {
+          var d = Math.round(x.deltaPP * 10) / 10;
+          var sentido = d > 0 ? 'up' : (d < 0 ? 'down' : 'flat');
+          delta = '<span class="rank__delta rank__delta--' + sentido + ' tnum" title="Variação da participação sobre ' +
+            esc(ref.anterior || 'o mês anterior') + '">' +
+            (sentido === 'flat' ? 'estável' :
+              '<span aria-hidden="true">' + (sentido === 'up' ? '▲' : '▼') + '</span> ' +
+              (sentido === 'up' ? '+' : '−') + dec1(Math.abs(d)) + ' p.p.') +
+            '</span>';
+        }
+        return '' +
+          '<li class="rank__row">' +
+            '<span class="rank__pos tnum">' + x.pos + '</span>' +
+            '<div class="rank__body">' +
+              '<div class="rank__top">' +
+                '<span class="rank__name" title="' + esc(x.nome) + '">' + esc(x.curto || x.nome) + '</span>' +
+                '<b class="rank__pct tnum">' + dec1(x.share) + '%</b>' +
+              '</div>' +
+              '<span class="rank__bar" aria-hidden="true"><i style="width:' +
+                Math.max(2, Math.min(100, (x.share / maior) * 100)).toFixed(1) + '%"></i></span>' +
+              '<div class="rank__meta">' +
+                '<span class="tnum">' + dec1(x.volume) + ' mil m³</span>' + delta +
+              '</div>' +
+            '</div>' +
+          '</li>';
+      }).join('');
+    }
+
+    /** "Top 5 somam 42,3% · 431 TRRs no período". */
+    function nota(bloco, quem) {
+      if (!bloco || !bloco.top || !bloco.top.length) return '';
+      var soma = bloco.top.reduce(function (a, x) { return a + x.share; }, 0);
+      return 'Top ' + bloco.top.length + ' somam ' + dec1(soma) + '% de ' + dec1(bloco.total) +
+        ' mil m³ · ' + bloco.agentes.toLocaleString('pt-BR') + ' ' + quem + ' no período';
+    }
+
+    function rotuloPeriodo() {
+      return periodo === 'mes' ? ref.rotulo : '12 meses, ' + S.janela.de + ' a ' + S.janela.ate;
+    }
+
+    function desenhar() {
+      $('#shareDist').innerHTML = linhas(S.distribuidoras[periodo]);
+      $('#shareDistNota').textContent = nota(S.distribuidoras[periodo], 'distribuidoras');
+      $('#shareTrr').innerHTML = linhas(S.trrs[periodo]);
+      $('#shareTrrNota').textContent = nota(S.trrs[periodo], 'TRRs');
+
+      var e = ufs.filter(function (x) { return x.uf === uf; })[0];
+      $('#shareUfTitulo').textContent = 'Top 5 TRRs por estado' + (e ? ' · ' + e.nome : '');
+      $('#shareUf').innerHTML = e ? linhas(e[periodo]) : '';
+      $('#shareUfNota').textContent = e ? nota(e[periodo], 'TRRs venderam no estado') : '';
+
+      var lead = 'Participação no volume vendido, ' + rotuloPeriodo() + '.';
+      if (periodo === 'mes' && ref.preliminar) lead += ' Dados preliminares: a ANP ainda pode revisar este mês.';
+      if (periodo === 'mes' && ref.anterior) lead += ' Setas: ganho ou perda de participação sobre ' + ref.anterior + '.';
+      $('#shareLead').textContent = lead;
+
+      Array.prototype.forEach.call($('#sharePeriodo').children, function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-periodo') === periodo ? 'true' : 'false');
+      });
+      Array.prototype.forEach.call($('#shareUfs').children, function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-uf') === uf ? 'true' : 'false');
+      });
+    }
+
+    $('#sharePeriodo').innerHTML =
+      '<button class="filter" type="button" data-periodo="mes">' + esc(ref.rotulo) +
+        (ref.preliminar ? ' (prévia)' : '') + '</button>' +
+      '<button class="filter" type="button" data-periodo="ano">12 meses</button>';
+    $('#sharePeriodo').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-periodo]'); if (!b) return;
+      periodo = b.getAttribute('data-periodo'); lembrar('sharePeriodo', periodo); desenhar();
+    });
+
+    $('#shareUfs').innerHTML = ufs.map(function (e) {
+      return '<button class="filter" type="button" data-uf="' + esc(e.uf) + '" title="' + esc(e.nome) + '">' +
+        esc(e.uf) + '</button>';
+    }).join('');
+    $('#shareUfs').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-uf]'); if (!b) return;
+      uf = b.getAttribute('data-uf'); lembrar('shareUf', uf); desenhar();
+    });
+
+    var base = S.baseANP ? S.baseANP.split('-').reverse().join('/') : '';
+    var painel = urlSegura(S.urlPainel);
+    $('#shareFonte').innerHTML = 'Fonte: ANP, SIMP (volumes declarados pelos agentes), ' +
+      (painel ? '<a href="' + esc(painel) + '" target="_blank" rel="noopener">Painel Dinâmico do Mercado Brasileiro de TRR</a>'
+              : 'Painel Dinâmico do Mercado Brasileiro de TRR') +
+      (base ? ', base de ' + esc(base) : '') +
+      '. A ANP atualiza no dia 1 (mês retrasado, consolidado) e no dia 20 (mês anterior, preliminar); ' +
+      'o portal confere uma vez por dia. Todos os produtos somados, em mil m³.';
+
+    desenhar();
+    caixa.hidden = false;
+  }
+
   /* ------------------------------------------------------------ arquivo */
 
   function montarArquivo() {
@@ -997,7 +1221,7 @@
           }
         });
       }, { rootMargin: '-72px 0px -70% 0px' });
-      ['arbitragem', 'painel', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
+      ['arbitragem', 'painel', 'share', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
         var el = document.getElementById(id); if (el) io.observe(el);
       });
     }
@@ -1012,6 +1236,9 @@
   montarGrafico();
   montarPolos();
   montarBlocos();
+  // Seção nova, com dados de outra fonte: se algo nela falhar, o resto da
+  // página monta do mesmo jeito.
+  try { montarShare(); } catch (e) { console.error('[SupriPrice] market share:', e); }
   montarEdicoes();
   montarNoticias();
   montarArquivo();

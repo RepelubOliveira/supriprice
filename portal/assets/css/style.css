@@ -172,6 +172,20 @@ button { cursor: pointer; }
 .mkt__chg--flat { color: var(--muted); }
 .mkt__when { font-size: 11px; color: var(--muted); }
 .mkt__meta { flex: 0 0 auto; margin: 0; font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* Ponto de "ao vivo": só aparece quando a cotação veio da função, não do
+   robô. Pulsa devagar; parado para quem pediu menos movimento. */
+.mkt__live {
+  display: inline-block; width: 7px; height: 7px; margin-right: 6px; vertical-align: 1px;
+  border-radius: 50%; background: #2E8B57;
+  box-shadow: 0 0 0 0 rgba(46, 139, 87, .55);
+  animation: mkt-pulso 2s ease-out infinite;
+}
+@keyframes mkt-pulso {
+  0%   { box-shadow: 0 0 0 0 rgba(46, 139, 87, .55); }
+  70%  { box-shadow: 0 0 0 6px rgba(46, 139, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 139, 87, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .mkt__live { animation: none; } }
 .mkt__pause {
   flex: 0 0 auto; display: grid; place-items: center;
   width: 28px; height: 28px; padding: 0;
@@ -431,6 +445,36 @@ button { cursor: pointer; }
 .news-item__source { font-size: 12px; color: var(--muted); font-weight: 600; }
 .chip-btn--mini { padding: 4px 10px; font-size: 12px; }
 .chip-btn--mini svg { width: 12px; height: 12px; }
+
+/* --- Market share (ranking) ---------------------------------------------- */
+.share__lead { font-size: 15px; color: var(--ink-3); margin-top: -8px; }
+.rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rank__row {
+  display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start;
+  padding: 11px 0; border-top: 1px solid var(--line-3);
+}
+.rank__row:first-child { border-top: 0; padding-top: 2px; }
+.rank__pos {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--line-3); color: var(--navy); font-size: 13px; font-weight: 700;
+}
+.rank__row:first-child .rank__pos { background: var(--navy); color: #fff; }
+.rank__body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rank__top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rank__name {
+  min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rank__pct { flex: none; font-size: 18px; font-weight: 700; color: var(--navy); }
+.rank__bar { display: block; height: 6px; background: var(--line-3); border-radius: 3px; overflow: hidden; }
+.rank__bar > i { display: block; height: 100%; background: var(--navy-3); border-radius: 3px; }
+.rank__row:first-child .rank__bar > i { background: var(--brand); }
+.rank__meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.rank__delta { font-weight: 700; white-space: nowrap; }
+.rank__delta--up { color: var(--green); }
+.rank__delta--down { color: var(--brand); }
+.rank__vazio { font-size: 14px; color: var(--muted); padding: 8px 0; }
+#shareUfs .filter { min-width: 44px; padding-inline: 10px; }
 
 /* --- Arquivo ------------------------------------------------------------- */
 .archive-filters { display: flex; flex-wrap: wrap; gap: 8px; }

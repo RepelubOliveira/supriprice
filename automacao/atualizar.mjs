@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias } from './noticias.mjs';
+import { lerShareTrr } from './share.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { publicarArquivos } from './publicar.mjs';
 
@@ -38,6 +39,7 @@ const P = {
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
   abicomUltimo: path.join(RAIZ, 'conteudo', 'abicom-ultimo.json'),
+  shareTrr: path.join(RAIZ, 'conteudo', 'share-trr.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
   index: path.join(RAIZ, 'portal', 'index.html'),
   relatorios: path.join(RAIZ, 'portal', 'relatorios')
@@ -273,6 +275,27 @@ async function principal() {
     console.warn(`  ! Notícias indisponíveis: ${e.message}`);
   }
 
+  // Market share do mercado de TRR (ANP). O arquivo da ANP só muda dia 1 e
+  // dia 20, então basta a primeira rodada do dia baixar; as outras usam o
+  // guardado. Falhou? Vale o último resultado bom — o portal mostra o mês de
+  // referência — e a próxima rodada tenta de novo. Nunca derruba a atualização.
+  let share = await lerJson(P.shareTrr, null);
+  if (share?.coletadoISO === iso(hoje)) {
+    log(`Market share TRR: já coletado hoje (referência ${share.referencia.rotulo}).`);
+  } else {
+    log('Buscando market share de TRR (ANP)...');
+    try {
+      share = { coletadoISO: iso(hoje), ...(await lerShareTrr()) };
+      await writeFile(P.shareTrr, JSON.stringify(share) + '\n', 'utf8');
+      const top = share.distribuidoras.mes.top[0], trr = share.trrs.mes.top[0];
+      log(`Market share TRR ${share.referencia.rotulo}${share.referencia.preliminar ? ' (preliminar)' : ''}: ` +
+        `distribuidora líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}%`);
+    } catch (e) {
+      console.warn(`  ! Market share indisponível: ${e.message}`);
+      if (share) log(`Market share TRR: usando o último guardado (referência ${share.referencia.rotulo}).`);
+    }
+  }
+
   const histAntes = await lerJson(P.historico, []);
   // "Ontem" é o boletim anterior ao que está sendo mostrado — no modo
   // parcial, o anterior ao último guardado, não ao dia de hoje.
@@ -321,6 +344,7 @@ async function principal() {
     polosTitulo: 'Preço médio do S10 por região',
     bomba: montarBomba(anp),
     anp: anp ? { maisCaros: anp.maisCaros, maisBaratos: anp.maisBaratos, referencia: anp.referencia } : null,
+    share: share || null,
     paridade: editorial.paridade,
     agenda: editorial.agenda,
     noticias: noticias ? noticias.editorias : {},
