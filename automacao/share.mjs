@@ -409,7 +409,15 @@ export function calcularShare(zipTrr, zipLiquidos) {
     unidade: 'mil m³',
     mercado,
     distribuidoras: { mes: ranking(dist.reg, pT.soRef, { comparar: pT.temAnterior ? pT.soAnt : null }) },
-    trrs: { mes: ranking(trr.reg, pT.soRef, { comparar: pT.temAnterior ? pT.soAnt : null }) }
+    trrs: { mes: ranking(trr.reg, pT.soRef, { comparar: pT.temAnterior ? pT.soAnt : null }) },
+    // Líder de cada estado em destaque: vira texto corrido na aba (para quem
+    // lê a página sem JavaScript, como buscadores e IAs) e no llms.txt.
+    destaques: ESTADOS.map((uf) => {
+      const d = ranking(liq.reg, pL.soRef, { filtro: (r) => r.uf === uf, limite: 1 });
+      const t = ranking(trr.reg, pT.soRef, { filtro: (r) => r.uf === uf, limite: 1 });
+      const lider = (x) => (x ? { nome: x.curto, share: x.share } : null);
+      return { uf, nome: NOME_UF[uf], volume: d.total, distribuidora: lider(d.top[0]), trr: lider(t.top[0]) };
+    })
   };
 
   return {
@@ -544,6 +552,9 @@ function gerarCsv({ dist, trr, liq, pT, pL }) {
   emitir('Distribuidoras - mercado total', liq.reg, pL, true);
   emitir('Distribuidoras - fornecimento aos TRRs', dist.reg, pT, false);
   emitir('TRRs - vendas ao consumidor final', trr.reg, pT, true);
+  // Crédito no fim: a planilha circula e leva a origem junto.
+  linhas.push([]);
+  linhas.push(['Fonte: SupriPrice (https://www.supriprice.com.br/market-share.html), a partir dos dados abertos da ANP (SIMP). Reprodução permitida citando a fonte.']);
   return '﻿' + linhas.map((l) => l.map(campo).join(';')).join('\r\n') + '\r\n';
 }
 

@@ -33,6 +33,8 @@
 <meta name="twitter:description" content="Defasagem, preço na bomba e as manchetes de transporte, agro e mercado internacional. Atualizado todo dia útil.">
 <meta name="twitter:image" content="https://www.supriprice.com.br/assets/supriprice-logo.png"><!-- endereço 3 -->
 
+<!-- Quem é o site, para buscadores (schema.org). -->
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://www.supriprice.com.br/#org", "name": "SupriPrice", "url": "https://www.supriprice.com.br/", "logo": "https://www.supriprice.com.br/assets/supriprice-logo.png", "description": "Inteligência do mercado brasileiro de combustíveis: defasagem do diesel e da gasolina, preço na bomba, market share de distribuidoras e TRRs e notícias do setor."}, {"@type": "WebSite", "@id": "https://www.supriprice.com.br/#site", "name": "SupriPrice", "url": "https://www.supriprice.com.br/", "inLanguage": "pt-BR", "publisher": {"@id": "https://www.supriprice.com.br/#org"}}]}</script>
 <link rel="icon" href="assets/supriprice-logo.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/supriprice-logo.png">
 <!-- Sem <link rel="preload"> para a fonte: o CDN do HTMLy devolve 404 quando a
@@ -40,7 +42,7 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261002c">
+<link rel="stylesheet" href="assets/css/style.css?v=20261002d">
 </head>
 <body>
 
@@ -99,6 +101,9 @@
           </span>
         </p>
         <h1 class="hero__title">Defasagem entre o preço da Petrobras e a paridade de importação</h1>
+        <!-- Resumo em texto, escrito pelo robô a cada atualização: é o que
+             buscadores e IAs leem, já que eles não rodam o JavaScript. -->
+        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 02/10/2026, a defasagem do diesel A ficou em <strong>R$ 3,00 por litro</strong>, 89% abaixo da paridade de importação (Abicom/StoneX); a da gasolina A, em R$ 0,80 (27%). O diesel S10 custou em média <strong>R$ 7,33</strong> na bomba (ANP, 20/09/2026 a 25/09/2026). Dólar PTAX: R$ 5,22.<!-- RESUMO:FIM --></p>
       </div>
       <p class="hero__source" id="heroFonte"></p>
     </div>
@@ -202,7 +207,11 @@
     com link para a matéria original. Conteúdo informativo, não constitui
     recomendação comercial.
   </span>
-  <span>© <span id="ano">2026</span> SupriPrice</span>
+  <span class="site-footer__termos">
+    © <span id="ano">2026</span> SupriPrice. Textos, análises, compilações, gráficos e o jornal são
+    protegidos pela Lei de Direitos Autorais (Lei 9.610/98). Reprodução permitida citando a fonte,
+    com link para <a href="https://www.supriprice.com.br/">www.supriprice.com.br</a>.
+  </span>
 </footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -220,7 +229,7 @@
      immutable" — sem um endereço novo a cada atualização, quem já visitou o
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
-<script src="assets/js/dados.js?v=20261002-094800"></script>
-<script src="assets/js/app.js?v=20261002c"></script>
+<script src="assets/js/dados.js?v=20261002-132756"></script>
+<script src="assets/js/app.js?v=20261002d"></script>
 </body>
 </html>

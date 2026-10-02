@@ -945,6 +945,43 @@
     caixa.hidden = false;
   }
 
+  /* --------------------------------------------------- crédito na cópia */
+
+  /*
+   * Quem copia um trecho do portal leva junto a fonte: "Fonte: SupriPrice —
+   * endereço". Não bloqueia nada, de propósito: travar seleção ou o botão
+   * direito não impede quem quer copiar (print, código-fonte, outro
+   * navegador) e atrapalha leitor de tela e quem só quer citar um número. O
+   * crédito, ao contrário, viaja com o número para onde ele for colado.
+   */
+  function creditoNaCopia() {
+    document.addEventListener('copy', function (ev) {
+      var sel = window.getSelection && window.getSelection();
+      var texto = sel ? String(sel) : '';
+      if (!ev.clipboardData || texto.replace(/\s+/g, '').length < 12) return;
+      var no = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentNode);
+      if (no && no.closest && no.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      // Endereço oficial (nunca o de teste), com o filtro da aba se houver.
+      var aba = /market-share\.html$/.test(location.pathname);
+      var link = 'https://www.supriprice.com.br/' + (aba ? 'market-share.html' + location.hash : '');
+      var credito = 'Fonte: SupriPrice — ' + link;
+
+      var html = '';
+      try {
+        var caixa = document.createElement('div');
+        for (var i = 0; i < sel.rangeCount; i++) caixa.appendChild(sel.getRangeAt(i).cloneContents());
+        html = caixa.innerHTML;
+      } catch (e) { /* sem HTML: vai só o texto */ }
+
+      ev.clipboardData.setData('text/plain', texto + '\n\n' + credito);
+      if (html) {
+        ev.clipboardData.setData('text/html', html + '<p>Fonte: <a href="' + esc(link) + '">SupriPrice</a> — ' + esc(link) + '</p>');
+      }
+      ev.preventDefault();
+    });
+  }
+
   /* ------------------------------------------------------------ arquivo */
 
   function montarArquivo() {
@@ -1131,6 +1168,7 @@
 
   /* -------------------------------------------------------------- início */
 
+  creditoNaCopia();
   montarMercado();
   montarSelo();
   montarProdutos();

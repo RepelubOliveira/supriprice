@@ -409,7 +409,7 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
     <div class="topo__linha">
       <span>${esc(porExtenso(data))}</span>
       <span>Óleo diesel · Brasil e mundo</span>
-      <span>Edição da manhã</span>
+      <span>www.supriprice.com.br</span>
     </div>
     <h1 class="cabecalho">Panorama do Diesel</h1>
     <p class="topo__sub">Transporte · Agro · Indústria</p>
@@ -429,7 +429,8 @@ export function gerarJornal({ data, abicom, brent, dolar, anp, noticias, histori
     <span>Defasagem: Abicom/StoneX · Bomba e market share: ANP · Dólar PTAX: Banco Central · Brent: ICE ·
       Mercado: Yahoo Finance ·
       Manchetes: veículos citados, com link para a matéria original.</span>
-    <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial. © ${data.getFullYear()} SupriPrice</span>
+    <span>Boletim gerado automaticamente. Conteúdo informativo, não constitui recomendação comercial.
+      © ${data.getFullYear()} SupriPrice · www.supriprice.com.br · Reprodução permitida citando a fonte.</span>
   </footer>
 
 </article>

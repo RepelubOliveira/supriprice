@@ -153,6 +153,38 @@ Detalhes:
 - Para mudar os estados destacados: lista `ESTADOS` em `automacao/share.mjs`.
 - Teste isolado: `node automacao/share.mjs` mostra tudo no terminal.
 
+### Proteção dos números e visibilidade em buscadores e IAs
+
+**Proteção = autoria, não bloqueio.** Nada que aparece num navegador pode ser
+impedido de ser copiado (print, código-fonte, outro navegador), e bloquear
+seleção ou botão direito só atrapalharia leitores de tela e quem quer citar
+o site. Por isso o portal protege a AUTORIA:
+- **Cópia com crédito:** quem copia um trecho do site leva junto
+  "Fonte: SupriPrice — endereço" (na aba de market share, com o filtro).
+- **Marca em tudo que sai:** os gráficos da aba têm "supriprice.com.br" no
+  canto; o jornal (PDF, PNG, JPEG) traz o endereço no topo e no rodapé; o CSV
+  termina com a linha de crédito.
+- **Termos no rodapé:** conteúdo protegido pela Lei 9.610/98, reprodução
+  permitida citando a fonte com link.
+
+**Ser encontrado e citado.** Ninguém consegue "mandar" o Claude, o ChatGPT ou
+o Google recomendarem um site: eles indicam o que encontram na web e julgam
+útil. O que está ao nosso alcance é ser fácil de achar e de ler:
+- O robô escreve **em texto, direto no HTML**, os números do dia (resumo no
+  topo da página inicial e da aba, líderes por estado). Antes, quem lia a
+  página sem rodar JavaScript — o caso de muitos robôs de IA — via só
+  "Este painel precisa de JavaScript".
+- **Dados estruturados (schema.org):** Organização e Site na página inicial;
+  Dataset na aba de market share (período, fonte, CSV), atualizados pelo robô.
+- **`llms.txt`** na raiz (www.supriprice.com.br/llms.txt): a ficha do site no
+  formato que IAs procuram, com os números do dia, refeita a cada rodada.
+- `robots.txt` libera todos os robôs, inclusive os de IA, e aponta o sitemap,
+  que já inclui a aba de market share.
+- **Falta você fazer (exige login seu):** cadastrar o site no Google Search
+  Console e no Bing Webmaster Tools e enviar o sitemap. Os dois pedem para
+  confirmar a posse com uma meta tag ou arquivo — me passe o código que eles
+  derem e eu coloco no site.
+
 ---
 
 ## Três coisas que você precisa saber

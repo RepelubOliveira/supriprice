@@ -34,4 +34,4 @@ logs/
 video/capturas/
 video/*.mp4
 video/capa-*.jpg
-portal/dados/*.csv
+portal/dados/

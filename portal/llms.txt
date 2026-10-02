@@ -1,0 +1,39 @@
+# SupriPrice
+
+> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado três vezes por dia útil (07h, 12h e 17h, horário de Brasília).
+
+Números mais recentes (atualizado em 02/10/2026):
+
+- Defasagem do diesel A (Abicom, 02/10/2026): R$ 3,00 por litro, 89% abaixo da paridade de importação.
+- Defasagem da gasolina A (Abicom, 02/10/2026): R$ 0,80 por litro, 27%.
+- Diesel S10 na bomba, média Brasil (ANP, 20/09/2026 a 25/09/2026): R$ 7,33.
+- Dólar PTAX: R$ 5,22.
+- Vendas das distribuidoras no Brasil em ago/26 (ANP/SIMP): 12.184,5 mil m³ (−1,5% no mês).
+- Maiores distribuidoras em ago/26: Vibra Energia 21,9%, Ipiranga 18,3%, Raízen 16,8%, ALE Combustíveis 2,3%, Atem 1,9%.
+- Maiores TRRs do Brasil em ago/26: Serra Diesel TRR 3,2%, Risel Combustíveis 2,6%, Agricopel Comércio de Derivados de Petroleo 2,5%, Rudipel Rudnick Petróleo 2,4%, Rio Branco Derivados de Petroleo 2,1%.
+- Minas Gerais, ago/26: distribuidora líder Raízen (23,3%); TRR líder Petrovila Combustiveis (10,7%).
+- São Paulo, ago/26: distribuidora líder Raízen (23,7%); TRR líder Risel Combustíveis (12,2%).
+- Mato Grosso do Sul, ago/26: distribuidora líder Vibra Energia (25,1%); TRR líder Dieselcom Transportadora e Revendedora de Diesel Combustível (18,7%).
+- Rio de Janeiro, ago/26: distribuidora líder Vibra Energia (34,1%); TRR líder Petrovera Derivados de Petróleo (28,6%).
+- Distrito Federal, ago/26: distribuidora líder Vibra Energia (28,9%); TRR líder Transcodil Transporte e Comercio de Diesel (27,7%).
+- Goiás, ago/26: distribuidora líder Raízen (16,3%); TRR líder Masut Combustíveis (15,5%).
+- Bahia, ago/26: distribuidora líder Vibra Energia (19,4%); TRR líder Transportadora de Diesel Cavalo Marinho (35,6%).
+- Santa Catarina, ago/26: distribuidora líder Ipiranga (25,3%); TRR líder Rudipel Rudnick Petróleo (18,9%).
+- Paraná, ago/26: distribuidora líder Raízen (22,4%); TRR líder Agricopel Comércio de Derivados de Petroleo (9,8%).
+
+## Páginas
+
+- [Panorama do diesel](https://www.supriprice.com.br/): defasagem diária do diesel e da gasolina, preço na bomba por região e estado, cotações (dólar, euro, Brent, WTI, Ibovespa) e notícias de transporte, agro, Brasil e mundo.
+- [Market share](https://www.supriprice.com.br/market-share.html): volume e participação de distribuidoras e TRRs, Brasil e estados (MG, SP, MS, RJ, DF, GO, BA, SC, PR), filtro por mês ou período desde jan/2024.
+- [Ranking completo em CSV](https://www.supriprice.com.br/dados/supriprice-market-share-2026-10-01.csv): todas as distribuidoras e TRRs, Brasil e 27 estados.
+- Jornal do dia: página A4 com os números e as manchetes, disponível na página inicial (PDF, PNG, JPEG).
+
+## Fontes
+
+- Defasagem: Abicom (Associação Brasileira dos Importadores de Combustíveis), análise com a StoneX.
+- Preço na bomba e market share: ANP, dados abertos (Levantamento de Preços; SIMP).
+- Dólar PTAX: Banco Central do Brasil. Cotações: Yahoo Finance.
+
+## Como citar
+
+Fonte: SupriPrice (https://www.supriprice.com.br). Reprodução permitida citando a fonte com link.

@@ -28,6 +28,7 @@ import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias } from './noticias.mjs';
 import { lerShare } from './share.mjs';
+import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { publicarArquivos } from './publicar.mjs';
 
@@ -47,7 +48,7 @@ const P = {
 
 // Sobe quando muda o formato do bloco de market share: força uma nova coleta
 // mesmo que o guardado seja de hoje.
-const VERSAO_SHARE = 3;
+const VERSAO_SHARE = 4;
 
 // Páginas que carregam o dados.js (o robô reescreve a versão em todas).
 const PAGINAS = ['index.html', 'market-share.html'];
@@ -295,7 +296,7 @@ async function principal() {
     try {
       const r = await lerShare();
       const base = r.share.baseANP;
-      const csv = `dados/market-share-${base}.csv`;
+      const csv = `dados/supriprice-market-share-${base}.csv`;
       const serie = `dados/share-serie-${base}.json`;
       // DIVULGAÇÃO: base com data nova = a ANP soltou números novos (dia 1 ou
       // 20). O jornal do dia ganha o bloco de market share por causa disso.
@@ -420,6 +421,17 @@ async function principal() {
     timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(/:/g, '');
+  const TEXTOS = {
+    'index.html': { RESUMO: resumoHome({ abicom, anp, dolar }) },
+    'market-share.html': {
+      RESUMO: resumoShare(share),
+      DESTAQUES: destaquesShare(share),
+      DATASET: datasetJsonLd(share)
+    }
+  };
+  const llms = llmsTxt({ abicom, anp, dolar, share, atualizadoISO: iso(hoje) });
+  await writeFile(path.join(RAIZ, 'portal', 'llms.txt'), llms, 'utf8');
+
   // As duas páginas carregam o dados.js: as duas ganham o endereço novo.
   const REF_DADOS = /assets\/js\/dados\.js(\?v=[^"']*)?(["'])/g;
   const paginas = [];
@@ -429,7 +441,14 @@ async function principal() {
     if (referencias.length !== 1) {
       throw new Error(`Esperava 1 referência ao dados.js em ${nome} e achei ${referencias.length}. Abortando para não publicar uma página que não carrega os números.`);
     }
-    const html = antes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
+    let html = antes.replace(REF_DADOS, `assets/js/dados.js?v=${versao}$2`);
+    // Texto estático com os números do dia (para buscadores e IAs que leem a
+    // página sem JavaScript). Marcador ausente não derruba nada: só avisa.
+    for (const [marca, conteudo] of Object.entries(TEXTOS[nome] || {})) {
+      if (!conteudo) continue;
+      const r = injetar(html, marca, conteudo);
+      if (r.ok) html = r.html; else console.warn(`  ! ${nome}: marcador ${marca} não encontrado.`);
+    }
     await writeFile(path.join(RAIZ, 'portal', nome), html, 'utf8');
     paginas.push({ path: nome, content: html });
   }
@@ -450,6 +469,7 @@ async function principal() {
       // dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
       ...paginas,
+      { path: 'llms.txt', content: llms },
       ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : []),
       // Os arquivos da aba vão na MESMA chamada do dados.js que aponta para eles.
       ...extrasShare

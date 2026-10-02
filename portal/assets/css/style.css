@@ -243,6 +243,12 @@ button { cursor: pointer; }
   text-wrap: balance; margin-top: 6px;
 }
 .hero__source { font-size: 14px; font-weight: 600; color: var(--on-navy); }
+/* Resumo em texto escrito pelo robô (também é o que buscadores e IAs leem). */
+.hero__resumo { font-size: 15px; line-height: 1.6; color: var(--on-navy-2); max-width: 90ch; margin-top: 10px; }
+.hero__resumo:empty { display: none; }
+.hero__resumo strong { color: #fff; }
+.site-footer__termos { max-width: 70ch; }
+.site-footer__termos a { color: inherit; text-decoration: underline; }
 .hero__cols { display: flex; flex-wrap: wrap; gap: 24px; }
 .hero__products {
   flex: 3 1 560px; display: grid;
@@ -552,6 +558,13 @@ button { cursor: pointer; }
 .ms-alvo { fill: transparent; }
 #msBarras .ms-alvo { cursor: pointer; }
 .ms-cruz { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ms-assinatura { font-size: 11px; font-weight: 700; fill: var(--navy); opacity: .28; letter-spacing: .02em; pointer-events: none; }
+.ms-hero__resumo { font-size: 15px; line-height: 1.6; color: var(--on-navy-2); max-width: 90ch; }
+.ms-hero__resumo strong { color: #fff; }
+.ms-destaques { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.ms-destaques:empty { display: none; }
+.ms-destaques__lista { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14.5px; color: var(--ink-3); }
+.ms-destaques__lista b, .ms-destaques__lista strong { color: var(--ink); }
 .ms-tip {
   position: absolute; z-index: 5; pointer-events: none; min-width: 120px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 6px;

@@ -234,6 +234,11 @@
     tip.style.top = Math.max(0, y - tip.offsetHeight - 10) + 'px';
   }
 
+  /** Assinatura discreta no canto do gráfico: vai junto em qualquer print. */
+  function assinatura(W, y) {
+    return '<text x="' + (W - 10) + '" y="' + y + '" class="ms-assinatura" text-anchor="end">supriprice.com.br</text>';
+  }
+
   /** Escala "redonda" para o eixo: 0 até um teto bonito, 4 divisões. */
   function escala(max) {
     if (!(max > 0)) return { teto: 1, passo: 0.25 };
@@ -275,7 +280,7 @@
       // Área de toque maior que a barra.
       svg += '<rect class="ms-alvo" data-i="' + i + '" x="' + x + '" y="' + mT + '" width="' + larg + '" height="' + (H - mT - mB) + '"/>';
     });
-    svg += '</svg>';
+    svg += assinatura(W, mT + 4) + '</svg>';
     alvo.innerHTML = svg;
 
     alvo.onmousemove = function (ev) {
@@ -357,6 +362,7 @@
       }
     });
     svg += '<line class="ms-cruz" x1="0" x2="0" y1="' + mT + '" y2="' + (H - mB) + '" hidden/>';
+    svg += assinatura(W - mD + 10, mT + 4);
     svg += '<rect class="ms-alvo" x="' + mE + '" y="' + mT + '" width="' + (W - mE - mD) + '" height="' + (H - mT - mB) + '"/>';
     svg += '</svg>';
     alvo.innerHTML = svg;
