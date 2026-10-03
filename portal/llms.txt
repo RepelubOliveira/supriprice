@@ -1,6 +1,6 @@
 # SupriPrice
 
-> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado três vezes por dia útil (07h, 12h e 17h, horário de Brasília).
+> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado três vezes por dia, todos os dias (07h, 12h e 17h, horário de Brasília).
 
 Números mais recentes (atualizado em 03/10/2026):
 
@@ -26,7 +26,7 @@ Números mais recentes (atualizado em 03/10/2026):
 - [Panorama do diesel](https://www.supriprice.com.br/): defasagem diária do diesel e da gasolina, preço na bomba por região e estado, cotações (dólar, euro, Brent, WTI, Ibovespa) e notícias de transporte, agro, Brasil e mundo.
 - [Market share](https://www.supriprice.com.br/market-share.html): volume e participação de distribuidoras e TRRs, Brasil e estados (MG, SP, MS, RJ, DF, GO, BA, SC, PR), filtro por mês ou período desde jan/2024.
 - [Ranking completo em CSV](https://www.supriprice.com.br/dados/supriprice-market-share-2026-10-01.csv): todas as distribuidoras e TRRs, Brasil e 27 estados.
-- Jornal do dia: página A4 com os números e as manchetes, disponível na página inicial (PDF, PNG, JPEG).
+- Jornal do dia: imagem no formato Stories (1080×1920) com os números, a análise da semana e as manchetes, todos os dias, na página inicial (PNG, JPEG, PDF).
 
 ## Fontes
 

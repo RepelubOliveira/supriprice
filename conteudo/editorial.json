@@ -11,7 +11,15 @@
     "Mexa quando quiser corrigir um preço de refinaria ou trocar a agenda.",
     "",
     "Agenda: itens com data DD/MM já vencida somem do portal sozinhos.",
-    "Se a ANP não responder, o robô usa a última leitura válida dela (conteudo/anp-ultima.json), com o período à mostra."
+    "Se a ANP não responder, o robô usa a última leitura válida dela (conteudo/anp-ultima.json), com o período à mostra.",
+    "",
+    "ANÁLISE DA SEMANA (campo \"analise\"): o único texto escrito à mão do jornal.",
+    "Aparece no jornal de todo dia entre \"de\" e \"ate\" (AAAA-MM-DD), num quadro",
+    "assinado como \"Análise SupriPrice\". Nos dias sem boletim da Abicom (fim de",
+    "semana), \"manchete\" vira a manchete do jornal. \"radar\" busca no Google",
+    "Notícias as manchetes do tema (só entra título com uma das \"palavras\").",
+    "Para trocar de tema, peça ao Claude ou edite os textos. Fora do período, some.",
+    "Limites para caber no jornal: titulo ~60 letras, cada ponto ~150 (\"texto\" é opcional, ~110)."
   ],
   "mostrarGasolina": true,
   "precosPetrobras": {
@@ -25,10 +33,37 @@
     "diesel": 3.28,
     "gasolina": 2.96
   },
+  "analise": {
+    "de": "2026-10-03",
+    "ate": "2026-10-26",
+    "chapeu": "Eleições 2026",
+    "manchete": "Eleições: subsídio, dólar e Petrobras no radar do diesel",
+    "lide": "Com o 1º turno em 04/10 e um eventual 2º turno em 25/10, o mercado de combustíveis acompanha três frentes.",
+    "titulo": "O que a eleição pode mexer no diesel",
+    "pontos": [
+      "Subsídio: a subvenção ao diesel foi prorrogada por 30 dias, até depois do 2º turno, segundo a imprensa. O que vem depois é a maior dúvida para o preço.",
+      "Câmbio: o dólar costuma oscilar mais em eleição, e ele entra direto na paridade de importação e, portanto, na defasagem.",
+      "Petrobras: o mercado acompanha sinais sobre a política de preços da estatal, que hoje vende o diesel bem abaixo da paridade."
+    ],
+    "radarTitulo": "Radar: eleições e combustíveis",
+    "radar": {
+      "busca": "eleições (combustíveis OR Petrobras OR diesel OR gasolina OR petróleo) when:4d",
+      "palavras": [
+        "elei",
+        "turno",
+        "urna",
+        "eleitoral"
+      ]
+    }
+  },
   "agenda": [
     {
       "data": "26/09",
       "texto": "Vence a parcela de R$ 1,12/L do subsídio."
+    },
+    {
+      "data": "04/10",
+      "texto": "1º turno das eleições."
     },
     {
       "data": "Out.",
@@ -37,6 +72,10 @@
     {
       "data": "17/10",
       "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado."
+    },
+    {
+      "data": "25/10",
+      "texto": "2º turno das eleições, onde houver."
     }
   ],
   "_arquivoHistorico": "Edições antigas, escritas à mão antes da automação. Ficam no fim do arquivo do site.",

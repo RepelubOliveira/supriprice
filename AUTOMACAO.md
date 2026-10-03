@@ -193,6 +193,44 @@ o Google recomendarem um site: eles indicam o que encontram na web e julgam
   confirmar a posse com uma meta tag ou arquivo — me passe o código que eles
   derem e eu coloco no site.
 
+### Sobre o jornal do dia
+
+- **Sai todo dia**, inclusive sábado e domingo, refeito a cada rodada.
+- **Formato fixo de Stories: 1080 x 1920** (9:16), pronto para o Status do
+  WhatsApp e os Stories do Instagram. Cada bloco tem espaço reservado e cada
+  texto tem limite de linhas; notícia que não cabe inteira sai da folha.
+- **Manchete:** com boletim novo da Abicom, a defasagem. Sem boletim (fim de
+  semana, ou de manhã antes de ela publicar), o fato do dia, nesta ordem: a
+  manchete da análise da semana, o market share recém-divulgado pela ANP, a
+  variação do diesel na bomba. A defasagem segue a do último boletim, sempre
+  com a data dele.
+- **Análise da semana** (`conteudo/editorial.json` → `analise`): o único texto
+  escrito à mão, num quadro assinado "Análise SupriPrice", com datas de
+  início e fim. Hoje: eleições (até 26/10). Para mudar o tema, peça ao
+  Claude ou edite os textos.
+- **Radar:** a análise pode ter uma busca no Google Notícias (`analise.radar`)
+  que traz as manchetes do tema, priorizando veículos conhecidos e sem
+  repetir a mesma notícia.
+- **Imagem pronta:** a cada rodada o robô abre o jornal no Edge do computador,
+  em modo invisível, e grava `relatorios/jornal-AAAA-MM-DD.png`. É esse o
+  arquivo do botão "Baixar PNG"; JPEG e PDF saem dele. (O método antigo, o
+  html2canvas, desenhava o texto deslocado; ele só vale para edições antigas.)
+  As imagens com mais de 30 edições são apagadas do site.
+
+### Selo "Atualizado hoje"
+
+O selo do topo mostra quando o SITE foi atualizado. A data do boletim da Abicom
+fica na linha da fonte logo abaixo ("boletim de 02/10/2026 — a Abicom publica
+em dias úteis"). Antes, o selo dizia "Defasagem de 02/10" e passava a ideia de
+site parado no fim de semana.
+
+### Pendente
+
+- **Atualização pela nuvem (GitHub Actions)**, combinada para o fim de semana:
+  roda meia hora depois do computador e só atualiza se ele não tiver
+  atualizado (computador desligado). Sem custo. Precisa do `git push` e da
+  chave do HTMLy cadastrada como "secret" no GitHub.
+
 ---
 
 ## Três coisas que você precisa saber

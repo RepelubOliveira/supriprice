@@ -249,3 +249,62 @@ export async function coletarNoticias(cfg) {
     feedsOk
   };
 }
+
+// Veículos que vão para o topo do radar: a busca do Google Notícias mistura
+// imprensa conhecida com sites de reprodução de conteúdo.
+const VEICULOS_PREFERIDOS = ['g1', 'globo', 'folha', 'estadão', 'estadao', 'valor', 'cnn', 'poder360', 'infomoney',
+  'bloomberg', 'reuters', 'exame', 'uol', 'agência brasil', 'agencia brasil', 'veja', 'investnews', 'money times',
+  'seu dinheiro', 'gazeta do povo', 'sbt', 'band', 'correio braziliense', 'metrópoles', 'metropoles', 'bbc',
+  'cbn', 'jota', 'petronotícias', 'petronoticias', 'canal rural', 'broadcast', 'e-investidor', 'o globo'];
+
+/** Palavras relevantes de um título (para achar a mesma notícia em outro veículo). */
+function palavrasDe(titulo) {
+  return new Set(titulo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+}
+
+/**
+ * RADAR da análise da semana: uma busca temática no Google Notícias (RSS
+ * público), configurada em conteudo/editorial.json → analise.radar. Serve
+ * para o jornal ter as manchetes do tema da semana (ex.: eleições e
+ * combustíveis), que os feeds fixos do setor quase nunca trazem.
+ *
+ * Mesmo modelo do resto do portal: manchete + veículo + link para a matéria.
+ * Só entra manchete com uma das palavras do radar no TÍTULO; veículos
+ * conhecidos vêm primeiro; a mesma notícia em dois veículos entra uma vez.
+ * Falhou? Devolve lista vazia e o jornal usa as notícias de sempre.
+ */
+export async function buscarRadar(radar, { diasDeValidade = 4, max = 6 } = {}) {
+  if (!radar?.busca) return [];
+  const url = 'https://news.google.com/rss/search?q=' + encodeURIComponent(radar.busca) +
+    '&hl=pt-BR&gl=BR&ceid=BR:pt-419';
+  const xml = await buscarFeed({ nome: 'Radar (Google Notícias)', url });
+  if (!xml) return [];
+
+  const limite = Date.now() - diasDeValidade * 86400000;
+  const palavras = (radar.palavras || []).map((p) => p.toLowerCase());
+  const itens = (xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || []).map((b) => {
+    // O veículo vem na tag <source>; o título termina com " - Veículo".
+    const fonte = semTags(tag(b, 'source')) || 'Google Notícias';
+    let titulo = semTags(tag(b, 'title'));
+    if (titulo.endsWith(` - ${fonte}`)) titulo = titulo.slice(0, -(fonte.length + 3)).trim();
+    const preferido = VEICULOS_PREFERIDOS.some((v) => fonte.toLowerCase().includes(v));
+    return { titulo, fonte, url: extrairLink(b), data: extrairData(b), preferido };
+  }).filter((n) => n.titulo && /^https?:\/\//i.test(n.url))
+    .filter((n) => !n.data || n.data.getTime() >= limite)
+    .filter((n) => !palavras.length || palavras.some((p) => n.titulo.toLowerCase().includes(p)))
+    .sort((a, b) => (b.preferido - a.preferido) || ((b.data ? b.data.getTime() : 0) - (a.data ? a.data.getTime() : 0)));
+
+  // Mesma notícia em outro veículo: metade ou mais das palavras em comum.
+  const escolhidas = [];
+  for (const n of itens) {
+    const p = palavrasDe(n.titulo);
+    const repetida = escolhidas.some((e) => {
+      const comuns = [...p].filter((w) => e.p.has(w)).length;
+      return comuns / Math.max(1, Math.min(p.size, e.p.size)) >= 0.5;
+    });
+    if (!repetida) escolhidas.push({ ...n, p });
+    if (escolhidas.length >= max) break;
+  }
+  return escolhidas.map((n) => ({ titulo: n.titulo, url: n.url, fonte: n.fonte, data: n.data ? n.data.toISOString() : null }));
+}

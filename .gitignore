@@ -35,3 +35,4 @@ video/capturas/
 video/*.mp4
 video/capa-*.jpg
 portal/dados/
+portal/relatorios/*.png

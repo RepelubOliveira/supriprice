@@ -26,10 +26,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
-import { coletarNoticias } from './noticias.mjs';
+import { coletarNoticias, buscarRadar } from './noticias.mjs';
 import { lerShare } from './share.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
+import { fotografarJornal } from './imagem.mjs';
 import { publicarArquivos } from './publicar.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -349,33 +350,63 @@ async function principal() {
     : registrarHistorico(histAntes, hoje, def, abicom.gasolina?.defasagem);
 
   // --- jornal do dia -------------------------------------------------------
-  // Só com boletim novo: a manchete do jornal nasce da defasagem do dia.
-  let jornal = null;
+  // SAI TODO DIA, inclusive fim de semana, no formato Stories (1080x1920).
+  // Sem boletim novo da Abicom, a manchete vem do fato do dia (análise da
+  // semana, market share ou bomba) e a defasagem é a do último boletim, com
+  // a data dele.
+  const hojeISO = iso(hoje);
+  const analise = editorial.analise && (!editorial.analise.de || editorial.analise.de <= hojeISO) &&
+    (!editorial.analise.ate || hojeISO <= editorial.analise.ate) ? editorial.analise : null;
+  let radar = [];
+  if (analise?.radar) {
+    try {
+      radar = await buscarRadar(analise.radar, { diasDeValidade: cfgFeeds.diasDeValidade || 4 });
+      log(`Radar "${analise.chapeu || 'análise'}": ${radar.length} manchete(s) do tema.`);
+    } catch (e) {
+      console.warn(`  ! Radar indisponível: ${e.message}`);
+    }
+  }
+
   let jornalComShare = false;
   const edicoesAntes = await lerJson(P.edicoes, []);
-  let edicoes = edicoesAntes;
-  if (!parcial) {
-    // Market share no jornal: na edição do dia em que a ANP divulga números
-    // novos (e nas reedições desse mesmo dia). Se nesse dia não houver
-    // edição, entra na próxima.
-    const shareNoJornal = share?.mercado &&
-      (share.jornalBase !== share.baseANP || share.jornalData === iso(hoje)) ? share : null;
-    jornal = gerarJornal({ data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores, share: shareNoJornal });
-    if (shareNoJornal) {
-      jornalComShare = true;
-      log(`Jornal: com o bloco de market share da ANP (${share.mercado.referencia.rotulo}).`);
-    }
-    await mkdir(P.relatorios, { recursive: true });
-    await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
-    log(`Jornal: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
-    edicoes = [
-      { data: iso(hoje), rotulo: ddmm(hoje), titulo: jornal.titulo, chamada: jornal.chamada,
-        arquivo: `relatorios/${jornal.nomeArquivo}`, slug: `supriprice-${iso(hoje)}` },
-      ...edicoesAntes.filter((e) => e.data !== iso(hoje))
-    ].slice(0, MAX_EDICOES);
-  } else {
-    log('Jornal: mantido o da última edição (sem boletim novo da Abicom).');
+  // Market share no jornal: na edição do dia em que a ANP divulga números
+  // novos (e nas reedições desse mesmo dia). Se nesse dia não houver edição,
+  // entra na próxima.
+  const shareNoJornal = share?.mercado &&
+    (share.jornalBase !== share.baseANP || share.jornalData === hojeISO) ? share : null;
+  const jornal = gerarJornal({
+    data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores,
+    share: shareNoJornal, analise, radar, parcial, fimDeSemana, dataAbicomISO
+  });
+  if (shareNoJornal) {
+    jornalComShare = true;
+    log(`Jornal: com o market share da ANP (${share.mercado.referencia.rotulo}).`);
   }
+  await mkdir(P.relatorios, { recursive: true });
+  await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
+  log(`Jornal${parcial ? ' (sem boletim novo da Abicom)' : ''}: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
+
+  // A "foto" do jornal em PNG 1080x1920, tirada pelo Edge do computador: é o
+  // arquivo que o site entrega no download (ver automacao/imagem.mjs).
+  const nomePng = jornal.nomeArquivo.replace(/\.html$/, '.png');
+  let pngJornal = null;
+  try {
+    pngJornal = await fotografarJornal(path.join(P.relatorios, jornal.nomeArquivo), path.join(P.relatorios, nomePng));
+    log(`Jornal em imagem: ${nomePng} (${Math.round(pngJornal.length / 1024)} KB, 1080x1920)`);
+  } catch (e) {
+    console.warn(`  ! Imagem do jornal não gerada: ${e.message} O site usa o método antigo nesta edição.`);
+  }
+
+  const todasEdicoes = [
+    { data: hojeISO, rotulo: ddmm(hoje), titulo: jornal.titulo, chamada: jornal.chamada,
+      arquivo: `relatorios/${jornal.nomeArquivo}`, slug: `supriprice-${hojeISO}`,
+      ...(pngJornal ? { imagem: `relatorios/${nomePng}` } : {}) },
+    ...edicoesAntes.filter((e) => e.data !== hojeISO)
+  ];
+  const edicoes = todasEdicoes.slice(0, MAX_EDICOES);
+  // Imagens das edições que saíram da lista são apagadas do site (o HTML
+  // fica, para os links antigos continuarem abrindo).
+  const imagensVelhas = todasEdicoes.slice(MAX_EDICOES).map((e) => e.imagem).filter(Boolean);
 
   // --- dados.js ------------------------------------------------------------
   const dados = {
@@ -385,7 +416,11 @@ async function principal() {
       // o que é cotação de hoje e o que é fechamento anterior).
       dataISO: dataAbicomISO,
       atualizadoISO: iso(hoje),
-      fonte: `Fonte: Abicom/StoneX, fechamento ${abicom.data}`,
+      // A data do boletim fica AQUI, na linha da fonte; o selo do topo fala
+      // de quando o site foi atualizado (meta.atualizadoISO).
+      fonte: !parcial ? `Fonte: Abicom/StoneX, boletim de ${abicom.data}`
+        : fimDeSemana ? `Fonte: Abicom/StoneX, boletim de ${abicom.data} (a Abicom publica em dias úteis)`
+        : `Fonte: Abicom/StoneX, boletim de ${abicom.data} (o de hoje entra assim que a Abicom publicar)`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()
     },
@@ -454,10 +489,8 @@ async function principal() {
     await writeFile(path.join(RAIZ, 'portal', nome), html, 'utf8');
     paginas.push({ path: nome, content: html });
   }
-  if (!parcial) {
-    await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
-    await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
-  }
+  if (!parcial) await writeFile(P.historico, JSON.stringify(historico, null, 2) + '\n', 'utf8');
+  await writeFile(P.edicoes, JSON.stringify(edicoes, null, 2) + '\n', 'utf8');
   log(`${parcial ? '[parcial] ' : ''}dados.js?v=${versao} ${(conteudo.length / 1024).toFixed(1)} KB · histórico ${historico.length} pontos · ${edicoes.length} edições`);
 
   if (SIMULAR) { log('Modo simulação: nada publicado.'); return; }
@@ -466,13 +499,15 @@ async function principal() {
   const res = await publicarArquivos({
     slug: process.env.HTMLY_SLUG || 'supriprice',
     chave: process.env.HTMLY_API_KEY,
+    remover: imagensVelhas,
     arquivos: [
       // Tudo na mesma chamada: as páginas apontam para a versão nova do
       // dados.js no mesmo instante em que ela passa a existir.
       { path: 'assets/js/dados.js', content: conteudo },
       ...paginas,
       { path: 'llms.txt', content: llms },
-      ...(jornal ? [{ path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html }] : []),
+      { path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html },
+      ...(pngJornal ? [{ path: `relatorios/${nomePng}`, content_base64: pngJornal.toString('base64') }] : []),
       // Os arquivos da aba vão na MESMA chamada do dados.js que aponta para eles.
       ...extrasShare
     ]

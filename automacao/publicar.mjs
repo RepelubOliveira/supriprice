@@ -55,16 +55,18 @@ function extrairResultado(result) {
 
 /**
  * Publica um ou mais arquivos no site, por merge.
- * @param {{slug: string, chave: string, arquivos: Array<{path: string, content: string}>}} opcoes
+ * Arquivo de imagem vai como { path, content_base64 }. `remover` apaga arquivos
+ * do site na mesma chamada (só caminhos que existem: um inexistente derruba tudo).
+ * @param {{slug: string, chave: string, arquivos: Array<{path: string, content?: string, content_base64?: string}>, remover?: string[]}} opcoes
  */
-export async function publicarArquivos({ slug, chave, arquivos }) {
+export async function publicarArquivos({ slug, chave, arquivos, remover = [] }) {
   if (!chave) throw new Error('HTMLY_API_KEY não definida.');
   if (!slug) throw new Error('HTMLY_SLUG não definido.');
   if (!arquivos?.length) throw new Error('Nenhum arquivo para publicar.');
 
   const result = await chamarMcp(
     'tools/call',
-    { name: 'publish_site', arguments: { slug, files: arquivos } },
+    { name: 'publish_site', arguments: { slug, files: arquivos, ...(remover.length ? { delete_paths: remover } : {}) } },
     chave
   );
 

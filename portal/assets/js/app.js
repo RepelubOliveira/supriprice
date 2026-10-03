@@ -59,23 +59,21 @@
     if (fonte) fonte.textContent = meta.fonte || '';
     if (!alvo || !meta.dataISO) return;
 
-    var partes = meta.dataISO.split('-');
+    // O selo fala de quando o SITE foi atualizado (atualizadoISO, o dia da
+    // rodada do robô). A data do boletim da Abicom fica na linha da fonte,
+    // logo abaixo: no fim de semana ela não publica, e "Defasagem de 02/10"
+    // no selo passava a ideia de site parado — mercado, ANP e notícias
+    // estavam em dia.
+    var refISO = meta.atualizadoISO || meta.dataISO;
+    var partes = refISO.split('-');
     var d = new Date(+partes[0], +partes[1] - 1, +partes[2]);
     var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     var dias = Math.round((hoje - d) / 86400000);
     var ddmm = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
 
+    // Só a data, sem hora.
     var texto;
-    // Atualização parcial (rodada das 07:00, antes de a Abicom publicar):
-    // mercado e notícias são de hoje, a defasagem é do último boletim. O selo
-    // diz as duas coisas — "Atualizado ontem" daria a entender que o portal
-    // inteiro parou.
-    var atu = meta.atualizadoISO;
-    var hojeISO = hoje.getFullYear() + '-' + ('0' + (hoje.getMonth() + 1)).slice(-2) + '-' + ('0' + hoje.getDate()).slice(-2);
-    // Só a data, sem hora: a data é o que avisa o leitor quando o número não é de hoje.
-    if (atu && atu === hojeISO && meta.dataISO < atu) {
-      texto = 'Defasagem de ' + ddmm + ' · mercado e notícias de hoje';
-    } else if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
+    if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
     else if (dias === 1) texto = 'Atualizado ontem, ' + ddmm;
     else texto = 'Atualizado em ' + ddmm + '/' + d.getFullYear();
 
@@ -91,7 +89,7 @@
       name: 'Panorama do Diesel — SupriPrice',
       description: 'Defasagem diária entre o preço da Petrobras e a paridade de importação do diesel.',
       temporalCoverage: meta.dataISO,
-      dateModified: meta.dataISO,
+      dateModified: meta.atualizadoISO || meta.dataISO,
       isAccessibleForFree: true,
       creator: { '@type': 'Organization', name: 'SupriPrice' }
     });
@@ -124,7 +122,7 @@
           '</div>' +
           '<p class="product__value"><b class="tnum">' + brl(def) + '</b><span>/litro</span></p>' +
           (temOntem
-            ? '<p class="product__prev">Ontem <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
+            ? '<p class="product__prev">Anterior <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
               '<span style="color:' + (delta >= 0 ? '#FFB4A6' : '#9FE0BF') + ';font-weight:700;">' +
               sinal + num(Math.abs(delta)) + '</span></p>'
             : '<p class="product__prev">Primeira leitura registrada</p>') +
@@ -563,7 +561,9 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 
-  var LARGURA_A4 = 842, ALTURA_A4 = 1219;
+  // O jornal é uma folha fixa de Stories: 1080 x 1920 (9:16). O PNG/JPEG sai
+  // exatamente nesse tamanho, pronto para o Status do WhatsApp e o Instagram.
+  var LARGURA_JORNAL = 1080, ALTURA_JORNAL = 1920;
 
   /** Renderiza o relatório num iframe oculto e devolve o documento pronto. */
   function abrirRelatorioOculto(caminho) {
@@ -571,8 +571,8 @@
       var frame = document.createElement('iframe');
       frame.setAttribute('aria-hidden', 'true');
       frame.setAttribute('tabindex', '-1');
-      frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + LARGURA_A4 +
-        'px;height:' + ALTURA_A4 + 'px;border:0;visibility:hidden;';
+      frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + LARGURA_JORNAL +
+        'px;height:' + ALTURA_JORNAL + 'px;border:0;visibility:hidden;';
       frame.src = caminho;
 
       var limpo = false;
@@ -636,11 +636,13 @@
       .then(function (ctx) {
         var alvo = ctx.doc.body;
         return window.html2canvas(alvo, {
-          width: LARGURA_A4,
-          height: Math.max(ALTURA_A4, alvo.scrollHeight),
-          windowWidth: LARGURA_A4,
-          windowHeight: ALTURA_A4,
-          scale: 2,
+          width: LARGURA_JORNAL,
+          height: Math.max(ALTURA_JORNAL, alvo.scrollHeight),
+          windowWidth: LARGURA_JORNAL,
+          windowHeight: ALTURA_JORNAL,
+          // Escala 1: 1080 x 1920 exatos (escala 2 dava 2160 x 3840, pesado
+          // demais e reduzido de qualquer jeito pelo WhatsApp e Instagram).
+          scale: 1,
           backgroundColor: '#FBF9F4',
           useCORS: true,
           allowTaint: false,
@@ -674,10 +676,39 @@
       });
   }
 
+  /**
+   * Edições novas trazem a "foto" pronta do jornal (PNG 1080x1920, tirada pelo
+   * robô no próprio navegador): o PNG é só baixado, e JPEG e PDF saem dele.
+   * Sai idêntico ao que se vê na tela — o html2canvas desenhava o texto
+   * deslocado. As edições antigas, sem foto, seguem pelo html2canvas.
+   */
+  function imagemParaCanvas(caminho) {
+    return new Promise(function (ok, erro) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        var g = c.getContext('2d');
+        g.fillStyle = '#FBF9F4'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0);
+        ok(c);
+      };
+      img.onerror = function () { erro(new Error('Imagem do jornal indisponível.')); };
+      img.src = caminho;
+    });
+  }
+
   function gerarDownload(edicao, formato) {
     if (formato === 'html') return baixarHtml(edicao);
+    if (formato === 'png' && edicao.imagem) {
+      return fetch(edicao.imagem).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      }).then(function (b) { salvarBlob(b, edicao.slug + '.png'); });
+    }
 
-    return relatorioParaCanvas(edicao.arquivo).then(function (canvas) {
+    var montar = edicao.imagem ? imagemParaCanvas(edicao.imagem) : relatorioParaCanvas(edicao.arquivo);
+    return montar.then(function (canvas) {
       if (formato === 'png') {
         return canvasParaBlob(canvas, 'image/png')
           .then(function (b) { salvarBlob(b, edicao.slug + '.png'); });
@@ -686,14 +717,14 @@
         return canvasParaBlob(canvas, 'image/jpeg', 0.92)
           .then(function (b) { salvarBlob(b, edicao.slug + '.jpg'); });
       }
-      // PDF em A4 retrato, página inteira, sem cortes.
+      // PDF do tamanho da folha (9:16), página inteira, sem cortes.
       return carregarScript(CDN.jspdf).then(function () {
         var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
         if (!jsPDF) throw new Error('Gerador de PDF indisponível.');
 
-        var pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-        var pw = pdf.internal.pageSize.getWidth();   // 210
-        var ph = pdf.internal.pageSize.getHeight();  // 297
+        var pdf = new jsPDF({ unit: 'mm', format: [108, 192], orientation: 'portrait', compress: true });
+        var pw = pdf.internal.pageSize.getWidth();   // 108
+        var ph = pdf.internal.pageSize.getHeight();  // 192
         var razao = canvas.width / canvas.height;
         var w = pw, h = pw / razao;
         if (h > ph) { h = ph; w = ph * razao; }
@@ -707,9 +738,9 @@
   }
 
   var ROTULOS = {
-    pdf:  { nome: 'PDF',  desc: 'Para imprimir em A4' },
-    png:  { nome: 'PNG',  desc: 'Para mandar no WhatsApp' },
-    jpeg: { nome: 'JPEG', desc: 'Arquivo mais leve' },
+    pdf:  { nome: 'PDF',  desc: 'Documento para enviar' },
+    png:  { nome: 'PNG',  desc: 'Stories e WhatsApp, 1080×1920' },
+    jpeg: { nome: 'JPEG', desc: 'Mesmo tamanho, formato JPEG' },
     html: { nome: 'HTML', desc: 'Página original' }
   };
 
@@ -747,12 +778,15 @@
       return '' +
         '<article class="edition" data-edicao="' + i + '">' +
           '<div class="edition__preview">' +
-            '<iframe src="' + esc(e.arquivo) + '" title="Prévia da ' + esc(e.titulo) + '" ' +
-              'loading="lazy" tabindex="-1" aria-hidden="true" scrolling="no"></iframe>' +
+            // Com a foto pronta, a prévia é a própria imagem (leve e exata).
+            (e.imagem
+              ? '<img src="' + esc(e.imagem) + '" alt="Jornal de ' + esc(e.rotulo || e.data) + ': ' + esc(e.titulo) + '" loading="lazy">'
+              : '<iframe src="' + esc(e.arquivo) + '" title="Prévia da ' + esc(e.titulo) + '" ' +
+                'loading="lazy" tabindex="-1" aria-hidden="true" scrolling="no"></iframe>') +
           '</div>' +
           '<div class="edition__meta">' +
             '<h3 class="edition__title">' + esc(e.titulo) + '</h3>' +
-            '<span class="edition__date">' + esc(e.data) + '</span>' +
+            '<span class="edition__date">' + esc(e.rotulo || e.data) + '</span>' +
           '</div>' +
           '<p class="edition__desc">' + esc(e.descricao) + '</p>' +
           '<div class="edition__actions">' +
@@ -781,21 +815,19 @@
     ajustarPrevias();
   }
 
-  /** Encaixa a prévia A4 (842px) na largura real do cartão. */
+  /** Encaixa a prévia (folha de 1080 px) na largura real do cartão. */
   function ajustarPrevias() {
     var previas = document.querySelectorAll('.edition__preview');
     Array.prototype.forEach.call(previas, function (box) {
       var frame = box.querySelector('iframe');
       if (!frame) return;
-      var escala = box.clientWidth / LARGURA_A4;
+      var escala = box.clientWidth / LARGURA_JORNAL;
       if (escala > 0) frame.style.transform = 'scale(' + escala.toFixed(4) + ')';
     });
   }
 
-  // Nota: o relatório é desenhado para a caixa A4 de 842x1219 e o conteúdo se
-  // ajusta à altura que recebe — por isso a proporção da prévia é fixa. Medir
-  // a "altura real" não funciona: doc.body.scrollHeight só devolve a altura do
-  // próprio iframe.
+  // Nota: o jornal é uma folha fixa de 1080x1920, por isso a proporção da
+  // prévia é fixa (9:16).
 
   /* -------------------------------------------------------- compartilhar */
 

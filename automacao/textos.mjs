@@ -146,7 +146,7 @@ export function llmsTxt({ abicom, anp, dolar, share, atualizadoISO }) {
   L.push(`- [Panorama do diesel](${SITE}/): defasagem diária do diesel e da gasolina, preço na bomba por região e estado, cotações (dólar, euro, Brent, WTI, Ibovespa) e notícias de transporte, agro, Brasil e mundo.`);
   L.push(`- [Market share](${SITE}/market-share.html): volume e participação de distribuidoras e TRRs, Brasil e estados (MG, SP, MS, RJ, DF, GO, BA, SC, PR), filtro por mês ou período desde jan/2024.`);
   if (share?.csv) L.push(`- [Ranking completo em CSV](${SITE}/${share.csv}): todas as distribuidoras e TRRs, Brasil e 27 estados.`);
-  L.push(`- Jornal do dia: página A4 com os números e as manchetes, disponível na página inicial (PDF, PNG, JPEG).`);
+  L.push(`- Jornal do dia: imagem no formato Stories (1080×1920) com os números, a análise da semana e as manchetes, todos os dias, na página inicial (PNG, JPEG, PDF).`);
   L.push('');
   L.push('## Fontes');
   L.push('');
