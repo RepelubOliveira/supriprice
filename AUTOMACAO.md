@@ -2,11 +2,11 @@
 
 Site: **https://www.supriprice.com.br**
 
-Todo dia útil de manhã, um robô **no seu computador** busca dados e notícias,
-monta o portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
+Todos os dias, três vezes por dia, um robô **no seu computador** busca dados e
+notícias, monta o portal e o jornal do dia, e publica. **Você não precisa abrir nada.**
 
 ```
-   07:00, 12:00 e 17:00 (Brasília), segunda a sexta — Tarefa Agendada do Windows
+   07:00, 12:00 e 17:00 (Brasília), todos os dias — Tarefa Agendada do Windows
         │
         ├── Abicom/StoneX ──► defasagem do diesel e da gasolina, faixa por polo
         ├── Banco Central ──► dólar PTAX
@@ -28,9 +28,17 @@ Contornar essa verificação está fora de questão. Da internet comum do
 escritório a página abre normalmente — é o uso que o site permite (o
 `robots.txt` dela libera `/ppi/`). Por isso a coleta roda aqui.
 
-**A contrapartida: o computador precisa estar ligado.** Se estiver desligado
-no horário, a tarefa roda assim que ele ligar. Se ficar dias desligado, o
-portal congela na última edição — e o selo do topo avisa o leitor da data.
+**A contrapartida: o computador precisa estar ligado.** Se estiver em
+suspensão (tampa fechada, modo economia), o Windows o acorda para rodar. Se
+estiver DESLIGADO, a tarefa roda assim que ele ligar — e o portal fica parado
+na última atualização até lá (o selo do topo avisa o leitor da data).
+**Para atualizar no fim de semana, deixe o computador ligado ou em suspensão,
+na tomada, de sexta para segunda.**
+
+**Sábado e domingo:** a Abicom não publica. O robô roda do mesmo jeito em modo
+PARCIAL: mantém a defasagem de sexta (com a data dela à mostra) e renova
+notícias, preço na bomba da ANP, market share e o selo do dia. O jornal do dia
+só sai com boletim novo da Abicom, então o de sexta segue até segunda.
 
 O workflow do GitHub continua no repositório com a agenda **desligada**. Ele
 serve só de backup do código e para execução manual.

@@ -283,10 +283,11 @@ export async function lerIndicadores() {
   return ok;
 }
 
-export async function coletarTudo(data) {
-  // Em paralelo: uma fonte lenta não atrasa as outras.
+export async function coletarTudo(data, { semAbicom = false } = {}) {
+  // Em paralelo: uma fonte lenta não atrasa as outras. No fim de semana a
+  // Abicom não publica: nem pergunta (semAbicom), segue o boletim de sexta.
   const [abicom, dolar, brent] = await Promise.all([
-    lerAbicom(data),
+    semAbicom ? null : lerAbicom(data),
     lerDolar(data),
     lerBrent()
   ]);

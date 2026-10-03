@@ -201,10 +201,10 @@ async function principal() {
   const hoje = hojeBrasilia();
   log(`Data de referência: ${ddmm(hoje)}/${hoje.getFullYear()}`);
 
-  if (hoje.getDay() === 0 || hoje.getDay() === 6) {
-    log('Fim de semana: a Abicom não publica. Nada a fazer.');
-    return;
-  }
+  // Fim de semana: o site atualiza do mesmo jeito (notícias, ANP, market
+  // share, selo do dia), em modo PARCIAL — a Abicom não publica sábado e
+  // domingo, então vale o boletim de sexta, com a data dele à mostra.
+  const fimDeSemana = hoje.getDay() === 0 || hoje.getDay() === 6;
 
   const editorial = await lerJson(P.editorial, null);
   const cfgFeeds = await lerJson(P.feeds, null);
@@ -214,7 +214,7 @@ async function principal() {
   // A defasagem é obrigatória. ANP e notícias são desejáveis: se uma delas
   // falhar, o portal sai sem aquele bloco em vez de não sair.
   log('Buscando Abicom, Banco Central e Brent...');
-  const coleta = await coletarTudo(hoje);
+  const coleta = await coletarTudo(hoje, { semAbicom: fimDeSemana });
   const { dolar, brent } = coleta;
   let abicom = coleta.abicom;
 
@@ -237,7 +237,9 @@ async function principal() {
     abicom = ultimo.abicom;
     dataAbicomISO = ultimo.dataISO;
     parcial = true;
-    log(`A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
+    log(fimDeSemana
+      ? `Fim de semana (a Abicom não publica): atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`
+      : `A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
   }
   const def = abicom.diesel.defasagem;
   if (!(def > 0 && def < 20)) throw new Error(`Defasagem implausível (${def}). Abortando.`);
