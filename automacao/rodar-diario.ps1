@@ -40,16 +40,41 @@ Set-Location $raiz
 # codigo do console (850): os acentos chegavam ao log como "refer├¬ncia".
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Logo depois de ligar ou acordar, o Windows roda a tarefa atrasada antes de
+# a internet (Wi-Fi, rede da empresa) estar de pe. Espera ate 3 minutos.
+for ($i = 0; $i -lt 36; $i++) {
+  try { [System.Net.Dns]::GetHostAddresses('abicom.com.br') | Out-Null; break }
+  catch { if ($i -eq 0) { Registrar "Aguardando a internet..." }; Start-Sleep -Seconds 5 }
+}
+
 # O script sai com codigo 1 quando uma fonte obrigatoria falha; nesse caso nada
-# e publicado e o site continua com os dados do dia anterior, com o selo do topo
-# avisando a data. Isso e intencional: melhor nao publicar do que publicar errado.
-& node automacao/atualizar.mjs 2>&1 | ForEach-Object { Registrar $_ }
-$codigo = $LASTEXITCODE
+# e publicado e o site continua com os dados anteriores. Melhor nao publicar do
+# que publicar errado - mas uma falha passageira (rede instavel) nao pode fazer
+# o site esperar ate a proxima rodada: tenta ate 3 vezes, 5 minutos entre elas.
+#
+# ATENCAO, bug corrigido em 05/10/2026: com $ErrorActionPreference = 'Stop', o
+# PowerShell 5.1 trata QUALQUER linha que o Node escreve em stderr (um simples
+# aviso "! feed fora do ar") como erro fatal e encerra o script na hora, sem
+# registrar nada. Foi o que derrubou a rodada das 07:19 de 05/10. Durante o
+# Node, os avisos viram linhas comuns do registro.
+$codigo = 1
+for ($tentativa = 1; $tentativa -le 3; $tentativa++) {
+  if ($tentativa -gt 1) {
+    Registrar "Tentando de novo em 5 minutos (tentativa $tentativa de 3)..."
+    Start-Sleep -Seconds 300
+  }
+  $ErrorActionPreference = 'Continue'
+  & node automacao/atualizar.mjs 2>&1 | ForEach-Object { Registrar ("$_") }
+  $codigo = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($codigo -eq 0) { break }
+  Registrar "Falhou (codigo $codigo)."
+}
 
 if ($codigo -eq 0) {
   Registrar "Concluido com sucesso."
 } else {
-  Registrar "Falhou (codigo $codigo). O portal segue com a edicao anterior."
+  Registrar "Falhou nas 3 tentativas. O portal segue com a edicao anterior ate a proxima rodada."
 }
 
 # Guarda so os 30 logs mais recentes.

@@ -61,7 +61,7 @@ $gatilhos = @(
 # a tarefa roda assim que ele ligar (StartWhenAvailable).
 $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun `
   -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries `
-  -ExecutionTimeLimit (New-TimeSpan -Minutes 20) `
+  -ExecutionTimeLimit (New-TimeSpan -Minutes 45) `
   -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $nome -Action $acao -Trigger $gatilhos `

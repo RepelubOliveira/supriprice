@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SupriPrice · Panorama do Diesel — 05/10/2026</title>
+<meta name="description" content="Janela de importação completa 265 dias fechada. Boletim diário do mercado de combustíveis.">
+<meta name="robots" content="index, follow">
+<meta name="supriprice-formato" content="stories-1080x1920">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #E9E5DA; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color: #14171A; overflow-x: hidden; }
+  .tnum, .mercado__valor, .numero__valor, .share b, .regioes b { font-variant-numeric: tabular-nums; }
+
+  /* A folha: 1080 x 1920, fixa. Na tela pequena o script abaixo encolhe. */
+  .folha {
+    width: 1080px; height: 1920px; overflow: hidden; background: #FBF9F4;
+    display: flex; flex-direction: column; transform-origin: 0 0;
+  }
+  .clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Cabeçalho */
+  .cab { height: 176px; flex: none; background: #0E2A47; color: #fff; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 56px; gap: 24px; }
+  .cab__marca { display: flex; align-items: center; gap: 22px; }
+  .cab__nome { display: block; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 52px; line-height: 1; letter-spacing: -.01em; }
+  .cab__sub { display: block; margin-top: 10px; font-size: 20px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #C9D5E3; }
+  .cab__data { text-align: right; font-size: 22px; line-height: 1.35; color: #C9D5E3; }
+  .cab__data b { display: block; font-size: 28px; color: #fff; text-transform: none; }
+
+  /* Cotações */
+  .mercado { height: 112px; flex: none; display: grid; grid-template-columns: repeat(5, 1fr);
+    border-bottom: 2px solid #14171A; background: #fff; }
+  .mercado__item { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; border-right: 1px solid #E2DCCC; }
+  .mercado__item:last-child { border-right: 0; }
+  .mercado__nome { font-size: 17px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6A7480; }
+  .mercado__nome small { font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .mercado__valor { font-size: 26px; font-weight: 700; }
+  .mercado__var { font-size: 19px; font-weight: 700; }
+  .alta { color: #2E6B4F; } .baixa { color: #B3341F; }
+
+  /* Abertura */
+  .abre { height: 420px; flex: none; padding: 30px 56px 0; display: flex; flex-direction: column; gap: 14px; }
+  .chapeu { font-size: 22px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #B3341F; }
+  .manchete { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 58px; line-height: 1.12;
+    letter-spacing: -.01em; -webkit-line-clamp: 3; max-height: 196px; }
+  .lide { font-size: 28px; line-height: 1.42; color: #2A2F36; -webkit-line-clamp: 4; max-height: 160px; }
+  .lide strong { color: #14171A; }
+
+  /* Números */
+  .numeros { height: 300px; flex: none; margin: 0 56px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 2px; background: #DCD5C4; border: 2px solid #DCD5C4; }
+  .numero { background: #fff; padding: 18px 24px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; }
+  .numero__rotulo { font-size: 18px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6A7480; }
+  .numero__valor { font-size: 50px; font-weight: 700; line-height: 1.05; color: #0E2A47; }
+  .numero__nota { font-size: 18px; color: #6A7480; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Bloco do dia */
+  .bloco { height: 392px; flex: none; margin: 24px 56px 0; padding: 26px 30px; border-radius: 6px; overflow: hidden;
+    display: flex; flex-direction: column; gap: 12px; }
+  .bloco > * { flex: none; } /* nada encolhe: cada parte tem o próprio limite de linhas */
+  .bloco--analise { background: #0E2A47; color: #fff; }
+  .bloco--share, .bloco--anp { background: #fff; border: 2px solid #DCD5C4; }
+  .bloco__chapeu { font-size: 19px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #F2A413; }
+  .bloco--share .bloco__chapeu, .bloco--anp .bloco__chapeu { color: #B3341F; }
+  .bloco__titulo { font-family: Georgia, serif; font-size: 36px; line-height: 1.15; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .bloco__texto { font-size: 23px; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .bloco--analise .bloco__texto { color: #D5DEEA; }
+  .bloco__pontos { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .bloco__pontos li { position: relative; padding-left: 26px; font-size: 22px; line-height: 1.36; color: #fff;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .bloco__pontos li::before { content: ''; position: absolute; left: 0; top: 11px; width: 12px; height: 12px; border-radius: 50%; background: #F2A413; }
+  .bloco__assina { margin-top: auto; font-size: 17px; color: #9FB0C4; }
+  .bloco--anp .bloco__assina, .bloco--share .bloco__assina { color: #6A7480; }
+  .share { display: grid; grid-template-columns: 1fr 1fr; gap: 0 34px; }
+  .share__tit { font-size: 18px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6A7480; margin-bottom: 4px; }
+  .share ol { list-style: none; }
+  .share li { display: grid; grid-template-columns: 1fr auto 62px; gap: 10px; align-items: baseline; font-size: 21px; padding: 5px 0; border-bottom: 1px solid #EEE8DA; }
+  .share li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .share li i { font-style: normal; font-size: 17px; color: #6A7480; text-align: right; }
+  .regioes { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 34px; margin-top: 4px; }
+  .regioes li { display: flex; justify-content: space-between; font-size: 24px; padding: 6px 0; border-bottom: 1px dotted #D7D0BF; }
+
+  /* Faixa (market share quando a análise ocupa o bloco) */
+  .faixa { height: 54px; flex: none; margin: 14px 56px 0; padding: 0 22px; display: flex; align-items: center;
+    background: #FFF4DC; border-left: 6px solid #F2A413; font-size: 20px; }
+  .faixa span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Notícias: ocupa o que sobra, 3 itens de até 2 linhas. */
+  .noticias { flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 22px 56px 0; }
+  .noticias__tit { font-family: Georgia, serif; font-size: 30px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid #14171A; margin-bottom: 6px; }
+  .noticias ul { list-style: none; }
+  .noticias li { padding: 10px 0; border-bottom: 1px solid #E6E0D0; }
+  .noticias a { color: #14171A; text-decoration: none; font-size: 25px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .fonte { display: block; margin-top: 3px; font-size: 17px; color: #6A7480; }
+
+  /* Rodapé */
+  .rodape { height: 128px; flex: none; background: #0E2A47; color: #C9D5E3; padding: 0 56px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .rodape__fontes { font-size: 16px; line-height: 1.5; max-width: 560px; }
+  .rodape__site { text-align: right; }
+  .rodape__site b { display: block; font-size: 36px; color: #fff; letter-spacing: -.01em; }
+  .rodape__site span { font-size: 17px; color: #F2A413; font-weight: 600; }
+</style>
+</head>
+<body>
+<article class="folha">
+
+  <header class="cab">
+    <div class="cab__marca">
+      <svg viewBox="5 5 54 54" width="76" height="76" aria-hidden="true"><path d="M12 6 H40 L58 24 V52 A6 6 0 0 1 52 58 H12 A6 6 0 0 1 6 52 V12 A6 6 0 0 1 12 6 Z" fill="#FFFFFF"/><circle cx="45" cy="19" r="4.6" fill="#F2A413"/><text x="27" y="48" text-anchor="middle" font-family="Archivo, Arial Black, Arial, sans-serif" font-size="36" font-weight="800" fill="#0E2A47">S</text></svg>
+      <div>
+        <span class="cab__nome">Panorama do Diesel</span>
+        <span class="cab__sub">SupriPrice · mercado de combustíveis</span>
+      </div>
+    </div>
+    <div class="cab__data">Segunda-feira<b>5 de outubro de 2026</b></div>
+  </header>
+
+  
+  <div class="mercado">
+    
+      <div class="mercado__item">
+        <span class="mercado__nome">Ibovespa <small>fech. 02/10</small></span>
+        <span class="mercado__valor">192.115</span>
+        <span class="mercado__var alta">▲ +2,63%</span>
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Dólar</span>
+        <span class="mercado__valor">R$ 5,226</span>
+        <span class="mercado__var alta">▲ +0,07%</span>
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Euro</span>
+        <span class="mercado__valor">R$ 5,857</span>
+        <span class="mercado__var baixa">▼ −0,22%</span>
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">Brent</span>
+        <span class="mercado__valor">US$ 102,71</span>
+        <span class="mercado__var alta">▲ +0,45%</span>
+      </div>
+      <div class="mercado__item">
+        <span class="mercado__nome">WTI</span>
+        <span class="mercado__valor">US$ 90,40</span>
+        <span class="mercado__var baixa">▼ −0,78%</span>
+      </div>
+  </div>
+
+  <section class="abre">
+    <p class="chapeu">Arbitragem do diesel</p>
+    <h1 class="manchete clamp">Janela de importação completa 265 dias fechada</h1>
+    <p class="lide clamp">A defasagem média do diesel fechou em <strong>R$ 2,97 por litro</strong>, 88% abaixo da paridade de importação. Na bomba, o S10 está em R$ 7,37, alta de R$ 0,04 na semana.</p>
+  </section>
+
+  
+  <section class="numeros">
+    
+      <div class="numero">
+        <span class="numero__rotulo">Defasagem do diesel</span>
+        <span class="numero__valor">R$ 2,97</span>
+        <span class="numero__nota">88% abaixo da paridade · Abicom 05/10</span>
+      </div>
+      <div class="numero">
+        <span class="numero__rotulo">Defasagem da gasolina</span>
+        <span class="numero__valor">R$ 0,65</span>
+        <span class="numero__nota">22% abaixo da paridade · Abicom 05/10</span>
+      </div>
+      <div class="numero">
+        <span class="numero__rotulo">Diesel S10 na bomba</span>
+        <span class="numero__valor">R$ 7,37</span>
+        <span class="numero__nota">+0,04 na semana · ANP 27/09 a 02/10</span>
+      </div>
+      <div class="numero">
+        <span class="numero__rotulo">Dólar PTAX</span>
+        <span class="numero__valor">R$ 5,22</span>
+        <span class="numero__nota">Banco Central · 02/10</span>
+      </div>
+  </section>
+  
+  <section class="bloco bloco--analise">
+    <p class="bloco__chapeu">Eleições 2026</p>
+    <h2 class="bloco__titulo">O que a eleição pode mexer no diesel</h2>
+    
+    <ul class="bloco__pontos">
+      <li>Subsídio: a subvenção ao diesel foi prorrogada por 30 dias, até depois do 2º turno, segundo a imprensa. O que vem depois é a maior dúvida para o preço.</li><li>Câmbio: o dólar costuma oscilar mais em eleição, e ele entra direto na paridade de importação e, portanto, na defasagem.</li><li>Petrobras: o mercado acompanha sinais sobre a política de preços da estatal, que hoje vende o diesel bem abaixo da paridade.</li>
+    </ul>
+    <p class="bloco__assina">Análise SupriPrice · não é recomendação comercial</p>
+  </section>
+  
+  
+  <section class="noticias">
+    <p class="noticias__tit">Radar: eleições e combustíveis</p>
+    <ul>
+      <li><a href="https://news.google.com/rss/articles/CBMi3gFBVV95cUxObjdpaEhqZE9DQlNiM1JoeUFPWFRmQ0prc0RtWDlqUWlBTEhad1Fyb21wSHB5V0twcWtFMFRRdzFNZDRhZndmUU8wY2xGSVlQYVVxWm5HREFhTnE1MjdINXBkYnFiRWh6MUVPVnFHSndRT25zTHg4X3ZZanJ4QmFoRkJ0MnVpY3luVXY3VGRScjN2MExJbzM5QlZtaU54Y3NGX09xNngzenVQWmxWQndoV01EQ2ZFM05hS25pYTNFMzhaUEJDRDFrZEU1bWhQZHkwUnQtaFp0Z2JJa201eFE?oc=5" target="_blank" rel="noopener noreferrer">ADRs da Petrobras e da Vale disparam no pré-mercado dos EUA após primeiro turno das eleições</a>
+        <span class="fonte">Folha de S.Paulo</span></li>
+      <li><a href="https://news.google.com/rss/articles/CBMi0AFBVV95cUxQa0RCZjlXSjF3U3N3WFA0ZFN1a2FfXy13aWp1eG10TEJvdmxUQjFsSUpsVzBKZ0NhNUZYMlFSalV0aFlFSFFlbDJWSkFISEd3Yjh5Vm41RnByQ0tGX1R3U3cyZjhCRHR0eDlnRGpDRVBMR1BUWWVtenVScWFzMDRNLXh6ZFYtSUZEWVQ3T1lyM1ZlQm1zcmNvTy0yX0JaY3dZWllkMHRyblZSS2FodWlQLXg3U2tQTW00MGp2MmhXN2lhVWhrWktvYVJTZHZLMHgw?oc=5" target="_blank" rel="noopener noreferrer">Por que as eleições brasileiras são consideradas chave para a estratégia de Trump na América Latina, segundo NYT</a>
+        <span class="fonte">Money Times</span></li>
+      <li><a href="https://news.google.com/rss/articles/CBMi7gFBVV95cUxPSk9YQnBIdEp6eGt1WlE2dTJWUkRsNXVXOHRzR3Awci1SVFhCWGZiTkI3V0tBR1Myc3BNS1pwWHBDeGVLLS1CWkxhMUtEcDh2MG1kcDRQM01IOTFsR19sa015R1FfSTkyYzBqeVljcko0RWhZUGpac0gyejdiSHoyX3pYTV8xT1UwT1N1LXZFc1FnaXZGemZxbDB2Q3NONndnandwbGhlMFhyaFlQa1hSQmhtUFJSb2wyYWFpNXVWOVZONWc3b2p3eU4tM0R3UUxDX05UakNPT3lhYi1JbUJLUHlNU3NNOWVYa0NHZkJ3?oc=5" target="_blank" rel="noopener noreferrer">Eleições mudam o mapa das carteiras para outubro e Petrobras ganha espaço; veja as recomendações</a>
+        <span class="fonte">estadao.com.br</span></li>
+    </ul>
+  </section>
+
+  <footer class="rodape">
+    <p class="rodape__fontes">Fontes: Abicom/StoneX (defasagem) · ANP (bomba e market share) · Banco Central
+      (PTAX) · Yahoo Finance (cotações) · veículos citados nas manchetes.
+      © 2026 SupriPrice. Reprodução permitida citando a fonte.</p>
+    <p class="rodape__site"><b>supriprice.com.br</b><span>Números atualizados todos os dias</span></p>
+  </footer>
+
+</article>
+<script>
+  // Na tela do celular a folha de 1080 px é encolhida para caber, sem mudar o
+  // desenho. No download (iframe de 1080 px) a escala fica 1 e sai o tamanho exato.
+  (function () {
+    var f = document.querySelector('.folha');
+    // Notícia que não cabe INTEIRA no espaço que sobrou sai da folha (em vez
+    // de aparecer cortada no meio). Mede antes de qualquer escala.
+    function encaixar() {
+      var area = document.querySelector('.noticias');
+      if (!area) return;
+      var limite = area.getBoundingClientRect().bottom;
+      Array.prototype.slice.call(area.querySelectorAll('li')).reverse().forEach(function (li) {
+        if (li.getBoundingClientRect().bottom > limite + 1 && area.querySelectorAll('li').length > 1) li.remove();
+      });
+    }
+    f.style.transform = '';
+    encaixar();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { f.style.transform = ''; encaixar(); ajustar(); });
+    function ajustar() {
+      var s = Math.min(1, window.innerWidth / 1080);
+      f.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+      document.body.style.height = s < 1 ? Math.ceil(1920 * s) + 'px' : '';
+    }
+    ajustar();
+    window.addEventListener('resize', ajustar);
+  })();
+</script>
+</body>
+</html>
