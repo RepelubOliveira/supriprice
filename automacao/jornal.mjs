@@ -306,7 +306,7 @@ export function gerarJornal({
   .cab { height: 176px; flex: none; background: #0E2A47; color: #fff; display: flex; align-items: center;
     justify-content: space-between; padding: 0 56px; gap: 24px; }
   .cab__marca { display: flex; align-items: center; gap: 22px; }
-  .cab__nome { display: block; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 52px; line-height: 1; letter-spacing: -.01em; }
+  .cab__nome { display: block; font-family: Georgia, 'IBM Plex Serif', 'Times New Roman', serif; font-weight: 700; font-size: 52px; line-height: 1; letter-spacing: -.01em; }
   .cab__sub { display: block; margin-top: 10px; font-size: 20px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #C9D5E3; }
   .cab__data { text-align: right; font-size: 22px; line-height: 1.35; color: #C9D5E3; }
   .cab__data b { display: block; font-size: 28px; color: #fff; text-transform: none; }
@@ -325,7 +325,7 @@ export function gerarJornal({
   /* Abertura */
   .abre { height: 420px; flex: none; padding: 30px 56px 0; display: flex; flex-direction: column; gap: 14px; }
   .chapeu { font-size: 22px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #B3341F; }
-  .manchete { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 58px; line-height: 1.12;
+  .manchete { font-family: Georgia, 'IBM Plex Serif', 'Times New Roman', serif; font-weight: 700; font-size: 58px; line-height: 1.12;
     letter-spacing: -.01em; -webkit-line-clamp: 3; max-height: 196px; }
   .lide { font-size: 28px; line-height: 1.42; color: #2A2F36; -webkit-line-clamp: 4; max-height: 160px; }
   .lide strong { color: #14171A; }
@@ -346,7 +346,7 @@ export function gerarJornal({
   .bloco--share, .bloco--anp { background: #fff; border: 2px solid #DCD5C4; }
   .bloco__chapeu { font-size: 19px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #F2A413; }
   .bloco--share .bloco__chapeu, .bloco--anp .bloco__chapeu { color: #B3341F; }
-  .bloco__titulo { font-family: Georgia, serif; font-size: 36px; line-height: 1.15; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .bloco__titulo { font-family: Georgia, 'IBM Plex Serif', serif; font-size: 36px; line-height: 1.15; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .bloco__texto { font-size: 23px; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .bloco--analise .bloco__texto { color: #D5DEEA; }
   .bloco__pontos { list-style: none; display: flex; flex-direction: column; gap: 8px; }
@@ -371,7 +371,7 @@ export function gerarJornal({
 
   /* Notícias: ocupa o que sobra, 3 itens de até 2 linhas. */
   .noticias { flex: 1 1 auto; min-height: 0; overflow: hidden; margin: 22px 56px 0; }
-  .noticias__tit { font-family: Georgia, serif; font-size: 30px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid #14171A; margin-bottom: 6px; }
+  .noticias__tit { font-family: Georgia, 'IBM Plex Serif', serif; font-size: 30px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid #14171A; margin-bottom: 6px; }
   .noticias ul { list-style: none; }
   .noticias li { padding: 10px 0; border-bottom: 1px solid #E6E0D0; }
   .noticias a { color: #14171A; text-decoration: none; font-size: 25px; font-weight: 600; line-height: 1.3;

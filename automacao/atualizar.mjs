@@ -31,7 +31,8 @@ import { lerShare } from './share.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { fotografarJornal } from './imagem.mjs';
-import { publicarArquivos } from './publicar.mjs';
+import { publicarArquivos, lerArquivoSite } from './publicar.mjs';
+import { CAMINHO_ESTADO, baixarEstado, sincronizar, montarEstado, marcarPublicacao, ultimaRodadaPrevista } from './estado.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const P = {
@@ -56,6 +57,11 @@ const PAGINAS = ['index.html', 'market-share.html'];
 
 const args = process.argv.slice(2);
 const SIMULAR = args.includes('--simular');
+// --nuvem: execução de RESERVA no GitHub Actions (ver automacao/estado.mjs).
+// Não consulta a Abicom (ela bloqueia servidores) e só age se o computador
+// não tiver atualizado na última rodada prevista. --forcar ignora essa checagem.
+const NUVEM = args.includes('--nuvem');
+const FORCAR = args.includes('--forcar');
 const DATA_FORCADA = (args.find((a) => a.startsWith('--data=')) || '').split('=')[1];
 const MAX_EDICOES = 30;
 
@@ -207,6 +213,37 @@ async function principal() {
   // domingo, então vale o boletim de sexta, com a data dele à mostra.
   const fimDeSemana = hoje.getDay() === 0 || hoje.getDay() === 6;
 
+  // --- estado compartilhado (computador <-> nuvem) --------------------------
+  const SLUG = process.env.HTMLY_SLUG || 'supriprice';
+  const CHAVE = process.env.HTMLY_API_KEY;
+  let remoto = null;
+  if (CHAVE) {
+    try {
+      remoto = await baixarEstado({ slug: SLUG, chave: CHAVE });
+    } catch (e) {
+      console.warn(`  ! Estado do site indisponível: ${e.message}`);
+    }
+  }
+  if (NUVEM) {
+    if (!remoto) throw new Error('Não há estado publicado no site: a nuvem precisa que o computador publique ao menos uma vez com esta versão do robô.');
+    const prevista = ultimaRodadaPrevista();
+    if (!FORCAR && remoto.gerado >= prevista) {
+      const quem = remoto.origem === 'nuvem' ? 'a própria nuvem' : 'o computador';
+      log(`Nada a fazer: ${quem} já atualizou o site (${new Date(remoto.gerado).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}).`);
+      return;
+    }
+    log(`O site não foi atualizado desde ${new Date(remoto.gerado).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}: a nuvem assume esta rodada.`);
+    // Os modelos das páginas vêm do site (o repositório pode estar atrasado).
+    for (const nome of PAGINAS) {
+      const html = await lerArquivoSite({ slug: SLUG, chave: CHAVE, path: nome });
+      if (html) await writeFile(path.join(RAIZ, 'portal', nome), html, 'utf8');
+    }
+  }
+  if (remoto) {
+    const mudou = await sincronizar({ raiz: RAIZ, remoto, nuvem: NUVEM });
+    if (mudou.length) log(`Estado do site (${remoto.origem}) trouxe: ${mudou.join(', ')}.`);
+  }
+
   const editorial = await lerJson(P.editorial, null);
   const cfgFeeds = await lerJson(P.feeds, null);
   if (!editorial) throw new Error(`Não encontrei ${P.editorial}`);
@@ -215,7 +252,7 @@ async function principal() {
   // A defasagem é obrigatória. ANP e notícias são desejáveis: se uma delas
   // falhar, o portal sai sem aquele bloco em vez de não sair.
   log('Buscando Abicom, Banco Central e Brent...');
-  const coleta = await coletarTudo(hoje, { semAbicom: fimDeSemana });
+  const coleta = await coletarTudo(hoje, { semAbicom: fimDeSemana || NUVEM });
   const { dolar, brent } = coleta;
   let abicom = coleta.abicom;
 
@@ -237,10 +274,13 @@ async function principal() {
     }
     abicom = ultimo.abicom;
     dataAbicomISO = ultimo.dataISO;
-    parcial = true;
-    log(fimDeSemana
-      ? `Fim de semana (a Abicom não publica): atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`
-      : `A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
+    // O boletim guardado pode já ser o de HOJE (o computador coletou cedo e a
+    // nuvem roda depois): aí não é atualização parcial, é o dia completo.
+    parcial = ultimo.dataISO !== iso(hoje);
+    if (!parcial) log(`Boletim de hoje da Abicom já coletado pelo computador (${abicom.data}).`);
+    else if (fimDeSemana) log(`Fim de semana (a Abicom não publica): atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
+    else if (NUVEM) log(`Na nuvem a Abicom não é consultada (ela bloqueia servidores): atualização PARCIAL, mantendo o boletim de ${abicom.data}; o computador traz o de hoje.`);
+    else log(`A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
   }
   const def = abicom.diesel.defasagem;
   if (!(def > 0 && def < 20)) throw new Error(`Defasagem implausível (${def}). Abortando.`);
@@ -495,10 +535,19 @@ async function principal() {
 
   if (SIMULAR) { log('Modo simulação: nada publicado.'); return; }
 
+  // O market share como ficará depois desta publicação (vai no estado).
+  const shareFinal = share && (extrasShare.length || jornalComShare) ? {
+    ...share,
+    publicados: [...new Set([...(share.publicados || []), ...extrasShare.map((x) => x.path)])],
+    ...(jornalComShare ? { jornalBase: share.baseANP, jornalData: iso(hoje) } : {})
+  } : share;
+  const estado = await montarEstado({ raiz: RAIZ, origem: NUVEM ? 'nuvem' : 'computador',
+    extras: shareFinal ? { 'share-trr': shareFinal } : {} });
+
   log('Publicando no HTMLy...');
   const res = await publicarArquivos({
-    slug: process.env.HTMLY_SLUG || 'supriprice',
-    chave: process.env.HTMLY_API_KEY,
+    slug: SLUG,
+    chave: CHAVE,
     remover: imagensVelhas,
     arquivos: [
       // Tudo na mesma chamada: as páginas apontam para a versão nova do
@@ -509,17 +558,15 @@ async function principal() {
       { path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html },
       ...(pngJornal ? [{ path: `relatorios/${nomePng}`, content_base64: pngJornal.toString('base64') }] : []),
       // Os arquivos da aba vão na MESMA chamada do dados.js que aponta para eles.
-      ...extrasShare
+      ...extrasShare,
+      // Estado de trabalho, para a outra ponta (computador ou nuvem) continuar.
+      { path: CAMINHO_ESTADO, content: estado }
     ]
   });
+  await marcarPublicacao(RAIZ, JSON.parse(estado).gerado);
   log(`Publicado: ${res.url || ''} · ${res.storage_bytes ?? '?'} bytes`);
-  if (share && (extrasShare.length || jornalComShare)) {
-    share = {
-      ...share,
-      publicados: [...new Set([...(share.publicados || []), ...extrasShare.map((x) => x.path)])],
-      ...(jornalComShare ? { jornalBase: share.baseANP, jornalData: iso(hoje) } : {})
-    };
-    await writeFile(P.shareTrr, JSON.stringify(share) + '\n', 'utf8');
+  if (shareFinal !== share) {
+    await writeFile(P.shareTrr, JSON.stringify(shareFinal) + '\n', 'utf8');
     for (const x of extrasShare) log(`Market share publicado: ${x.path}`);
   }
 }

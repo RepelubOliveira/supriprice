@@ -224,12 +224,37 @@ fica na linha da fonte logo abaixo ("boletim de 02/10/2026 — a Abicom publica
 em dias úteis"). Antes, o selo dizia "Defasagem de 02/10" e passava a ideia de
 site parado no fim de semana.
 
-### Pendente
+### Reserva na nuvem (GitHub Actions)
 
-- **Atualização pela nuvem (GitHub Actions)**, combinada para o fim de semana:
-  roda meia hora depois do computador e só atualiza se ele não tiver
-  atualizado (computador desligado). Sem custo. Precisa do `git push` e da
-  chave do HTMLy cadastrada como "secret" no GitHub.
+Para o site não parar quando o computador está desligado, há uma reserva
+gratuita no GitHub (`.github/workflows/atualizar-panorama.yml`):
+
+- Roda às **07h30, 12h30 e 17h30**, meia hora depois do computador.
+- Primeiro olha o site: **se o computador já atualizou, não faz nada**. Se
+  não atualizou (desligado, fim de semana, feriado), ela atualiza notícias,
+  cotações, ANP, market share, o jornal do dia (com a imagem) e o selo.
+- Não consulta a Abicom (ela bloqueia servidores). A defasagem segue a do
+  último boletim que o computador coletou, com a data à mostra.
+- **Estado compartilhado:** a cada atualização, quem publicou (computador ou
+  nuvem) grava no site o arquivo `dados/estado.json` com o último boletim, a
+  última ANP, o histórico, as edições, o market share, o editorial e os
+  feeds. Quem roda depois parte dele. Por isso a nuvem não depende do
+  `git push` para ter os dados do dia. Ela só precisa do push para ter o
+  CÓDIGO novo do robô.
+- Os horários do GitHub podem atrasar de 15 a 60 minutos em horário de pico.
+- Custo zero: 1 a 2 minutos por rodada, dentro da cota gratuita.
+- Para rodar na hora: GitHub > aba **Actions** > "SupriPrice — reserva na
+  nuvem" > **Run workflow** (marque "forçar" para atualizar mesmo que o
+  computador já tenha atualizado).
+
+**Configuração (uma vez só):**
+1. `git push origin main` — sobe o código.
+2. No GitHub: **Settings > Secrets and variables > Actions > New repository
+   secret**, nome `HTMLY_API_KEY`, valor = a chave do HTMLy (a mesma do
+   Windows). Se já existir um secret com esse nome, clique nele e use
+   **Update** — a chave antiga foi trocada.
+3. Aba **Actions**: se aparecer um aviso pedindo para habilitar workflows,
+   habilite.
 
 ---
 

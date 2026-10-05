@@ -1,37 +1,46 @@
-name: Atualizar Panorama do Diesel
+name: SupriPrice — reserva na nuvem
 
-# AGENDA DESLIGADA. O Cloudflare da Abicom recusa a faixa de IPs do GitHub
-# (403) e apresenta verificação anti-robô a pedidos vindos de servidor, então
-# rodar aqui só produzia falha diária. A atualização real acontece na máquina
-# do usuário, pela Tarefa Agendada do Windows que chama
-# automacao/rodar-diario.ps1. Este workflow fica só para execução manual, útil
-# se um dia a Abicom liberar a faixa — basta descomentar o bloco abaixo.
+# RESERVA DO COMPUTADOR. A atualização principal roda no computador (Tarefa
+# Agendada do Windows, 07h/12h/17h), o único lugar de onde a Abicom abre: o
+# Cloudflare dela recusa servidores como os do GitHub (403).
+#
+# Meia hora depois de cada rodada do computador, esta reserva olha o site:
+#   - se o computador já atualizou, não faz nada (termina em segundos);
+#   - se não atualizou (desligado, fim de semana, feriado), ela atualiza:
+#     notícias, cotações, ANP, market share, jornal do dia e selo. A
+#     defasagem segue a do último boletim da Abicom, com a data à mostra.
+#
+# O estado de trabalho (último boletim, edições, análise da semana...) vem do
+# próprio site (dados/estado.json), não do repositório — ver automacao/estado.mjs.
+# Nada é commitado de volta.
+#
+# Custo: zero. Cada rodada leva 1 a 2 minutos, bem dentro da cota gratuita.
+# Precisa do secret HTMLY_API_KEY (Settings > Secrets and variables > Actions).
+
 on:
-  # schedule:
-  #   - cron: '20 11 * * 1-5'   # 08:20 em Brasília
-  #   - cron: '30 13 * * 1-5'   # 10:30 em Brasília (rede de segurança)
+  schedule:
+    - cron: '30 10 * * *'   # 07:30 em Brasília
+    - cron: '30 15 * * *'   # 12:30 em Brasília
+    - cron: '30 20 * * *'   # 17:30 em Brasília
   workflow_dispatch:
     inputs:
-      simular:
-        description: 'Só gerar o arquivo, sem publicar'
-        type: boolean
-        default: false
-      backfill:
-        description: 'Carregar histórico passado antes de atualizar'
+      forcar:
+        description: 'Atualizar mesmo que o computador já tenha atualizado'
         type: boolean
         default: false
 
-# Duas execuções ao mesmo tempo poderiam gravar históricos conflitantes.
+# Duas rodadas ao mesmo tempo poderiam publicar estados conflitantes.
 concurrency:
-  group: atualizar-panorama
+  group: supriprice-atualizar
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   atualizar:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write        # para commitar o histórico e o dados.js gerado
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -39,33 +48,18 @@ jobs:
         with:
           node-version: '24'
 
-      # Sem dependências: o script usa só o que vem no Node 20.
-      - name: Carregar histórico da Abicom
-        if: ${{ inputs.backfill }}
-        run: node automacao/backfill.mjs --dias=30
+      # Fonte do jornal (a mesma família do site); o Chrome já vem na máquina.
+      - name: Fontes do jornal
+        run: sudo apt-get install -y -qq fonts-ibm-plex >/dev/null || true
 
-      - name: Atualizar e publicar
+      - name: Atualizar e publicar (só se o computador não tiver atualizado)
         env:
           HTMLY_API_KEY: ${{ secrets.HTMLY_API_KEY }}
           HTMLY_SLUG: ${{ vars.HTMLY_SLUG || 'supriprice' }}
+          CHROME_PATH: /usr/bin/google-chrome
         run: |
-          if [ "${{ inputs.simular }}" = "true" ]; then
-            node automacao/atualizar.mjs --simular
+          if [ "${{ inputs.forcar }}" = "true" ]; then
+            node automacao/atualizar.mjs --nuvem --forcar
           else
-            node automacao/atualizar.mjs
-          fi
-
-      - name: Guardar o que mudou
-        run: |
-          git config user.name  "SupriPrice Bot"
-          git config user.email "bot@supriprice.local"
-          git add conteudo/historico.json conteudo/edicoes.json \
-                  portal/assets/js/dados.js portal/relatorios/
-          if git diff --staged --quiet; then
-            echo "Nada mudou nesta execução."
-          else
-            git commit -m "portal: edição de $(TZ=America/Sao_Paulo date +%d/%m/%Y)"
-            # Outra execução pode ter commitado no meio do caminho.
-            git pull --rebase --autostash || true
-            git push
+            node automacao/atualizar.mjs --nuvem
           fi

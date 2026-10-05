@@ -90,3 +90,18 @@ export async function publicarArquivos({ slug, chave, arquivos, remover = [] }) 
 export async function listarSites(chave) {
   return extrairResultado(await chamarMcp('tools/call', { name: 'list_sites', arguments: {} }, chave));
 }
+
+/**
+ * Lê um arquivo publicado no site (texto), pela mesma API autenticada.
+ * Usado para o estado compartilhado entre o computador e a nuvem — e funciona
+ * mesmo onde o domínio do site está bloqueado (a API fica em htmly.com.br).
+ * Devolve null se o arquivo não existir.
+ */
+export async function lerArquivoSite({ slug, chave, path }) {
+  if (!chave) throw new Error('HTMLY_API_KEY não definida.');
+  const result = await chamarMcp('tools/call', { name: 'read_file', arguments: { slug, path } }, chave);
+  if (result?.isError) return null;
+  const dados = extrairResultado(result);
+  if (typeof dados?.content !== 'string') return null;
+  return dados.content;
+}
