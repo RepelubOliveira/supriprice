@@ -142,5 +142,11 @@
     "rotulo": "05/10",
     "valor": 2.97,
     "gasolina": 0.65
+  },
+  {
+    "data": "2026-10-06",
+    "rotulo": "06/10",
+    "valor": 2.6,
+    "gasolina": 0.42
   }
 ]

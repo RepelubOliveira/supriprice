@@ -50,7 +50,7 @@ const P = {
 
 // Sobe quando muda o formato do bloco de market share: força uma nova coleta
 // mesmo que o guardado seja de hoje.
-const VERSAO_SHARE = 4;
+const VERSAO_SHARE = 5;
 
 // Páginas que carregam o dados.js (o robô reescreve a versão em todas).
 const PAGINAS = ['index.html', 'market-share.html'];
@@ -416,7 +416,7 @@ async function principal() {
     (share.jornalBase !== share.baseANP || share.jornalData === hojeISO) ? share : null;
   const jornal = gerarJornal({
     data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores,
-    share: shareNoJornal, analise, radar, parcial, fimDeSemana, dataAbicomISO
+    share: shareNoJornal, shareResumo: share, analise, radar, parcial, fimDeSemana, dataAbicomISO, edicoesAntes
   });
   if (shareNoJornal) {
     jornalComShare = true;
@@ -424,7 +424,7 @@ async function principal() {
   }
   await mkdir(P.relatorios, { recursive: true });
   await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
-  log(`Jornal${parcial ? ' (sem boletim novo da Abicom)' : ''}: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}"`);
+  log(`Jornal${parcial ? ' (sem boletim novo da Abicom)' : ''}: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}" · destaque do dia: ${jornal.destaque}`);
 
   // A "foto" do jornal em PNG 1080x1920, tirada pelo Edge do computador: é o
   // arquivo que o site entrega no download (ver automacao/imagem.mjs).
@@ -440,6 +440,7 @@ async function principal() {
   const todasEdicoes = [
     { data: hojeISO, rotulo: ddmm(hoje), titulo: jornal.titulo, chamada: jornal.chamada,
       arquivo: `relatorios/${jornal.nomeArquivo}`, slug: `supriprice-${hojeISO}`,
+      destaque: jornal.destaque, tipoManchete: jornal.tipoManchete,
       ...(pngJornal ? { imagem: `relatorios/${nomePng}` } : {}) },
     ...edicoesAntes.filter((e) => e.data !== hojeISO)
   ];

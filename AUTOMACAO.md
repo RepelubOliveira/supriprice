@@ -199,18 +199,25 @@ o Google recomendarem um site: eles indicam o que encontram na web e julgam
 - **Formato fixo de Stories: 1080 x 1920** (9:16), pronto para o Status do
   WhatsApp e os Stories do Instagram. Cada bloco tem espaço reservado e cada
   texto tem limite de linhas; notícia que não cabe inteira sai da folha.
-- **Manchete:** com boletim novo da Abicom, a defasagem. Sem boletim (fim de
-  semana, ou de manhã antes de ela publicar), o fato do dia, nesta ordem: a
-  manchete da análise da semana, o market share recém-divulgado pela ANP, a
-  variação do diesel na bomba. A defasagem segue a do último boletim, sempre
-  com a data dele.
-- **Análise da semana** (`conteudo/editorial.json` → `analise`): o único texto
-  escrito à mão, num quadro assinado "Análise SupriPrice", com datas de
-  início e fim. Hoje: eleições (até 26/10). Para mudar o tema, peça ao
-  Claude ou edite os textos.
-- **Radar:** a análise pode ter uma busca no Google Notícias (`analise.radar`)
-  que traz as manchetes do tema, priorizando veículos conhecidos e sem
-  repetir a mesma notícia.
+- **O jornal muda todo dia.** Além dos números fixos (defasagem, bomba,
+  dólar), cada edição tem um **destaque do dia**, escolhido pelos dados entre:
+  câmbio e petróleo (no dia e em 5 pregões), defasagem nos últimos 20
+  pregões, preço na bomba por região, estados mais caros e mais baratos,
+  market share de um estado (um estado por dia, em rodízio) e, no dia em que
+  a ANP divulga, o market share do mês. Um fato forte ganha (dólar ou
+  petróleo com movimento grande, defasagem que mudou muito, ANP nova); fora
+  isso, o robô evita repetir o assunto dos últimos 3 dias.
+- **Manchete:** o fato mais forte do dia (defasagem que mudou, dólar ou
+  petróleo em movimento forte, market share divulgado, bomba) e, se não houver,
+  uma frase tirada do destaque do dia. Nunca o mesmo tipo de manchete dois
+  dias seguidos.
+- **Análise escrita à mão** (`conteudo/editorial.json` → `analise`): é
+  OCASIONAL — aparece no máximo a cada `intervaloDias` (7), entre as datas
+  `de` e `ate`, num quadro "Análise SupriPrice". Só nesse dia vêm também a
+  manchete da análise (em dia sem boletim) e o radar de notícias do tema.
+  Hoje: eleições, até 26/10. Para trocar o tema, peça ao Claude.
+- Cada edição registra em `conteudo/edicoes.json` o destaque e o tipo de
+  manchete usados, que é o que alimenta o rodízio.
 - **Imagem pronta:** a cada rodada o robô abre o jornal no Edge do computador,
   em modo invisível, e grava `relatorios/jornal-AAAA-MM-DD.png`. É esse o
   arquivo do botão "Baixar PNG"; JPEG e PDF saem dele. (O método antigo, o

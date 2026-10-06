@@ -1,9 +1,20 @@
 [
   {
+    "data": "2026-10-06",
+    "rotulo": "06/10",
+    "titulo": "Defasagem do diesel recua R$ 0,37 e fica em R$ 2,60",
+    "chamada": "Destaque: Crude oil prices and refinery margins generally increased throughout the third quarter",
+    "arquivo": "relatorios/jornal-2026-10-06.html",
+    "slug": "supriprice-2026-10-06",
+    "destaque": "mercado",
+    "tipoManchete": "defasagem",
+    "imagem": "relatorios/jornal-2026-10-06.png"
+  },
+  {
     "data": "2026-10-05",
     "rotulo": "05/10",
     "titulo": "Janela de importação completa 265 dias fechada",
-    "chamada": "Destaque: Bolsa hoje: Petrobras salta 9% em NY e Ibovespa futuro dispara 7% após 1º turno",
+    "chamada": "Destaque: Do Nubank à Petrobras: veja como as ações brasileiras reagem após as eleições",
     "arquivo": "relatorios/jornal-2026-10-05.html",
     "slug": "supriprice-2026-10-05",
     "imagem": "relatorios/jornal-2026-10-05.png"

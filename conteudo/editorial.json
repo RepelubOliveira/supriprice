@@ -14,9 +14,11 @@
     "Se a ANP não responder, o robô usa a última leitura válida dela (conteudo/anp-ultima.json), com o período à mostra.",
     "",
     "ANÁLISE DA SEMANA (campo \"analise\"): o único texto escrito à mão do jornal.",
-    "Aparece no jornal de todo dia entre \"de\" e \"ate\" (AAAA-MM-DD), num quadro",
-    "assinado como \"Análise SupriPrice\". Nos dias sem boletim da Abicom (fim de",
-    "semana), \"manchete\" vira a manchete do jornal. \"radar\" busca no Google",
+    "É OCASIONAL: aparece no jornal no máximo a cada \"intervaloDias\" (padrão 7),",
+    "entre \"de\" e \"ate\" (AAAA-MM-DD), num quadro \"Análise SupriPrice\". Nos outros",
+    "dias o jornal traz um destaque do dia escolhido pelos dados (câmbio, defasagem,",
+    "bomba, estados, market share), sem repetir o assunto dos últimos dias.",
+    "No dia da análise, \"manchete\" pode virar a manchete e \"radar\" busca no Google",
     "Notícias as manchetes do tema (só entra título com uma das \"palavras\").",
     "Para trocar de tema, peça ao Claude ou edite os textos. Fora do período, some.",
     "Limites para caber no jornal: titulo ~60 letras, cada ponto ~150 (\"texto\" é opcional, ~110)."
@@ -36,6 +38,7 @@
   "analise": {
     "de": "2026-10-03",
     "ate": "2026-10-26",
+    "intervaloDias": 7,
     "chapeu": "Eleições 2026",
     "manchete": "Eleições: subsídio, dólar e Petrobras no radar do diesel",
     "lide": "Com o 1º turno em 04/10 e um eventual 2º turno em 25/10, o mercado de combustíveis acompanha três frentes.",

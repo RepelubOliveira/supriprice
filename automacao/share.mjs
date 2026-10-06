@@ -413,10 +413,16 @@ export function calcularShare(zipTrr, zipLiquidos) {
     // Líder de cada estado em destaque: vira texto corrido na aba (para quem
     // lê a página sem JavaScript, como buscadores e IAs) e no llms.txt.
     destaques: ESTADOS.map((uf) => {
-      const d = ranking(liq.reg, pL.soRef, { filtro: (r) => r.uf === uf, limite: 1 });
-      const t = ranking(trr.reg, pT.soRef, { filtro: (r) => r.uf === uf, limite: 1 });
+      // Top 3 de cada (o jornal mostra um estado por dia, em rodízio).
+      const d = ranking(liq.reg, pL.soRef, { filtro: (r) => r.uf === uf, limite: 3, comparar: pL.temAnterior ? pL.soAnt : null });
+      const t = ranking(trr.reg, pT.soRef, { filtro: (r) => r.uf === uf, limite: 3, comparar: pT.temAnterior ? pT.soAnt : null });
       const lider = (x) => (x ? { nome: x.curto, share: x.share } : null);
-      return { uf, nome: NOME_UF[uf], volume: d.total, distribuidora: lider(d.top[0]), trr: lider(t.top[0]) };
+      const curta = (b) => b.top.map((x) => ({ nome: x.curto, share: x.share, deltaPP: x.deltaPP ?? null }));
+      return {
+        uf, nome: NOME_UF[uf], volume: d.total, volumeTrr: t.total,
+        distribuidora: lider(d.top[0]), trr: lider(t.top[0]),
+        topDist: curta(d), topTrr: curta(t)
+      };
     })
   };
 

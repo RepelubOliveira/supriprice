@@ -253,6 +253,24 @@ async function lerIndicador(ind) {
   // a atualização roda às 08:20 e 10:30 — não é cotação ao vivo.
   const quando = new Date(meta.regularMarketTime * 1000);
   const fmt = (o) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', ...o }).format(quando);
+  const dataISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(quando);
+
+  // Variação em 5 pregões (a tendência da semana), para o jornal. Opcional:
+  // se falhar, o indicador sai só com a variação do dia.
+  let semana = null;
+  try {
+    const h = await buscar(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ind.simbolo)}?interval=1d&range=1mo`, { texto: false, tentativas: 1 });
+    const r = h?.chart?.result?.[0];
+    const dia = (t) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(t * 1000));
+    // Só pregões ANTERIORES ao da cotação atual (o de hoje ainda está aberto).
+    const fechamentos = (r?.timestamp || []).map((t, i) => ({ d: dia(t), c: r.indicators?.quote?.[0]?.close?.[i] }))
+      .filter((x) => Number.isFinite(x.c) && x.d < dataISO);
+    const base = fechamentos[fechamentos.length - 5]?.c;
+    if (base > 0) {
+      const v = ((valor - base) / base) * 100;
+      if (Math.abs(v) <= VARIACAO_MAXIMA * 2) semana = Math.round(v * 100) / 100;
+    }
+  } catch { /* segue sem a semana */ }
 
   return {
     id: ind.id,
@@ -261,9 +279,10 @@ async function lerIndicador(ind) {
     valor,
     anterior,
     variacao: Math.round(variacao * 100) / 100,
+    semana,
     // dataISO permite ao portal e ao jornal saberem se a cotação é de hoje ou
     // o fechamento de um pregão anterior (às 08:20 a B3 ainda não abriu).
-    dataISO: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(quando),
+    dataISO,
     data: fmt({ day: '2-digit', month: '2-digit' }),
     hora: fmt({ hour: '2-digit', minute: '2-digit' })
   };

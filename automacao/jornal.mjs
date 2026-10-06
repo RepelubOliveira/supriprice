@@ -42,49 +42,161 @@ const ICONE = '<svg viewBox="5 5 54 54" width="76" height="76" aria-hidden="true
   '<text x="27" y="48" text-anchor="middle" font-family="Archivo, Arial Black, Arial, sans-serif" font-size="36" ' +
   'font-weight="800" fill="#0E2A47">S</text></svg>';
 
-/* --------------------------------------------------------------- manchete */
+/* ------------------------------------------------- destaque e manchete */
 
-function escolherManchete({ abicom, anp, historico, share, analise, parcial }) {
-  const d = abicom.diesel;
-  // Dia com boletim novo da Abicom: a manchete é a defasagem.
-  if (!parcial) {
-    const variacao = historico?.length > 1 ? d.defasagem - historico[historico.length - 2].valor : null;
-    let manchete;
-    if (variacao != null && Math.abs(variacao) >= 0.15) {
-      manchete = variacao > 0
-        ? `Defasagem do diesel sobe ${brl(Math.abs(variacao))} e chega a ${brl(d.defasagem)}`
-        : `Defasagem do diesel recua ${brl(Math.abs(variacao))} e fica em ${brl(d.defasagem)}`;
-    } else if (d.diasJanelaFechada && d.diasJanelaFechada > 200) {
-      manchete = `Janela de importação completa ${d.diasJanelaFechada} dias fechada`;
-    } else {
-      manchete = `Diesel segue ${d.pct}% abaixo da paridade de importação`;
-    }
-    return { chapeu: 'Arbitragem do diesel', manchete, analiseNaManchete: false };
+// O jornal muda todo dia: o robô escolhe o FATO MAIS FORTE do dia e evita
+// repetir o assunto das edições anteriores. Cada candidato tem uma nota; o que
+// apareceu nas últimas edições perde pontos. A análise escrita à mão
+// (editorial.json → analise) é OCASIONAL: no máximo a cada `intervaloDias`
+// (padrão 7), não todo dia.
+
+const dias = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 864e5);
+
+/** Cotação do dia (não o fechamento de um pregão anterior) com a variação. */
+function movimento(indicadores, id, iso) {
+  const i = indicadores?.find((x) => x.id === id);
+  return i && i.dataISO === iso ? i : null;
+}
+
+/** Quando a análise apareceu pela última vez (edições antigas sem registro contam se a análise estava valendo). */
+function ultimaAnalise(edicoesAntes, analise) {
+  const datas = (edicoesAntes || []).filter((e) => e.destaque === 'analise' ||
+    (!e.destaque && analise && (!analise.de || e.data >= analise.de) && (!analise.ate || e.data <= analise.ate)))
+    .map((e) => e.data).sort();
+  return datas[datas.length - 1] || null;
+}
+
+/**
+ * Escolhe o bloco do dia. Devolve { tipo, uf? }.
+ * Tipos: share (divulgação da ANP), analise, mercado, defasagem, bomba,
+ * estados, share-estado.
+ */
+export function escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes }) {
+  const anteriores = (edicoesAntes || []).filter((e) => e.data < iso);
+  const recentes = anteriores.slice(0, 3).map((e) => (e.destaque || '').split(':')[0]);
+  const c = [];
+  if (share?.mercado?.mes?.top?.length) c.push({ tipo: 'share', nota: 5 });
+  if (analise) {
+    const ult = ultimaAnalise(anteriores, analise);
+    if (!ult || dias(ult, iso) >= (analise.intervaloDias || 7)) c.push({ tipo: 'analise', nota: 4 });
   }
+  const dol = movimento(indicadores, 'dolar', iso), br = movimento(indicadores, 'brent', iso);
+  const forca = Math.max(dol ? Math.abs(dol.variacao) / 1.5 : 0, br ? Math.abs(br.variacao) / 2.5 : 0);
+  if (indicadores?.length) c.push({ tipo: 'mercado', nota: forca >= 1 ? 2 + forca : 0.35 });
+  const d = abicom.diesel;
+  const varDef = !parcial && historico?.length > 1 ? d.defasagem - historico[historico.length - 2].valor : 0;
+  if ((historico || []).length >= 5) c.push({ tipo: 'defasagem', nota: Math.abs(varDef) >= 0.15 ? 2.5 : 0.5 });
+  if (anp?.regioes?.length) {
+    const nova = anp.periodo?.ate && dias(anp.periodo.ate, iso) <= 3;
+    c.push({ tipo: 'bomba', nota: nova ? 1.5 : 0.4 });
+  }
+  if (anp?.maisCaros?.length && anp?.maisBaratos?.length) c.push({ tipo: 'estados', nota: 0.45 });
+  const ufs = (shareResumo?.destaques || []).filter((e) => e.topDist?.length || e.topTrr?.length);
+  if (ufs.length) c.push({ tipo: 'share-estado', nota: 0.5 });
 
-  // Sem boletim novo: o fato do dia.
-  if (analise?.manchete) {
-    return { chapeu: analise.chapeu || 'Análise da semana', manchete: analise.manchete, analiseNaManchete: true };
+  for (const x of c) {
+    const vezes = recentes.filter((r) => r === x.tipo).length;
+    if (vezes) x.nota *= x.tipo === 'share-estado' ? 0.6 : 0.25 / vezes;
+  }
+  c.sort((a, b) => b.nota - a.nota);
+  const escolhido = c[0] || { tipo: 'bomba' };
+  if (escolhido.tipo === 'share-estado') {
+    // Um estado por dia, em rodízio pela data.
+    escolhido.uf = ufs[Math.abs(dias('2026-01-01', iso)) % ufs.length].uf;
+  }
+  return escolhido;
+}
+
+/** Uma frase de manchete a partir do bloco do dia. */
+function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso }) {
+  switch (destaque?.tipo) {
+    case 'defasagem': {
+      const pts = (historico || []).slice(-20).map((p) => p.valor);
+      if (pts.length < 5) return null;
+      return { tipo: 'd-defasagem', chapeu: 'Arbitragem do diesel',
+        manchete: `Defasagem do diesel oscila entre ${brl(Math.min(...pts))} e ${brl(Math.max(...pts))} em ${pts.length} pregões` };
+    }
+    case 'estados': {
+      const caro = anp?.maisCaros?.[0], barato = anp?.maisBaratos?.[0];
+      if (!caro || !barato) return null;
+      return { tipo: 'd-estados', chapeu: 'Preço na bomba',
+        manchete: `Diesel S10 custa de ${brl(barato.media)} (${barato.estado}) a ${brl(caro.media)} (${caro.estado}) entre os estados` };
+    }
+    case 'bomba': {
+      const s10 = anp?.produtos?.find((p) => p.nome === 'Diesel S10');
+      const regs = [...(anp?.regioes || [])].sort((a, b) => b.media - a.media);
+      if (!s10 || regs.length < 2) return null;
+      return { tipo: 'd-bomba', chapeu: 'Preço na bomba',
+        manchete: `Diesel S10 a ${brl(s10.media)}: ${regs[0].nome} paga mais, ${regs[regs.length - 1].nome} paga menos` };
+    }
+    case 'mercado': {
+      const dol = indicadores?.find((i) => i.id === 'dolar'), br = indicadores?.find((i) => i.id === 'brent');
+      if (!dol || !br) return null;
+      const fech = dol.dataISO < iso ? 'fecham' : 'estão';
+      return { tipo: 'd-mercado', chapeu: 'Câmbio e petróleo',
+        manchete: `Dólar e Brent ${fech} a ${brl(dol.valor)} e US$ ${num(br.valor)}` };
+    }
+    case 'share-estado': {
+      const e = shareResumo?.destaques?.find((x) => x.uf === destaque.uf);
+      const lider = e?.topDist?.[0];
+      if (!lider) return null;
+      return { tipo: 'd-share-estado', chapeu: 'Market share · ANP',
+        manchete: `${lider.nome} lidera a venda de combustíveis em ${e.nome}, com ${num(lider.share, 1)}%` };
+    }
+    default: return null;
+  }
+}
+
+/** A manchete: o fato mais forte, sem repetir o tipo da edição anterior. */
+function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes }) {
+  const d = abicom.diesel;
+  const anterior = (edicoesAntes || []).find((e) => e.data < iso)?.tipoManchete || '';
+  const c = [];
+  const varDef = !parcial && historico?.length > 1 ? d.defasagem - historico[historico.length - 2].valor : null;
+  if (varDef != null && Math.abs(varDef) >= 0.15) {
+    c.push({ tipo: 'defasagem', nota: 3, chapeu: 'Arbitragem do diesel', manchete: varDef > 0
+      ? `Defasagem do diesel sobe ${brl(Math.abs(varDef))} e chega a ${brl(d.defasagem)}`
+      : `Defasagem do diesel recua ${brl(Math.abs(varDef))} e fica em ${brl(d.defasagem)}` });
+  }
+  for (const [id, nome, limite, moeda] of [['dolar', 'Dólar', 1.5, 'BRL'], ['brent', 'Brent', 2.5, 'USD'], ['wti', 'WTI', 2.5, 'USD']]) {
+    const i = movimento(indicadores, id, iso);
+    if (i && Math.abs(i.variacao) >= limite) {
+      const valor = moeda === 'BRL' ? brl(i.valor) : `US$ ${num(i.valor)}`;
+      c.push({ tipo: 'mercado', nota: 2 + Math.abs(i.variacao) / limite / 2, chapeu: 'Mercado',
+        manchete: `${nome} ${i.variacao > 0 ? 'sobe' : 'cai'} ${num(Math.abs(i.variacao), 1)}% e vai a ${valor}` });
+    }
   }
   const m = share?.mercado;
   if (m?.mes?.top?.length >= 3) {
     const top = m.mes.top.slice(0, 3);
     const soma = top.reduce((a, x) => a + x.share, 0);
-    return {
-      chapeu: 'Market share · ANP',
-      manchete: `${top.map((x) => x.curto).join(', ').replace(/, ([^,]*)$/, ' e $1')} somam ${num(soma, 0)}% das vendas em ${m.referencia.rotulo}`,
-      analiseNaManchete: false
-    };
+    c.push({ tipo: 'share', nota: 2.6, chapeu: 'Market share · ANP',
+      manchete: `${top.map((x) => x.curto).join(', ').replace(/, ([^,]*)$/, ' e $1')} somam ${num(soma, 0)}% das vendas em ${m.referencia.rotulo}` });
+  }
+  if (destaque?.tipo === 'analise' && analise?.manchete) {
+    c.push({ tipo: 'analise', nota: parcial ? 2.4 : 1.2, chapeu: analise.chapeu || 'Análise', manchete: analise.manchete, analise: true });
   }
   const s10 = anp?.produtos?.find((p) => p.nome === 'Diesel S10');
-  if (s10?.variacao != null && Math.abs(s10.variacao) >= 0.02) {
-    return {
-      chapeu: 'Preço na bomba',
-      manchete: `Diesel S10 ${s10.variacao > 0 ? 'sobe' : 'cai'} ${brl(Math.abs(s10.variacao))} na bomba e vai a ${brl(s10.media)}`,
-      analiseNaManchete: false
-    };
+  if (s10?.variacao != null && Math.abs(s10.variacao) >= 0.02 && anp.periodo?.ate && dias(anp.periodo.ate, iso) <= 3) {
+    c.push({ tipo: 'bomba', nota: 1.6, chapeu: 'Preço na bomba',
+      manchete: `Diesel S10 ${s10.variacao > 0 ? 'sobe' : 'cai'} ${brl(Math.abs(s10.variacao))} na bomba e vai a ${brl(s10.media)}` });
   }
-  return { chapeu: 'Arbitragem do diesel', manchete: `Diesel segue ${d.pct}% abaixo da paridade de importação`, analiseNaManchete: false };
+  // A manchete que nasce do destaque do dia: garante que o jornal não abra
+  // sempre com a mesma frase quando não há fato forte.
+  const md = mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso });
+  if (md) c.push({ ...md, nota: 1.0 });
+  if (!parcial && d.diasJanelaFechada > 200) {
+    c.push({ tipo: 'janela', nota: 0.8, chapeu: 'Arbitragem do diesel', manchete: `Janela de importação completa ${d.diasJanelaFechada} dias fechada` });
+  }
+  if (!parcial) {
+    c.push({ tipo: 'nivel', nota: 0.7, chapeu: 'Arbitragem do diesel', manchete: `Defasagem do diesel fica em ${brl(d.defasagem)} por litro` });
+  }
+  c.push({ tipo: 'paridade', nota: 0.5, chapeu: 'Arbitragem do diesel', manchete: `Diesel segue ${d.pct}% abaixo da paridade de importação` });
+
+  for (const x of c) if (x.tipo === anterior) x.nota *= 0.3;
+  c.sort((a, b) => b.nota - a.nota);
+  const e = c[0];
+  return { chapeu: e.chapeu, manchete: e.manchete, tipoManchete: e.tipo, analiseNaManchete: !!e.analise };
 }
 
 /** Abertura curta (cabe em 4 linhas): os números, sem adjetivo gratuito. */
@@ -227,6 +339,81 @@ function blocoAnp(anp) {
   </section>`;
 }
 
+/** Câmbio e petróleo do dia, e por que importam para o diesel. */
+function blocoMercadoDia(indicadores, iso) {
+  const linhas = (indicadores || []).slice(0, 5).map((i) => {
+    const classe = i.variacao > 0 ? 'alta' : i.variacao < 0 ? 'baixa' : '';
+    const seta = i.variacao > 0 ? '▲' : i.variacao < 0 ? '▼' : '';
+    const sem = i.semana == null ? '<i>—</i>'
+      : `<i class="${i.semana > 0 ? 'alta' : i.semana < 0 ? 'baixa' : ''}">${esc(sinal(i.semana))}%</i>`;
+    return `<li><span>${esc(i.nome)}${i.dataISO < iso ? ` <small>fech. ${esc(i.data)}</small>` : ''}</span>` +
+      `<b>${esc(valorIndicador(i))}</b><i class="${classe}">${seta} ${esc(sinal(i.variacao))}%</i>${sem}</li>`;
+  }).join('');
+  return `
+  <section class="bloco bloco--dados">
+    <p class="bloco__chapeu">Câmbio e petróleo · no dia e em 5 pregões</p>
+    <ul class="tabela-dia"><li class="tabela-dia__cab"><span></span><b></b><i>Dia</i><i>5 pregões</i></li>${linhas}</ul>
+    <p class="bloco__assina">Dólar e petróleo formam a paridade de importação: em alta, a defasagem aumenta; em queda, diminui.</p>
+  </section>`;
+}
+
+/** A defasagem nos últimos pregões, com o desenho da linha. */
+function blocoDefasagem(historico, abicom) {
+  const pts = (historico || []).slice(-20);
+  const vals = pts.map((p) => p.valor);
+  const lo = Math.min(...vals), hi = Math.max(...vals), faixa = hi - lo || 1;
+  const L = 900, A = 150;
+  const x = (i) => (i / Math.max(1, pts.length - 1)) * L;
+  const y = (v) => A - ((v - lo) / faixa) * (A - 16) - 8;
+  const linha = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.valor).toFixed(1)}`).join(' L');
+  const d = abicom.diesel;
+  return `
+  <section class="bloco bloco--dados">
+    <p class="bloco__chapeu">Defasagem do diesel · últimos ${pts.length} pregões</p>
+    <svg class="spark" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M${linha}" fill="none" stroke="#B3341F" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+    <ul class="regioes">
+      <li><span>Mínima</span><b>${brl(lo)}</b></li><li><span>Máxima</span><b>${brl(hi)}</b></li>
+      ${d.faixaMin != null ? `<li><span>Entre os polos</span><b>${brl(d.faixaMin)} a ${brl(d.faixaMax)}</b></li>` : ''}
+      ${d.diasJanelaFechada != null ? `<li><span>Janela fechada</span><b>${d.diasJanelaFechada} dias</b></li>` : ''}
+    </ul>
+    <p class="bloco__assina">De ${esc(pts[0].rotulo)} a ${esc(pts[pts.length - 1].rotulo)} · Abicom/StoneX, média dos polos, R$ por litro.</p>
+  </section>`;
+}
+
+/** Os estados mais caros e mais baratos no S10 (ANP). */
+function blocoEstados(anp) {
+  const lista = (t, itens) => `<div class="share__col"><p class="share__tit">${t}</p><ol>${itens.slice(0, 5).map((e) =>
+    `<li><span>${esc(e.estado)}</span><b>${brl(e.media)}</b><i></i></li>`).join('')}</ol></div>`;
+  return `
+  <section class="bloco bloco--dados">
+    <p class="bloco__chapeu">Diesel S10 por estado · ANP, ${ddmm(anp.periodo.de)} a ${ddmm(anp.periodo.ate)}</p>
+    <div class="share">${lista('Mais caros', anp.maisCaros)}${lista('Mais baratos', anp.maisBaratos)}</div>
+    <p class="bloco__assina">Preço médio na bomba, por litro, no levantamento semanal da ANP.</p>
+  </section>`;
+}
+
+/** Market share num estado (um por dia, em rodízio). */
+function blocoShareEstado(shareResumo, uf) {
+  const e = shareResumo.destaques.find((x) => x.uf === uf);
+  const ref = shareResumo.mercado?.referencia?.rotulo || shareResumo.referencia?.rotulo || '';
+  const pp = (v) => {
+    if (v == null) return '';
+    const r = Math.round(v * 10) / 10;
+    return r === 0 ? '0,0' : `${r > 0 ? '+' : '−'}${num(Math.abs(r), 1)}`;
+  };
+  const lista = (t, itens) => `<div class="share__col"><p class="share__tit">${t}</p><ol>${(itens || []).map((x) =>
+    `<li><span>${esc(x.nome)}</span><b>${num(x.share, 1)}%</b><i>${pp(x.deltaPP)}</i></li>`).join('')}</ol></div>`;
+  return `
+  <section class="bloco bloco--share">
+    <p class="bloco__chapeu">Market share em ${esc(e.nome)} · ANP, ${esc(ref)}</p>
+    <p class="bloco__texto">Distribuidoras venderam <strong>${mil(e.volume)} mil m³</strong> no estado${e.volumeTrr ? `; TRRs, ${mil(e.volumeTrr)} mil m³` : ''}.</p>
+    <div class="share">${lista('Distribuidoras', e.topDist)}${lista('TRRs', e.topTrr)}</div>
+    <p class="bloco__assina">p.p.: ganho ou perda de participação no mês. Todos os estados em supriprice.com.br/market-share.html</p>
+  </section>`;
+}
+
 /** 3 manchetes: o radar da análise, ou um giro pelas editorias. */
 function blocoNoticias(editorias, radar, analise) {
   let titulo = 'O que move o mercado', itens = [];
@@ -259,22 +446,32 @@ function blocoNoticias(editorias, radar, analise) {
  */
 export function gerarJornal({
   data, abicom, brent, dolar, anp, noticias, historico, indicadores,
-  share, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO
+  share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = []
 }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   dataAbicomISO = dataAbicomISO || iso;
-  const { chapeu, manchete, analiseNaManchete } = escolherManchete({ abicom, anp, historico, share, analise, parcial });
 
-  // Um bloco do dia: análise > market share recém-divulgado > preço na bomba.
+  // O bloco do dia muda todo dia (ver escolherDestaque).
+  const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes });
+  const { chapeu, manchete, tipoManchete, analiseNaManchete } = escolherManchete({
+    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes
+  });
+
   let bloco = '', faixa = '';
-  if (analise) {
-    bloco = blocoAnalise(analise);
-    if (share?.mercado?.mes?.top?.length) faixa = faixaShare(share);
-  } else if (share?.mercado?.mes?.top?.length) {
-    bloco = blocoShare(share);
-  } else if (anp) {
-    bloco = blocoAnp(anp);
+  switch (destaque.tipo) {
+    case 'share': bloco = blocoShare(share); break;
+    case 'analise': bloco = blocoAnalise(analise); break;
+    case 'mercado': bloco = blocoMercadoDia(indicadores, iso); break;
+    case 'defasagem': bloco = blocoDefasagem(historico, abicom); break;
+    case 'estados': bloco = blocoEstados(anp); break;
+    case 'share-estado': bloco = blocoShareEstado(shareResumo, destaque.uf); break;
+    default: bloco = anp ? blocoAnp(anp) : '';
   }
+  // Dia de divulgação da ANP em que outro assunto ganhou o bloco: o market
+  // share vai numa faixa de uma linha.
+  if (share?.mercado?.mes?.top?.length && destaque.tipo !== 'share') faixa = faixaShare(share);
+  // O radar do tema da análise só aparece no dia em que a análise aparece.
+  if (destaque.tipo !== 'analise') radar = [];
 
   const principal = radar?.[0] || noticias?.editorias?.mundo?.[0] || noticias?.editorias?.brasil?.[0] || null;
 
@@ -361,6 +558,18 @@ export function gerarJornal({
   .share li { display: grid; grid-template-columns: 1fr auto 62px; gap: 10px; align-items: baseline; font-size: 21px; padding: 5px 0; border-bottom: 1px solid #EEE8DA; }
   .share li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .share li i { font-style: normal; font-size: 17px; color: #6A7480; text-align: right; }
+  .bloco--dados { background: #fff; border: 2px solid #DCD5C4; }
+  .bloco--dados .bloco__chapeu { color: #B3341F; }
+  .bloco--dados .bloco__assina { color: #6A7480; }
+  .tabela-dia { list-style: none; display: flex; flex-direction: column; }
+  .tabela-dia li { display: grid; grid-template-columns: 1fr auto 140px 150px; gap: 16px; align-items: baseline;
+    font-size: 25px; padding: 6px 0; border-bottom: 1px solid #EEE8DA; }
+  .tabela-dia small { font-size: 16px; color: #6A7480; }
+  .tabela-dia .tabela-dia__cab { padding: 0 0 2px; font-size: 16px; }
+  .tabela-dia .tabela-dia__cab i { font-weight: 700; color: #6A7480; letter-spacing: .06em; text-transform: uppercase; }
+  .tabela-dia b { font-variant-numeric: tabular-nums; }
+  .tabela-dia i { font-style: normal; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .spark { width: 100%; height: 150px; display: block; flex: none; }
   .regioes { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 34px; margin-top: 4px; }
   .regioes li { display: flex; justify-content: space-between; font-size: 24px; padding: 6px 0; border-bottom: 1px dotted #D7D0BF; }
 
@@ -456,6 +665,8 @@ export function gerarJornal({
     html,
     nomeArquivo: `jornal-${iso}.html`,
     titulo: manchete,
+    destaque: destaque.tipo + (destaque.uf ? `:${destaque.uf}` : ''),
+    tipoManchete,
     chamada: principal ? `Destaque: ${principal.titulo}` : `Defasagem em ${brl(abicom.diesel.defasagem)} por litro.`
   };
 }
