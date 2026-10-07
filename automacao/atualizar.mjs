@@ -326,16 +326,14 @@ async function principal() {
     console.warn(`  ! Notícias indisponíveis: ${e.message}`);
   }
 
-  // Mercado de distribuição e market share (ANP). Os arquivos da ANP só mudam
-  // dia 1 e dia 20, então basta a primeira rodada do dia baixar; as outras
-  // usam o guardado. Falhou? Vale o último resultado bom — o portal mostra o
-  // mês de referência — e a próxima rodada tenta de novo. Nunca derruba a
-  // atualização.
+  // Mercado de distribuição e market share (ANP). A planilha muda dia 1 e por
+  // volta do dia 20, mas sem hora certa: TODA rodada confere, para o site
+  // mostrar o número novo na mesma manhã ou tarde em que a ANP soltar.
+  // Falhou? Vale o último resultado bom — o portal mostra o mês de referência
+  // — e a próxima rodada tenta de novo. Nunca derruba a atualização.
   let share = await lerJson(P.shareTrr, null);
-  if (share?.coletadoISO === iso(hoje) && share?.versao === VERSAO_SHARE) {
-    log(`Market share: já coletado hoje (referência ${share.referencia.rotulo}).`);
-  } else {
-    log('Buscando mercado de distribuição e market share (ANP)...');
+  {
+    log('Conferindo a planilha da ANP (mercado e market share)...');
     try {
       const r = await lerShare();
       const base = r.share.baseANP;
@@ -361,7 +359,7 @@ async function principal() {
       const m = share.mercado, top = m.mes.top[0], trr = share.trrs.mes.top[0];
       log(`Mercado ${m.referencia.rotulo}${m.referencia.preliminar ? ' (preliminar)' : ''}: ${m.mes.total} mil m³ · ` +
         `líder ${top?.curto} ${top?.share}% · TRR líder ${trr?.curto} ${trr?.share}%` +
-        (novaBase ? ` · BASE NOVA DA ANP (${base})` : ''));
+        (novaBase ? ` · BASE NOVA DA ANP (${base})` : ` · planilha sem novidade (base ${base})`));
     } catch (e) {
       console.warn(`  ! Market share indisponível: ${e.message}`);
       if (share) log(`Market share: usando o último guardado (referência ${share.referencia.rotulo}).`);
