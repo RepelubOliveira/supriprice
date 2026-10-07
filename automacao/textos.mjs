@@ -115,8 +115,8 @@ export function llmsTxt({ abicom, anp, dolar, share, atualizadoISO }) {
   L.push('');
   L.push('> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da ' +
     'gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de ' +
-    'distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado três ' +
-    'vezes por dia, todos os dias (07h, 12h e 17h, horário de Brasília).');
+    'distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado seis ' +
+    'vezes por dia, todos os dias (08h, 09h, 10h, 12h, 15h e 17h, horário de Brasília).');
   L.push('');
   L.push(`Números mais recentes (atualizado em ${dataBr(atualizadoISO)}):`);
   L.push('');

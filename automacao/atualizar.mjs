@@ -257,7 +257,7 @@ async function principal() {
   let abicom = coleta.abicom;
 
   // MODO PARCIAL. A Abicom publica entre ~6h30 e ~9h (medido de 24/09 a
-  // 01/10/2026). Na rodada das 07:00 o boletim do dia quase nunca existe — e
+  // 01/10/2026). Nas primeiras rodadas da manhã o boletim pode não existir — e
   // antes o robô saía sem publicar NADA, nem cotação nem notícia. Agora,
   // sem boletim novo, ele atualiza mercado, ANP e notícias e mantém a
   // defasagem do último boletim, com a data dele à mostra. O jornal do dia e

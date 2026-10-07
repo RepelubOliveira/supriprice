@@ -1,7 +1,7 @@
 name: SupriPrice — reserva na nuvem
 
 # RESERVA DO COMPUTADOR. A atualização principal roda no computador (Tarefa
-# Agendada do Windows, 07h/12h/17h), o único lugar de onde a Abicom abre: o
+# Agendada do Windows, 08/09/10/12/15/17h), o único lugar de onde a Abicom abre: o
 # Cloudflare dela recusa servidores como os do GitHub (403).
 #
 # Meia hora depois de cada rodada do computador, esta reserva olha o site:
@@ -14,13 +14,17 @@ name: SupriPrice — reserva na nuvem
 # próprio site (dados/estado.json), não do repositório — ver automacao/estado.mjs.
 # Nada é commitado de volta.
 #
-# Custo: zero. Cada rodada leva 1 a 2 minutos, bem dentro da cota gratuita.
+# Custo: zero. Cada rodada leva 1 a 2 minutos (segundos, quando o computador
+# já atualizou): bem dentro da cota gratuita, mesmo com seis por dia.
 # Precisa do secret HTMLY_API_KEY (Settings > Secrets and variables > Actions).
 
 on:
   schedule:
-    - cron: '30 10 * * *'   # 07:30 em Brasília
+    - cron: '30 11 * * *'   # 08:30 em Brasília
+    - cron: '30 12 * * *'   # 09:30 em Brasília
+    - cron: '30 13 * * *'   # 10:30 em Brasília
     - cron: '30 15 * * *'   # 12:30 em Brasília
+    - cron: '30 18 * * *'   # 15:30 em Brasília
     - cron: '30 20 * * *'   # 17:30 em Brasília
   workflow_dispatch:
     inputs:

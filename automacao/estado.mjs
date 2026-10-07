@@ -1,10 +1,10 @@
 // SupriPrice — estado compartilhado entre o computador e a nuvem
 // -----------------------------------------------------------------------------
 // O robô roda em dois lugares:
-//   - no COMPUTADOR (Tarefa Agendada, 07h/12h/17h): o único que alcança a
+//   - no COMPUTADOR (Tarefa Agendada, 08/09/10/12/15/17h): o único que alcança a
 //     Abicom; é a fonte do editorial (análise da semana) e dos modelos das
 //     páginas;
-//   - na NUVEM (GitHub Actions, 07h30/12h30/17h30): reserva, só age se o
+//   - na NUVEM (GitHub Actions, meia hora depois de cada uma): reserva, só age se o
 //     computador não tiver atualizado (desligado, fim de semana, feriado).
 //
 // Para um continuar de onde o outro parou, o estado de trabalho (último
@@ -119,17 +119,17 @@ export async function sincronizar({ raiz, remoto, nuvem }) {
 
 /**
  * Horário da última rodada do computador que já deveria ter acontecido
- * (07:00, 12:00 ou 17:00 de Brasília), em ISO UTC. Brasília é UTC-3 o ano todo.
+ * (08, 09, 10, 12, 15 ou 17h de Brasília), em ISO UTC. Brasília é UTC-3 o ano todo.
  */
 export function ultimaRodadaPrevista(agora = new Date()) {
   const brt = new Date(agora.getTime() - 3 * 3600000); // relógio de Brasília em campos UTC
-  const horas = [7, 12, 17];
+  const horas = [8, 9, 10, 12, 15, 17];
   let alvo = null;
   for (const h of horas) {
     const t = Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate(), h) + 3 * 3600000;
     if (t <= agora.getTime()) alvo = t;
   }
-  if (alvo == null) { // antes das 07:00: a das 17:00 de ontem
+  if (alvo == null) { // antes das 08:00: a das 17:00 de ontem
     alvo = Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate() - 1, 17) + 3 * 3600000;
   }
   return new Date(alvo).toISOString();

@@ -1,14 +1,15 @@
 # SupriPrice - cria a Tarefa Agendada do Windows (roda uma vez so)
 # -----------------------------------------------------------------------------
-# Cria UMA tarefa com TRES horarios: 07:00, 12:00 e 17:00, TODOS OS DIAS.
+# Cria UMA tarefa com SEIS horarios: 08, 09, 10, 12, 15 e 17h, TODOS OS DIAS.
 #   Sabado e domingo a Abicom nao publica: o robo faz a atualizacao PARCIAL
 #   (noticias, ANP, market share, selo do dia) mantendo o boletim de sexta.
-#   07:00 - a Abicom quase nunca publicou ainda (sai entre ~6h30 e ~9h):
-#           atualizacao PARCIAL - cotacoes da manha, ANP e noticias, com a
-#           defasagem do ultimo boletim e a data dele a mostra.
-#   12:00 - boletim do dia ja saiu: atualizacao completa e jornal do dia.
-#   17:00 - cotacoes perto do fechamento e noticias da tarde; o jornal do dia
-#           e refeito com elas.
+#   08, 09 e 10h - a Abicom publica no meio da manha, sem hora certa: tres
+#           tentativas seguidas para o boletim entrar assim que sair. Antes
+#           dele, a atualizacao e PARCIAL (cotacoes, ANP e noticias, com a
+#           defasagem do ultimo boletim e a data dele a mostra).
+#   12:00 - garantia do boletim do dia e cotacoes do meio-dia.
+#   15:00 - cotacoes e noticias da tarde.
+#   17:00 - cotacoes perto do fechamento; o jornal do dia e refeito com elas.
 #
 # StartWhenAvailable: se o computador estiver desligado no horario, a tarefa
 # roda assim que ele ligar, em vez de simplesmente perder o dia.
@@ -51,8 +52,11 @@ $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
   -Argument ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $script)
 
 $gatilhos = @(
-  (New-ScheduledTaskTrigger -Daily -At '07:00'),
+  (New-ScheduledTaskTrigger -Daily -At '08:00'),
+  (New-ScheduledTaskTrigger -Daily -At '09:00'),
+  (New-ScheduledTaskTrigger -Daily -At '10:00'),
   (New-ScheduledTaskTrigger -Daily -At '12:00'),
+  (New-ScheduledTaskTrigger -Daily -At '15:00'),
   (New-ScheduledTaskTrigger -Daily -At '17:00')
 )
 
@@ -68,6 +72,6 @@ Register-ScheduledTask -TaskName $nome -Action $acao -Trigger $gatilhos `
   -Settings $opcoes -Description 'Busca Abicom, ANP, BCB, Brent e noticias; publica o portal SupriPrice.' -Force | Out-Null
 
 Write-Host ""
-Write-Host "Pronto. A tarefa '$nome' roda 07:00, 12:00 e 17:00, todos os dias." -ForegroundColor Green
+Write-Host "Pronto. A tarefa '$nome' roda 08, 09, 10, 12, 15 e 17h, todos os dias." -ForegroundColor Green
 Write-Host "Para testar agora:  Start-ScheduledTask -TaskName '$nome'"
 Write-Host "Os registros ficam em: $(Join-Path $raiz 'logs')"
