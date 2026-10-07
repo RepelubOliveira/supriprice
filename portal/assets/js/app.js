@@ -1204,6 +1204,124 @@
     }
   }
 
+  /* ------------------------------------------------- novidades do dia */
+
+  // Pop-up "Novo hoje": o robô lista o que saiu de novo no dia (boletim da
+  // Abicom, market share da ANP, preço na bomba, jornal). O visitante vê cada
+  // item uma vez só: o navegador guarda os ids já vistos. Com a página aberta,
+  // o site consulta dados/novidades.json a cada 5 minutos e avisa o que
+  // chegar. Sem armazenamento (aba anônima, bloqueio), avisa uma vez por
+  // página aberta.
+  var NOVIDADES_URL = 'dados/novidades.json';
+  var NOVIDADES_INTERVALO = 5 * 60000;
+  var CHAVE_VISTAS = 'sp-novidades-vistas';
+
+  function lerVistas() {
+    try { return JSON.parse(localStorage.getItem(CHAVE_VISTAS) || '[]') || []; } catch (e) { return []; }
+  }
+  function gravarVistas(ids) {
+    // Só os últimos 40: os ids levam a data, os antigos não voltam mais.
+    try { localStorage.setItem(CHAVE_VISTAS, JSON.stringify(ids.slice(-40))); } catch (e) { /* sem armazenamento */ }
+  }
+
+  function montarNovidades() {
+    var vistasNaPagina = [];
+    var noAr = null;
+    var naHome = !!document.getElementById('arbitragem');
+
+    function hojeISO() {
+      var d = new Date();
+      return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    }
+
+    function pendentes(lista) {
+      var vistas = lerVistas().concat(vistasNaPagina);
+      return (lista || []).filter(function (n) { return n && n.id && vistas.indexOf(n.id) < 0; });
+    }
+
+    function marcarVistos(itens) {
+      var ids = itens.map(function (n) { return n.id; });
+      vistasNaPagina = vistasNaPagina.concat(ids);
+      gravarVistas(lerVistas().concat(ids));
+    }
+
+    function fechar(itens) {
+      if (!noAr) return;
+      marcarVistos(itens);
+      var el = noAr; noAr = null;
+      el.classList.remove('is-on');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250);
+    }
+
+    function destino(link) {
+      // Âncoras da página inicial: fora dela, o link leva até lá.
+      if (link.charAt(0) === '#' && !naHome) return './' + link;
+      return urlSegura(link) || '#';
+    }
+
+    function mostrar(itens) {
+      if (!itens.length) return;
+      if (noAr) { // já tem um aberto: os novos entram no topo dele
+        var abertos = JSON.parse(noAr.getAttribute('data-itens') || '[]');
+        var ids = itens.map(function (n) { return n.id; });
+        itens = itens.concat(abertos.filter(function (n) { return ids.indexOf(n.id) < 0; }));
+        if (noAr.parentNode) noAr.parentNode.removeChild(noAr);
+        noAr = null;
+      }
+      var caixa = document.createElement('aside');
+      caixa.className = 'novidades';
+      caixa.setAttribute('role', 'status');
+      caixa.setAttribute('aria-live', 'polite');
+      caixa.setAttribute('aria-label', 'Novidades de hoje no SupriPrice');
+      caixa.setAttribute('data-itens', JSON.stringify(itens));
+      caixa.innerHTML =
+        '<div class="novidades__topo">' +
+          '<span class="novidades__selo"><i aria-hidden="true"></i>Novo hoje</span>' +
+          '<button type="button" class="novidades__fechar" aria-label="Fechar avisos">×</button>' +
+        '</div>' +
+        '<ul class="novidades__lista">' + itens.map(function (n) {
+          return '<li><a class="novidades__item" href="' + esc(destino(n.link || '#')) + '">' +
+            '<span class="novidades__tipo">' + esc(n.tipo) + '</span>' +
+            '<b>' + esc(n.titulo) + '</b>' +
+            (n.texto ? '<span class="novidades__texto">' + esc(n.texto) + '</span>' : '') +
+          '</a></li>';
+        }).join('') + '</ul>';
+      document.body.appendChild(caixa);
+      noAr = caixa;
+      $('.novidades__fechar', caixa).addEventListener('click', function () { fechar(itens); });
+      Array.prototype.forEach.call(caixa.querySelectorAll('.novidades__item'), function (a) {
+        a.addEventListener('click', function () { fechar(itens); });
+      });
+      requestAnimationFrame(function () { caixa.classList.add('is-on'); });
+    }
+
+    function avaliar(lista, atualizadoISO) {
+      // Só vale o que é de hoje: quem abre o site de manhã, antes da primeira
+      // rodada, não recebe o "novo" de ontem.
+      if (atualizadoISO !== hojeISO()) return;
+      mostrar(pendentes(lista));
+    }
+
+    // Abertura: o que veio no dados.js, depois de a página assentar.
+    setTimeout(function () {
+      avaliar(D.novidades, (D.meta || {}).atualizadoISO);
+    }, 2500);
+
+    var ultima = Date.now();
+    function consultar() {
+      if (document.hidden || !window.fetch) return;
+      ultima = Date.now();
+      fetch(NOVIDADES_URL + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store', credentials: 'omit' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j) avaliar(j.itens, j.atualizadoISO); })
+        .catch(function () { /* sem rede: tenta na próxima */ });
+    }
+    setInterval(consultar, NOVIDADES_INTERVALO);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && Date.now() - ultima > NOVIDADES_INTERVALO) consultar();
+    });
+  }
+
   /* -------------------------------------------------------------- início */
 
   creditoNaCopia();
@@ -1221,5 +1339,6 @@
   montarNoticias();
   montarArquivo();
   ligarEventos();
+  try { montarNovidades(); } catch (e) { console.error('[SupriPrice] novidades:', e); }
   window.addEventListener('load', ajustarPrevias);
 })();

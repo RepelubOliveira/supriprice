@@ -308,6 +308,10 @@ async function principal() {
       : undefined);
     const s10 = anp.produtos.find((p) => p.nome === 'Diesel S10');
     log(`ANP: S10 ${brl(s10.media)} em ${anp.totalColetas} postos (${anp.periodo.de} a ${anp.periodo.ate})`);
+    // Dia em que esta semana da ANP apareceu pela primeira vez: o pop-up de
+    // novidades do site só avisa "preço na bomba atualizado" nesse dia.
+    const antes = await lerJson(P.anpUltima, null);
+    anp.novoEm = antes?.periodo?.ate === anp.periodo.ate ? (antes.novoEm || antes.periodo.ate) : iso(hoje);
     await writeFile(P.anpUltima, JSON.stringify(anp) + '\n', 'utf8');
   } catch (e) {
     console.warn(`  ! ANP indisponível: ${e.message}`);
@@ -447,6 +451,13 @@ async function principal() {
   // fica, para os links antigos continuarem abrindo).
   const imagensVelhas = todasEdicoes.slice(MAX_EDICOES).map((e) => e.imagem).filter(Boolean);
 
+  // --- novidades do dia (pop-up do site) -----------------------------------
+  // Só o que é DE HOJE. Cada item tem um id fixo: o navegador do visitante
+  // lembra os que já viu e não avisa de novo. Vai no dados.js (quem abre o
+  // site) e em dados/novidades.json (quem já está com a página aberta: o site
+  // consulta a cada 5 minutos).
+  const novidades = montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal });
+
   // --- dados.js ------------------------------------------------------------
   const dados = {
     meta: {
@@ -475,6 +486,7 @@ async function principal() {
     paridade: editorial.paridade,
     agenda: editorial.agenda,
     noticias: noticias ? noticias.editorias : {},
+    novidades,
     edicoes: edicoes.slice(0, 3),
     arquivo: edicoes.map((e) => ({
       data: e.rotulo, tag: 'Diário', titulo: e.titulo, arquivo: e.arquivo, slug: e.slug
@@ -554,6 +566,7 @@ async function principal() {
       { path: 'assets/js/dados.js', content: conteudo },
       ...paginas,
       { path: 'llms.txt', content: llms },
+      { path: 'dados/novidades.json', content: JSON.stringify({ atualizadoISO: iso(hoje), gerado: dados.meta.gerado, itens: novidades }) },
       { path: `relatorios/${jornal.nomeArquivo}`, content: jornal.html },
       ...(pngJornal ? [{ path: `relatorios/${nomePng}`, content_base64: pngJornal.toString('base64') }] : []),
       // Os arquivos da aba vão na MESMA chamada do dados.js que aponta para eles.
@@ -568,6 +581,47 @@ async function principal() {
     await writeFile(P.shareTrr, JSON.stringify(shareFinal) + '\n', 'utf8');
     for (const x of extrasShare) log(`Market share publicado: ${x.path}`);
   }
+}
+
+/** Itens do pop-up "Novo hoje", do mais importante para o menos. */
+function montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal }) {
+  const itens = [];
+  const lado = (p) => (p.desfavoravel ? 'abaixo' : 'acima');
+  if (!parcial && dataAbicomISO === hojeISO && abicom?.diesel) {
+    const d = abicom.diesel, g = abicom.gasolina;
+    itens.push({
+      id: `abicom-${hojeISO}`, tipo: 'Defasagem',
+      titulo: 'Saiu o boletim da Abicom de hoje',
+      texto: `Diesel ${brl(d.defasagem)} ${lado(d)} da paridade (${d.pct}%)` +
+        (g ? ` · gasolina ${brl(g.defasagem)} ${lado(g)} (${g.pct}%)` : ''),
+      link: '#arbitragem'
+    });
+  }
+  if (share?.mercado && share.divulgadoISO === hojeISO) {
+    const lider = share.mercado.mes.top[0];
+    itens.push({
+      id: `share-${share.baseANP}`, tipo: 'Market share',
+      titulo: `ANP divulgou o market share de ${share.mercado.referencia.rotulo}`,
+      texto: lider ? `${lider.curto} lidera com ${lider.share.toFixed(1).replace('.', ',')}% · veja TRRs e estados` : 'Distribuidoras e TRRs, por estado',
+      link: 'market-share.html'
+    });
+  }
+  if (anp?.novoEm === hojeISO) {
+    const s10 = anp.produtos.find((p) => p.nome === 'Diesel S10');
+    if (s10) itens.push({
+      id: `anp-${anp.periodo.ate}`, tipo: 'Preço na bomba',
+      titulo: 'Preço na bomba atualizado (ANP)',
+      texto: `Diesel S10 a ${brl(s10.media)} em média, em ${anp.totalColetas} postos`,
+      link: '#painel'
+    });
+  }
+  if (jornal) itens.push({
+    id: `jornal-${hojeISO}`, tipo: 'Jornal do dia',
+    titulo: jornal.titulo,
+    texto: 'O jornal de hoje, pronto para Stories e WhatsApp',
+    link: '#jornal'
+  });
+  return itens;
 }
 
 principal().catch((e) => {
