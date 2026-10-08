@@ -515,6 +515,7 @@
     $('#msUfs').addEventListener('click', function (ev) {
       var b = ev.target.closest('[data-uf]'); if (!b) return;
       estado.uf = b.getAttribute('data-uf'); atualizar();
+      if (window.spEvento) window.spEvento('filtro_estado', { uf: estado.uf });
     });
 
     $('#msTopN').innerHTML = [5, 10, 20].map(function (n) {
@@ -559,6 +560,7 @@
     var csv = S.csv && urlSegura(S.csv), baixar = $('#msCsv');
     if (csv) {
       baixar.href = csv;
+      baixar.addEventListener('click', function () { if (window.spEvento) window.spEvento('download_planilha', { base: S.baseANP || '' }); });
       baixar.setAttribute('download', 'supriprice-market-share-' + (S.referencia ? S.referencia.mes : '') + '.csv');
       $('#msCsvTexto').textContent = 'Todas as distribuidoras e TRRs, posição a posição, no Brasil e nos 27 estados, em ' +
         (S.referencia ? S.referencia.rotulo : 'último mês') + ' e nos últimos 12 meses.';

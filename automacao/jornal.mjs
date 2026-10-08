@@ -657,6 +657,21 @@ export function gerarJornal({
     ajustar();
     window.addEventListener('resize', ajustar);
   })();
+  // Audiência (Google Analytics): só no site e só para quem já aceitou os
+  // cookies na página inicial. O jornal não mostra a barra de cookies — ela
+  // sairia na foto do Stories.
+  (function () {
+    var ok = false;
+    try { ok = localStorage.getItem('sp-consentimento') === 'sim'; } catch (e) {}
+    if (!ok || !/(^|\\.)supriprice\\.(com\\.br|htmly\\.com\\.br)$/.test(location.hostname) || window.self !== window.top) return;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', 'G-8F90TTKC9Y', { allow_google_signals: false, allow_ad_personalization_signals: false });
+    var s = document.createElement('script');
+    s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=G-8F90TTKC9Y';
+    document.head.appendChild(s);
+  })();
 </script>
 </body>
 </html>`;

@@ -655,6 +655,32 @@ button { cursor: pointer; }
 }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
+/* --- Barra de cookies (Google Analytics, só com consentimento) ---------- */
+.consentimento {
+  position: fixed; left: 50%; bottom: 20px; z-index: 70;
+  width: 720px; max-width: calc(100vw - 32px);
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px 14px 20px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-top: 4px solid var(--navy);
+  border-radius: var(--radius); box-shadow: 0 12px 32px rgba(14, 42, 71, .28);
+  opacity: 0; transform: translate(-50%, 16px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.consentimento.is-on { opacity: 1; transform: translate(-50%, 0); }
+.consentimento p { margin: 0; font-size: 14px; line-height: 1.45; }
+.consentimento a { color: var(--navy); font-weight: 600; }
+.consentimento__botoes { display: flex; gap: 8px; flex: none; }
+@media (max-width: 760px) {
+  .consentimento { flex-direction: column; align-items: stretch; bottom: 16px; }
+  .consentimento__botoes .btn { flex: 1; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .consentimento { transition: none; } }
+.link-botao {
+  padding: 0; border: 0; background: none; font: inherit; color: inherit;
+  text-decoration: underline; cursor: pointer;
+}
+
 /* --- Pop-up "Novo hoje" (novidades do dia) ------------------------------ */
 .novidades {
   position: fixed; right: 20px; bottom: 20px; z-index: 60;

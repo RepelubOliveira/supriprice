@@ -78,7 +78,7 @@ export async function publicarArquivos({ slug, chave, arquivos, remover = [] }) 
     if (!escritos.includes(a.path)) {
       throw new Error(
         `O HTMLy não confirmou a gravação de ${a.path}. ` +
-          `Gravados: ${escritos.join(', ') || '(nenhum)'}`
+          `Gravados: ${escritos.join(', ') || '(nenhum)'}. Resposta: ${JSON.stringify(dados).slice(0, 400)}`
       );
     }
   }

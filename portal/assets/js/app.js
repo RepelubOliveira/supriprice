@@ -752,7 +752,10 @@
     toast('Gerando ' + ROTULOS[formato].nome + ' de "' + edicao.titulo + '". Pode levar alguns segundos.');
 
     gerarDownload(edicao, formato)
-      .then(function () { toast('Arquivo ' + ROTULOS[formato].nome + ' salvo nos seus downloads.'); })
+      .then(function () {
+        toast('Arquivo ' + ROTULOS[formato].nome + ' salvo nos seus downloads.');
+        if (window.spEvento) window.spEvento('download_jornal', { formato: formato, edicao: edicao.data || '' });
+      })
       .catch(function (e) {
         console.error('[SupriPrice] download', formato, e);
         if (formato === 'html') { toast('Não foi possível baixar o relatório. Tente de novo.'); return; }
@@ -1289,8 +1292,11 @@
       document.body.appendChild(caixa);
       noAr = caixa;
       $('.novidades__fechar', caixa).addEventListener('click', function () { fechar(itens); });
-      Array.prototype.forEach.call(caixa.querySelectorAll('.novidades__item'), function (a) {
-        a.addEventListener('click', function () { fechar(itens); });
+      Array.prototype.forEach.call(caixa.querySelectorAll('.novidades__item'), function (a, i) {
+        a.addEventListener('click', function () {
+          if (window.spEvento) window.spEvento('clique_novidade', { tipo: itens[i].tipo });
+          fechar(itens);
+        });
       });
       requestAnimationFrame(function () { caixa.classList.add('is-on'); });
     }
@@ -1302,9 +1308,13 @@
       mostrar(pendentes(lista));
     }
 
-    // Abertura: o que veio no dados.js, depois de a página assentar.
+    // Abertura: o que veio no dados.js, depois de a página assentar. Se a
+    // barra de cookies estiver no rodapé, espera a pessoa responder.
+    function abrir() { avaliar(D.novidades, (D.meta || {}).atualizadoISO); }
     setTimeout(function () {
-      avaliar(D.novidades, (D.meta || {}).atualizadoISO);
+      if (window.spConsentimentoPendente) {
+        document.addEventListener('sp:consentimento-fechado', function () { setTimeout(abrir, 600); }, { once: true });
+      } else abrir();
     }, 2500);
 
     var ultima = Date.now();
