@@ -263,6 +263,98 @@ function palavrasDe(titulo) {
     .split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
 }
 
+/** Sem acento e em minúsculas, para comparar termos. */
+const plano = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/** Id estável de uma notícia: as palavras do título, em ordem. */
+function idNoticia(titulo) {
+  return [...palavrasDe(titulo)].sort().slice(0, 8).join('-').slice(0, 80);
+}
+
+/**
+ * NEGÓCIOS DO SETOR: aquisições, fusões, vendas e decisões do Cade envolvendo
+ * distribuidoras, TRRs, redes de postos e transportadoras. Duas origens:
+ *   - buscas no Google Notícias (RSS público), que pegam a imprensa de todo o
+ *     país — inclusive as decisões do Cade, que não tem feed próprio;
+ *   - feeds das entidades e veículos do setor (Minaspetro, Sincopetro,
+ *     Brasilcom, ICL, Brasil Postos...).
+ * Só entra manchete com um termo de NEGÓCIO no título e um termo do SETOR no
+ * título ou no começo do resumo. Configuração: conteudo/feeds.json → negocios.
+ * Mesmo modelo do resto do portal: manchete, veículo e link.
+ */
+export async function buscarNegocios(cfg) {
+  if (!cfg) return { itens: [], consultas: 0, ok: 0 };
+  const limite = Date.now() - (cfg.diasDeValidade || 10) * 86400000;
+  const negocio = (cfg.termosNegocio || []).map(plano);
+  const setor = (cfg.termosSetor || []).map(plano);
+  const bloqueadas = (cfg.bloqueadas || []).map(plano);
+  const fontesFora = (cfg.fontesBloqueadas || []).map(plano);
+
+  const fontes = [
+    ...(cfg.buscas || []).map((q) => ({
+      nome: `Busca "${q}"`, google: true, peso: 1,
+      url: 'https://news.google.com/rss/search?q=' + encodeURIComponent(q) + '&hl=pt-BR&gl=BR&ceid=BR:pt-419'
+    })),
+    ...(cfg.feeds || []).map((f) => ({ ...f, google: false }))
+  ];
+  const respostas = await Promise.all(fontes.map(async (f) => ({ f, xml: await buscarFeed(f) })));
+
+  const todos = [];
+  let ok = 0;
+  for (const { f, xml } of respostas) {
+    if (!xml) continue;
+    ok++;
+    for (const b of xml.match(/<(item|entry)[\s>][\s\S]*?<\/\1>/gi) || []) {
+      let titulo = semTags(tag(b, 'title'));
+      let fonte = f.fonte || 'Google Notícias';
+      let resumo = '';
+      if (f.google) {
+        fonte = semTags(tag(b, 'source')) || fonte;
+        if (titulo.endsWith(` - ${fonte}`)) titulo = titulo.slice(0, -(fonte.length + 3)).trim();
+      } else {
+        resumo = semTags(tag(b, 'description') || tag(b, 'summary'));
+        if (resumo.length > LIMITE_RESUMO) resumo = resumo.slice(0, resumo.lastIndexOf(' ', LIMITE_RESUMO)) + '…';
+      }
+      const url = extrairLink(b), data = extrairData(b);
+      if (!titulo || !/^https?:\/\//i.test(url)) continue;
+      if (data && data.getTime() < limite) continue;
+      const t = plano(titulo), r = plano(resumo.slice(0, 160));
+      if (!negocio.some((k) => t.includes(k))) continue;
+      if (!setor.some((k) => t.includes(k) || r.includes(k))) continue;
+      if (bloqueadas.some((k) => t.includes(k))) continue;
+      if (fontesFora.some((k) => plano(fonte) === k)) continue;
+      const cade = /\bcade\b/.test(t);
+      const preferido = VEICULOS_PREFERIDOS.some((v) => plano(fonte).includes(plano(v)));
+      const pontos = (cade ? 3 : 0) + (preferido ? 1 : 0) + (f.peso || 1) +
+        (setor.some((k) => t.includes(k)) ? 2 : 0);
+      todos.push({ titulo, resumo, url, fonte, data, cade, pontos, p: palavrasDe(titulo) });
+    }
+  }
+
+  // Mais relevante primeiro; empate, a mais nova. A mesma notícia em outro
+  // veículo (metade ou mais das palavras em comum) entra uma vez só.
+  todos.sort((a, b) => (b.pontos - a.pontos) || ((b.data ? b.data.getTime() : 0) - (a.data ? a.data.getTime() : 0)));
+  const escolhidas = [];
+  for (const n of todos) {
+    const repetida = escolhidas.some((e) => {
+      const comuns = [...n.p].filter((w) => e.p.has(w)).length;
+      return comuns / Math.max(1, Math.min(n.p.size, e.p.size)) >= 0.5;
+    });
+    if (!repetida) escolhidas.push(n);
+    if (escolhidas.length >= (cfg.max || 8)) break;
+  }
+  // Na lista final, a mais nova primeiro.
+  escolhidas.sort((a, b) => (b.data ? b.data.getTime() : 0) - (a.data ? a.data.getTime() : 0));
+  return {
+    itens: escolhidas.map((n) => ({
+      id: idNoticia(n.titulo), titulo: n.titulo, resumo: n.resumo, url: n.url, fonte: n.fonte,
+      data: n.data ? n.data.toISOString() : null, cade: n.cade
+    })),
+    consultas: fontes.length,
+    ok
+  };
+}
+
 /**
  * RADAR da análise da semana: uma busca temática no Google Notícias (RSS
  * público), configurada em conteudo/editorial.json → analise.radar. Serve

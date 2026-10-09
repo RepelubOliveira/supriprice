@@ -71,11 +71,15 @@ function ultimaAnalise(edicoesAntes, analise) {
  * Tipos: share (divulgação da ANP), analise, mercado, defasagem, bomba,
  * estados, share-estado.
  */
-export function escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes }) {
+export function escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios }) {
   const anteriores = (edicoesAntes || []).filter((e) => e.data < iso);
   const recentes = anteriores.slice(0, 3).map((e) => (e.destaque || '').split(':')[0]);
   const c = [];
   if (share?.mercado?.mes?.top?.length) c.push({ tipo: 'share', nota: 5 });
+  // Negócio novo no setor (aquisição, fusão, Cade): sai no jornal assim que
+  // aparece. Só chegam aqui os que ainda não foram publicados, então não há
+  // repetição — por isso ele não sofre o desconto de "assunto recente".
+  if (negocios?.length) c.push({ tipo: 'negocios', nota: 4.5, semDesconto: true });
   if (analise) {
     const ult = ultimaAnalise(anteriores, analise);
     if (!ult || dias(ult, iso) >= (analise.intervaloDias || 7)) c.push({ tipo: 'analise', nota: 4 });
@@ -95,6 +99,7 @@ export function escolherDestaque({ iso, abicom, anp, historico, indicadores, sha
   if (ufs.length) c.push({ tipo: 'share-estado', nota: 0.5 });
 
   for (const x of c) {
+    if (x.semDesconto) continue;
     const vezes = recentes.filter((r) => r === x.tipo).length;
     if (vezes) x.nota *= x.tipo === 'share-estado' ? 0.6 : 0.25 / vezes;
   }
@@ -148,7 +153,7 @@ function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo
 }
 
 /** A manchete: o fato mais forte, sem repetir o tipo da edição anterior. */
-function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes }) {
+function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios }) {
   const d = abicom.diesel;
   const anterior = (edicoesAntes || []).find((e) => e.data < iso)?.tipoManchete || '';
   const c = [];
@@ -173,6 +178,12 @@ function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, ana
     c.push({ tipo: 'share', nota: 2.6, chapeu: 'Market share · ANP',
       manchete: `${top.map((x) => x.curto).join(', ').replace(/, ([^,]*)$/, ' e $1')} somam ${num(soma, 0)}% das vendas em ${m.referencia.rotulo}` });
   }
+  // Negócio do setor: a manchete é a da própria matéria, com o veículo no
+  // chapéu (mesmo modelo das notícias: manchete, fonte e link).
+  if (negocios?.length) {
+    const n = negocios[0];
+    c.push({ tipo: 'negocios', nota: n.cade ? 2.9 : 2.7, chapeu: `Negócios do setor · ${n.fonte}`, manchete: n.titulo });
+  }
   if (destaque?.tipo === 'analise' && analise?.manchete) {
     c.push({ tipo: 'analise', nota: parcial ? 2.4 : 1.2, chapeu: analise.chapeu || 'Análise', manchete: analise.manchete, analise: true });
   }
@@ -193,7 +204,7 @@ function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, ana
   }
   c.push({ tipo: 'paridade', nota: 0.5, chapeu: 'Arbitragem do diesel', manchete: `Diesel segue ${d.pct}% abaixo da paridade de importação` });
 
-  for (const x of c) if (x.tipo === anterior) x.nota *= 0.3;
+  for (const x of c) if (x.tipo === anterior && x.tipo !== 'negocios') x.nota *= 0.3;
   c.sort((a, b) => b.nota - a.nota);
   const e = c[0];
   return { chapeu: e.chapeu, manchete: e.manchete, tipoManchete: e.tipo, analiseNaManchete: !!e.analise };
@@ -414,6 +425,22 @@ function blocoShareEstado(shareResumo, uf) {
   </section>`;
 }
 
+/** Negócios do setor: o principal com resumo, mais até 2 outros. */
+function blocoNegocios(negocios) {
+  const [n, ...outros] = negocios;
+  const quando = (x) => (x.data ? ` · ${ddmm(x.data.slice(0, 10))}` : '');
+  return `
+  <section class="bloco bloco--negocios">
+    <p class="bloco__chapeu">Negócios do setor · aquisições, fusões e Cade</p>
+    <p class="bloco__titulo">${esc(n.titulo)}</p>
+    <p class="bloco__fonte">${esc(n.fonte)}${quando(n)}</p>
+    ${n.resumo ? `<p class="bloco__texto">${esc(n.resumo)}</p>` : ''}
+    ${outros.length ? `<ul class="bloco__lista">${outros.slice(0, 2).map((x) =>
+      `<li><span>${esc(x.titulo)}</span><i>${esc(x.fonte)}${quando(x)}</i></li>`).join('')}</ul>` : ''}
+    <p class="bloco__assina">Matérias completas, com link para cada veículo, em supriprice.com.br</p>
+  </section>`;
+}
+
 /** 3 manchetes: o radar da análise, ou um giro pelas editorias. */
 function blocoNoticias(editorias, radar, analise) {
   let titulo = 'O que move o mercado', itens = [];
@@ -446,15 +473,16 @@ function blocoNoticias(editorias, radar, analise) {
  */
 export function gerarJornal({
   data, abicom, brent, dolar, anp, noticias, historico, indicadores,
-  share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = []
+  share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = [],
+  negocios = []
 }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   dataAbicomISO = dataAbicomISO || iso;
 
   // O bloco do dia muda todo dia (ver escolherDestaque).
-  const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes });
+  const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios });
   const { chapeu, manchete, tipoManchete, analiseNaManchete } = escolherManchete({
-    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes
+    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios
   });
 
   let bloco = '', faixa = '';
@@ -465,6 +493,7 @@ export function gerarJornal({
     case 'defasagem': bloco = blocoDefasagem(historico, abicom); break;
     case 'estados': bloco = blocoEstados(anp); break;
     case 'share-estado': bloco = blocoShareEstado(shareResumo, destaque.uf); break;
+    case 'negocios': bloco = blocoNegocios(negocios); break;
     default: bloco = anp ? blocoAnp(anp) : '';
   }
   // Dia de divulgação da ANP em que outro assunto ganhou o bloco: o market
@@ -558,6 +587,16 @@ export function gerarJornal({
   .share li { display: grid; grid-template-columns: 1fr auto 62px; gap: 10px; align-items: baseline; font-size: 21px; padding: 5px 0; border-bottom: 1px solid #EEE8DA; }
   .share li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .share li i { font-style: normal; font-size: 17px; color: #6A7480; text-align: right; }
+  .bloco--negocios { background: #fff; border: 2px solid #DCD5C4; border-left: 10px solid #F2A413; }
+  .bloco--negocios .bloco__chapeu { color: #B3341F; }
+  .bloco--negocios .bloco__titulo { font-size: 34px; -webkit-line-clamp: 3; }
+  .bloco__fonte { font-size: 18px; font-weight: 700; color: #6A7480; }
+  .bloco--negocios .bloco__texto { font-size: 21px; color: #2A2F36; }
+  .bloco--negocios .bloco__assina { color: #6A7480; }
+  .bloco__lista { list-style: none; border-top: 1px solid #EEE8DA; }
+  .bloco__lista li { padding: 7px 0; border-bottom: 1px solid #EEE8DA; display: flex; flex-direction: column; gap: 2px; }
+  .bloco__lista span { font-size: 20px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bloco__lista i { font-style: normal; font-size: 16px; color: #6A7480; }
   .bloco--dados { background: #fff; border: 2px solid #DCD5C4; }
   .bloco--dados .bloco__chapeu { color: #B3341F; }
   .bloco--dados .bloco__assina { color: #6A7480; }
@@ -682,6 +721,10 @@ export function gerarJornal({
     titulo: manchete,
     destaque: destaque.tipo + (destaque.uf ? `:${destaque.uf}` : ''),
     tipoManchete,
+    // Negócios que saíram nesta edição (no bloco ou na manchete): o robô
+    // marca para não repetir em outro dia.
+    negociosPublicados: destaque.tipo === 'negocios' ? negocios.slice(0, 3).map((n) => n.id)
+      : tipoManchete === 'negocios' ? [negocios[0].id] : [],
     chamada: principal ? `Destaque: ${principal.titulo}` : `Defasagem em ${brl(abicom.diesel.defasagem)} por litro.`
   };
 }

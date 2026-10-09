@@ -305,10 +305,14 @@ export async function lerIndicadores() {
 export async function coletarTudo(data, { semAbicom = false } = {}) {
   // Em paralelo: uma fonte lenta não atrasa as outras. No fim de semana a
   // Abicom não publica: nem pergunta (semAbicom), segue o boletim de sexta.
+  // Abicom fora do ar ou lenta demais NÃO derruba a rodada: o robô segue com
+  // o último boletim guardado (atualização parcial) e avisa no registro. A
+  // próxima rodada tenta de novo.
+  let abicomErro = null;
   const [abicom, dolar, brent] = await Promise.all([
-    semAbicom ? null : lerAbicom(data),
+    semAbicom ? null : lerAbicom(data).catch((e) => { abicomErro = e.message; return null; }),
     lerDolar(data),
     lerBrent()
   ]);
-  return { abicom, dolar, brent };
+  return { abicom, dolar, brent, abicomErro };
 }

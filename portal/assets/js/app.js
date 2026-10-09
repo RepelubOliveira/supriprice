@@ -873,6 +873,7 @@
   /* -------------------------------------------------------- pelo mundo */
 
   var EDITORIAS = [
+    { id: 'negocios', nome: 'Negócios do setor', sub: 'Aquisições, fusões e decisões do Cade' },
     { id: 'mundo', nome: 'Mundo', sub: 'Importação, exportação e mercado internacional' },
     { id: 'brasil', nome: 'Brasil', sub: 'Setor de combustíveis no país' },
     { id: 'transporte', nome: 'Transporte', sub: 'Rodoviário, frete e logística' },

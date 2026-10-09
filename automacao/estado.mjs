@@ -29,7 +29,7 @@ import { lerArquivoSite } from './publicar.mjs';
 export const CAMINHO_ESTADO = 'dados/estado.json';
 const MARCA_LOCAL = 'estado-gerado.txt'; // quando ESTA máquina publicou por último
 
-const ARQUIVOS = ['abicom-ultimo', 'anp-ultima', 'historico', 'edicoes', 'share-trr', 'editorial', 'feeds'];
+const ARQUIVOS = ['abicom-ultimo', 'anp-ultima', 'historico', 'edicoes', 'share-trr', 'editorial', 'feeds', 'negocios'];
 
 async function lerJson(p, padrao = null) {
   try { return JSON.parse(await readFile(p, 'utf8')); } catch { return padrao; }
@@ -107,6 +107,18 @@ export async function sincronizar({ raiz, remoto, nuvem }) {
     const publicados = [...new Set([...(L?.publicados || []), ...(R['share-trr'].publicados || [])])];
     const final = { ...base, publicados };
     if (JSON.stringify(final) !== JSON.stringify(L)) { await gravar(p('share-trr'), final); mudou.push('market share'); }
+  }
+  // Negócios do setor: união do que cada lado já viu e já pôs no jornal
+  // (vale a data mais antiga — o negócio não volta ao jornal).
+  if (R.negocios) {
+    const L = await lerJson(p('negocios'), { vistos: {}, noJornal: {} });
+    const final = { vistos: { ...L.vistos }, noJornal: { ...L.noJornal } };
+    for (const k of ['vistos', 'noJornal']) {
+      for (const [id, d] of Object.entries(R.negocios[k] || {})) {
+        if (!final[k][id] || d < final[k][id]) final[k][id] = d;
+      }
+    }
+    if (JSON.stringify(final) !== JSON.stringify(L)) { await gravar(p('negocios'), final); mudou.push('negócios do setor'); }
   }
   // Editorial e feeds: na nuvem, valem os do site (o computador é a fonte).
   if (nuvem) {

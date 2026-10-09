@@ -26,7 +26,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
-import { coletarNoticias, buscarRadar } from './noticias.mjs';
+import { coletarNoticias, buscarRadar, buscarNegocios } from './noticias.mjs';
 import { lerShare } from './share.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
@@ -38,6 +38,7 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const P = {
   editorial: path.join(RAIZ, 'conteudo', 'editorial.json'),
   feeds: path.join(RAIZ, 'conteudo', 'feeds.json'),
+  negocios: path.join(RAIZ, 'conteudo', 'negocios.json'),
   historico: path.join(RAIZ, 'conteudo', 'historico.json'),
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
@@ -252,9 +253,15 @@ async function principal() {
   // A defasagem é obrigatória. ANP e notícias são desejáveis: se uma delas
   // falhar, o portal sai sem aquele bloco em vez de não sair.
   log('Buscando Abicom, Banco Central e Brent...');
-  const coleta = await coletarTudo(hoje, { semAbicom: fimDeSemana || NUVEM });
+  // Boletim de hoje já guardado (rodada anterior)? Não pergunta de novo à
+  // Abicom: o boletim do dia não muda, e cada consulta a mais é um risco de
+  // a rodada esbarrar no site dela fora do ar.
+  const guardado = await lerJson(P.abicomUltimo, null);
+  const jaTemHoje = guardado?.dataISO === iso(hoje);
+  const coleta = await coletarTudo(hoje, { semAbicom: fimDeSemana || NUVEM || jaTemHoje });
   const { dolar, brent } = coleta;
   let abicom = coleta.abicom;
+  if (coleta.abicomErro) console.warn(`  ! Abicom indisponível agora (${coleta.abicomErro}). Seguindo com o último boletim guardado.`);
 
   // MODO PARCIAL. A Abicom publica entre ~6h30 e ~9h (medido de 24/09 a
   // 01/10/2026). Nas primeiras rodadas da manhã o boletim pode não existir — e
@@ -277,8 +284,9 @@ async function principal() {
     // O boletim guardado pode já ser o de HOJE (o computador coletou cedo e a
     // nuvem roda depois): aí não é atualização parcial, é o dia completo.
     parcial = ultimo.dataISO !== iso(hoje);
-    if (!parcial) log(`Boletim de hoje da Abicom já coletado pelo computador (${abicom.data}).`);
+    if (!parcial) log(`Boletim de hoje da Abicom já coletado (${abicom.data}).`);
     else if (fimDeSemana) log(`Fim de semana (a Abicom não publica): atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
+    else if (coleta.abicomErro) log(`Abicom fora do ar: atualização PARCIAL, mantendo o boletim de ${abicom.data}. A próxima rodada tenta de novo.`);
     else if (NUVEM) log(`Na nuvem a Abicom não é consultada (ela bloqueia servidores): atualização PARCIAL, mantendo o boletim de ${abicom.data}; o computador traz o de hoje.`);
     else log(`A Abicom ainda não publicou o boletim de hoje: atualização PARCIAL (mercado, ANP e notícias), mantendo o boletim de ${abicom.data}.`);
   }
@@ -328,6 +336,31 @@ async function principal() {
     log(`Notícias: ${noticias.feedsOk}/${noticias.feedsConsultados} feeds · ${c}`);
   } catch (e) {
     console.warn(`  ! Notícias indisponíveis: ${e.message}`);
+  }
+
+  // Negócios do setor (aquisições, fusões, Cade): busca na imprensa e nos
+  // feeds das entidades. conteudo/negocios.json lembra quando cada um foi
+  // visto e se já saiu no jornal — cada negócio vai ao jornal UMA vez.
+  log('Buscando negócios do setor (aquisições, fusões, Cade)...');
+  let negocios = [];
+  const regNegocios = await lerJson(P.negocios, { vistos: {}, noJornal: {} });
+  try {
+    const r = await buscarNegocios(cfgFeeds.negocios);
+    negocios = r.itens;
+    for (const n of negocios) if (!regNegocios.vistos[n.id]) regNegocios.vistos[n.id] = iso(hoje);
+    // Esquece o que tem mais de 60 dias (a busca só olha 10).
+    const corte = iso(new Date(hoje.getTime() - 60 * 864e5));
+    for (const k of ['vistos', 'noJornal']) {
+      for (const [id, d] of Object.entries(regNegocios[k])) if (d < corte) delete regNegocios[k][id];
+    }
+    const novos = negocios.filter((n) => regNegocios.vistos[n.id] === iso(hoje)).length;
+    log(`Negócios: ${negocios.length} no ar (${novos} visto(s) hoje pela primeira vez) · ${r.ok}/${r.consultas} fontes` +
+      (negocios[0] ? ` · "${negocios[0].titulo}"` : ''));
+  } catch (e) {
+    console.warn(`  ! Negócios indisponíveis: ${e.message}`);
+  }
+  if (noticias && negocios.length) {
+    noticias.editorias.negocios = negocios.map(({ id, cade, ...n }) => n);
   }
 
   // Mercado de distribuição e market share (ANP). A planilha muda dia 1 e por
@@ -416,10 +449,18 @@ async function principal() {
   // entra na próxima.
   const shareNoJornal = share?.mercado &&
     (share.jornalBase !== share.baseANP || share.jornalData === hojeISO) ? share : null;
+  // Negócios ainda não publicados (ou publicados hoje mesmo: o jornal é
+  // refeito ao longo do dia) e de até 5 dias.
+  const corteNeg = Date.now() - 5 * 864e5;
+  const negociosJornal = negocios.filter((n) => (!regNegocios.noJornal[n.id] || regNegocios.noJornal[n.id] === hojeISO) &&
+    (!n.data || new Date(n.data).getTime() >= corteNeg));
   const jornal = gerarJornal({
     data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores,
-    share: shareNoJornal, shareResumo: share, analise, radar, parcial, fimDeSemana, dataAbicomISO, edicoesAntes
+    share: shareNoJornal, shareResumo: share, analise, radar, parcial, fimDeSemana, dataAbicomISO, edicoesAntes,
+    negocios: negociosJornal
   });
+  for (const id of jornal.negociosPublicados) regNegocios.noJornal[id] = regNegocios.noJornal[id] || hojeISO;
+  if (jornal.negociosPublicados.length) log(`Jornal: com ${jornal.negociosPublicados.length} negócio(s) do setor.`);
   if (shareNoJornal) {
     jornalComShare = true;
     log(`Jornal: com o market share da ANP (${share.mercado.referencia.rotulo}).`);
@@ -456,7 +497,8 @@ async function principal() {
   // lembra os que já viu e não avisa de novo. Vai no dados.js (quem abre o
   // site) e em dados/novidades.json (quem já está com a página aberta: o site
   // consulta a cada 5 minutos).
-  const novidades = montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal });
+  const novidades = montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal,
+    negociosNovos: negocios.filter((n) => regNegocios.vistos[n.id] === hojeISO) });
 
   // --- dados.js ------------------------------------------------------------
   const dados = {
@@ -553,7 +595,7 @@ async function principal() {
     ...(jornalComShare ? { jornalBase: share.baseANP, jornalData: iso(hoje) } : {})
   } : share;
   const estado = await montarEstado({ raiz: RAIZ, origem: NUVEM ? 'nuvem' : 'computador',
-    extras: shareFinal ? { 'share-trr': shareFinal } : {} });
+    extras: { ...(shareFinal ? { 'share-trr': shareFinal } : {}), negocios: regNegocios } });
 
   log('Publicando no HTMLy...');
   const res = await publicarArquivos({
@@ -577,6 +619,8 @@ async function principal() {
   });
   await marcarPublicacao(RAIZ, JSON.parse(estado).gerado);
   log(`Publicado: ${res.url || ''} · ${res.storage_bytes ?? '?'} bytes`);
+  // Só depois de publicado: em simulação ou falha, o negócio continua inédito.
+  await writeFile(P.negocios, JSON.stringify(regNegocios, null, 2) + '\n', 'utf8');
   if (shareFinal !== share) {
     await writeFile(P.shareTrr, JSON.stringify(shareFinal) + '\n', 'utf8');
     for (const x of extrasShare) log(`Market share publicado: ${x.path}`);
@@ -584,7 +628,7 @@ async function principal() {
 }
 
 /** Itens do pop-up "Novo hoje", do mais importante para o menos. */
-function montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal }) {
+function montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal, negociosNovos = [] }) {
   const itens = [];
   const lado = (p) => (p.desfavoravel ? 'abaixo' : 'acima');
   if (!parcial && dataAbicomISO === hojeISO && abicom?.diesel) {
@@ -615,6 +659,12 @@ function montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, 
       link: '#painel'
     });
   }
+  for (const n of negociosNovos.slice(0, 2)) itens.push({
+    id: `negocio-${n.id}`, tipo: n.cade ? 'Negócios · Cade' : 'Negócios do setor',
+    titulo: n.titulo,
+    texto: `${n.fonte} · leia em Notícias do mercado`,
+    link: '#noticias'
+  });
   if (jornal) itens.push({
     id: `jornal-${hojeISO}`, tipo: 'Jornal do dia',
     titulo: jornal.titulo,

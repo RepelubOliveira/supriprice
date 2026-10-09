@@ -125,5 +125,79 @@
   "pontosMinimos": 6,
 
   "maxPorEditoria": 6,
-  "diasDeValidade": 7
+  "diasDeValidade": 7,
+
+  "negocios": {
+    "_leiaMe": [
+      "NEGÓCIOS DO SETOR: aquisições, fusões, vendas e decisões do Cade de",
+      "distribuidoras, TRRs, redes de postos e transportadoras. Entra no site",
+      "(coluna própria nas notícias), no pop-up de novidades e no jornal do dia",
+      "assim que aparece — cada negócio vai ao jornal uma vez.",
+      "",
+      "buscas  -> Google Notícias, imprensa do país inteiro (o Cade não tem feed;",
+      "           as decisões dele chegam pelas matérias). 'when:14d' = 14 dias.",
+      "feeds   -> entidades e veículos do setor. Para incluir um sindicato novo,",
+      "           basta o endereço do feed (quase todo site WordPress tem /feed/).",
+      "Só entra manchete com um termosNegocio no TÍTULO e um termosSetor no",
+      "título ou no começo do resumo."
+    ],
+    "diasDeValidade": 10,
+    "max": 8,
+    "buscas": [
+      "Cade combustíveis when:14d",
+      "Cade distribuidora when:14d",
+      "Cade postos de combustíveis when:14d",
+      "Cade transportadora when:14d",
+      "aquisição distribuidora de combustíveis when:14d",
+      "compra distribuidora de combustíveis when:14d",
+      "aquisição rede de postos when:14d",
+      "compra rede de postos de combustíveis when:14d",
+      "aquisição TRR combustíveis when:14d",
+      "transportador revendedor retalhista aquisição when:14d",
+      "aquisição transportadora rodoviária when:14d",
+      "fusão combustíveis distribuidora when:14d",
+      "Vibra OR Ipiranga OR Raízen OR Ultrapar aquisição when:14d"
+    ],
+    "feeds": [
+      { "nome": "Minaspetro", "fonte": "Minaspetro", "url": "https://minaspetro.com.br/feed/", "peso": 3 },
+      { "nome": "Sincopetro", "fonte": "Sincopetro", "url": "https://sincopetro.org.br/feed/", "peso": 3 },
+      { "nome": "Brasilcom", "fonte": "Brasilcom", "url": "https://brasilcom.com.br/feed/", "peso": 3 },
+      { "nome": "Instituto Combustível Legal", "fonte": "Instituto Combustível Legal", "url": "https://institutocombustivellegal.org.br/feed/", "peso": 3 },
+      { "nome": "Brasil Postos", "fonte": "Brasil Postos", "url": "https://www.brasilpostos.com.br/feed/", "peso": 3 },
+      { "nome": "Petronotícias", "fonte": "Petronotícias", "url": "https://petronoticias.com.br/feed/", "peso": 2 },
+      { "nome": "Brazil Journal", "fonte": "Brazil Journal", "url": "https://braziljournal.com/feed", "peso": 2 },
+      { "nome": "NeoFeed", "fonte": "NeoFeed", "url": "https://neofeed.com.br/feed/", "peso": 2 },
+      { "nome": "novaCana", "fonte": "novaCana", "url": "https://www.novacana.com/rss.xml", "peso": 2 },
+      { "nome": "Diário do Transporte", "fonte": "Diário do Transporte", "url": "https://diariodotransporte.com.br/feed/", "peso": 1 },
+      { "nome": "NTC&Logística", "fonte": "NTC&Logística", "url": "https://www.portalntc.org.br/feed/", "peso": 2 }
+    ],
+    "termosNegocio": [
+      "aquisição", "aquisicao", "adquire", "adquiriu", "adquirir", "compra ", "comprou", "compra de", "compra da",
+      "vende ", "vendeu", "venda da", "venda de", "fusão", "fusao", "incorpora", "joint venture", "m&a",
+      "cade", "ato de concentração", "assume o controle", "assume controle", "controle da", "participação na",
+      "participação de", "sociedade com", "arrendamento", "aval para", "consolidação"
+    ],
+    "_termosSetor": "Termos curtos e ambíguos (distribuidora, posto, frota, terminal) ficaram de fora: traziam distribuidora de alimentos, posto de saúde e ônibus.",
+    "termosSetor": [
+      "combustív", "combustiv", "distribuidora de combust", "distribuidora de gás", "distribuidoras de combust",
+      " trr", "trrs", "transportador revendedor", "rede de postos", "postos de gasolina", "postos de combust",
+      "transportadora", "diesel", "etanol", "biodiesel", "lubrificante", "glp", "gás de cozinha", "botijão",
+      "base de distribuição", "bases de distribuição", "tancagem", "vibra", "ipiranga", "raízen", "raizen",
+      "ultrapar", "ale combust", "atem", "larco", "petrobahia", "sim rede", "rodoil", "ciapetro", "petrovila",
+      "br distribuidora", "loja de conveniência", "lojas de conveniência", "am/pm", "br mania"
+    ],
+    "_bloqueadas": "Compra de PRODUTO (diesel, combustível, votos, veículos) não é negócio entre empresas.",
+    "bloqueadas": [
+      "compra de diesel", "compra de combust", "compra de gasolina", "compra de etanol", "compra de petróleo",
+      "compra de gás", "compra de glp", "compras de diesel", "compras de combust", "importação de diesel",
+      "compra de votos", "compra de veículos", "compra de carro", "compra de caminh", "compra de ônibus",
+      "compra de ingresso", "compra premiada", "black friday", "promoção", "cupom", "sorteio", "fraude",
+      "vaga de emprego", "vagas", "concurso", "horóscopo", "loteria", "mega-sena", "ônibus", "portugal"
+    ],
+    "_fontesBloqueadas": "Veículos de fora do Brasil que a busca do Google às vezes traz.",
+    "fontesBloqueadas": [
+      "Demócrata", "Jornal Económico", "ECO", "Expresso", "Público", "Observador", "Jornal de Negócios",
+      "Executive Digest", "Dinheiro Vivo", "SAPO", "El País", "Expansión", "Cinco Días", "El Economista"
+    ]
+  }
 }
