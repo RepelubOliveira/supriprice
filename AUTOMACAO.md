@@ -286,12 +286,31 @@ assim, uma hora vai passar algo fora de tom. É o preço de não colocar a mão.
 
 ## Instalação (uma vez só, ou ao trocar/formatar o computador)
 
-Tudo no terminal, dentro da pasta do projeto.
+> **Um computador de cada vez.** A tarefa automática deve existir em UM
+> computador só. Dois robôs publicando nos mesmos horários não estragam os
+> números (o estado é sincronizado pelo site), mas dobram as publicações e
+> podem esbarrar no limite diário do HTMLy. Ao levar para outro computador,
+> desligue a tarefa no antigo:
+> `powershell -Command "Disable-ScheduledTask -TaskName 'SupriPrice - atualizar portal'"`
+
+Tudo no terminal. Em computador novo, comece pelo passo 0.
+
+**0. Trazer o projeto (computador novo)**
+```bash
+winget install Git.Git
+git clone https://github.com/RepelubOliveira/supriprice.git
+cd supriprice
+```
+O que não vem pelo GitHub e não faz falta: vídeos, logos em PNG soltos na raiz,
+`logs\` e `portal\dados\` (o robô gera de novo). O estado do dia (último
+boletim, edições, market share) o robô baixa sozinho do próprio site na
+primeira rodada (`dados/estado.json`).
 
 **1. Instalar o Node.js**
 ```bash
 winget install OpenJS.NodeJS.LTS
 ```
+O jornal em imagem usa o Microsoft Edge, que já vem no Windows.
 
 **2. Cadastrar a chave do HTMLy.** Em `htmly.com.br` → **Perfil** → copie a
 **API key** (Ctrl+C). Depois rode — não há nada para editar no comando:
@@ -307,8 +326,11 @@ acontecer, gere uma nova no HTMLy — a antiga fica sem valor.
 ```bash
 powershell -ExecutionPolicy Bypass -File "automacao\instalar-tarefa.ps1"
 ```
-Cria a tarefa "SupriPrice - atualizar portal" (07:00, 12:00 e 17:00, seg a sex).
-Não precisa de administrador. Confere o Node e a chave antes de criar.
+Cria a tarefa "SupriPrice - atualizar portal" (08, 09, 10, 12, 15 e 17h, todos
+os dias). Não precisa de administrador. Confere o Node e a chave antes de criar.
+O computador precisa estar ligado e acordado nesses horários (em suspensão, a
+rodada atrasa até ele acordar). Em desktop na tomada, desligue a suspensão
+automática em Configurações → Sistema → Energia.
 
 **4. Testar na hora**
 ```bash
@@ -324,7 +346,8 @@ O robô **nunca publica número que não conseguiu confirmar**.
 
 | Situação | O que acontece |
 |---|---|
-| Fim de semana | Sai sem publicar. |
+| Fim de semana | **Atualização parcial:** mercado, ANP, notícias e jornal do dia, com o boletim de sexta. |
+| **Abicom fora do ar ou lenta** | **Atualização parcial** com o último boletim; a próxima rodada tenta de novo. Boletim do dia já pego numa rodada anterior não é pedido de novo. |
 | **Abicom ainda não publicou** (comum às 07:00 — ela publica entre ~6h30 e ~9h) | **Atualização parcial:** mercado, ANP e notícias de hoje; a defasagem fica a do último boletim (`conteudo/abicom-ultimo.json`), e o selo diz "Defasagem de DD/MM · mercado e notícias de hoje". Jornal e gráfico só andam com boletim novo. |
 | **ANP fora do ar ou lenta** | Tenta duas vezes. Se falhar, usa a **última leitura válida** (`conteudo/anp-ultima.json`), que mostra o próprio período — nunca números fixos. Sem leitura guardada, os blocos da bomba saem. |
 | **Um indicador de mercado falhou** | A faixa sai sem aquele item; o resto sai normal. |

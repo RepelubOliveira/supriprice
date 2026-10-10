@@ -1,13 +1,13 @@
 # SupriPrice
 
-> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado três vezes por dia, todos os dias (07h, 12h e 17h, horário de Brasília).
+> Portal brasileiro de inteligência do mercado de combustíveis: defasagem diária do diesel e da gasolina em relação à paridade de importação (Abicom/StoneX), preço na bomba (ANP), market share de distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado seis vezes por dia, todos os dias (08h, 09h, 10h, 12h, 15h e 17h, horário de Brasília).
 
-Números mais recentes (atualizado em 06/10/2026):
+Números mais recentes (atualizado em 09/10/2026):
 
-- Defasagem do diesel A (Abicom, 06/10/2026): R$ 2,60 por litro, 77% abaixo da paridade de importação.
-- Defasagem da gasolina A (Abicom, 06/10/2026): R$ 0,42 por litro, 15%.
+- Defasagem do diesel A (Abicom, 09/10/2026): R$ 3,06 por litro, 91% abaixo da paridade de importação.
+- Defasagem da gasolina A (Abicom, 09/10/2026): R$ 0,57 por litro, 19%.
 - Diesel S10 na bomba, média Brasil (ANP, 27/09/2026 a 02/10/2026): R$ 7,37.
-- Dólar PTAX: R$ 4,99.
+- Dólar PTAX: R$ 5,01.
 - Vendas das distribuidoras no Brasil em ago/26 (ANP/SIMP): 12.184,5 mil m³ (−1,5% no mês).
 - Maiores distribuidoras em ago/26: Vibra Energia 21,9%, Ipiranga 18,3%, Raízen 16,8%, ALE Combustíveis 2,3%, Atem 1,9%.
 - Maiores TRRs do Brasil em ago/26: Serra Diesel TRR 3,2%, Risel Combustíveis 2,6%, Agricopel Comércio de Derivados de Petroleo 2,5%, Rudipel Rudnick Petróleo 2,4%, Rio Branco Derivados de Petroleo 2,1%.

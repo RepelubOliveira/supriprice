@@ -1,12 +1,45 @@
 [
   {
+    "data": "2026-10-09",
+    "rotulo": "09/10",
+    "titulo": "Defasagem do diesel sobe R$ 0,38 e chega a R$ 3,06",
+    "chamada": "Destaque: Crude oil prices and refinery margins generally increased throughout the third quarter",
+    "arquivo": "relatorios/jornal-2026-10-09.html",
+    "slug": "supriprice-2026-10-09",
+    "destaque": "negocios",
+    "tipoManchete": "defasagem",
+    "imagem": "relatorios/jornal-2026-10-09.png"
+  },
+  {
+    "data": "2026-10-08",
+    "rotulo": "08/10",
+    "titulo": "Brent sobe 3,8% e vai a US$ 103,97",
+    "chamada": "Destaque: Crude oil prices and refinery margins generally increased throughout the third quarter",
+    "arquivo": "relatorios/jornal-2026-10-08.html",
+    "slug": "supriprice-2026-10-08",
+    "destaque": "mercado",
+    "tipoManchete": "mercado",
+    "imagem": "relatorios/jornal-2026-10-08.png"
+  },
+  {
+    "data": "2026-10-07",
+    "rotulo": "07/10",
+    "titulo": "Raízen lidera a venda de combustíveis em Minas Gerais, com 23,3%",
+    "chamada": "Destaque: Crude oil prices and refinery margins generally increased throughout the third quarter",
+    "arquivo": "relatorios/jornal-2026-10-07.html",
+    "slug": "supriprice-2026-10-07",
+    "destaque": "share-estado:MG",
+    "tipoManchete": "d-share-estado",
+    "imagem": "relatorios/jornal-2026-10-07.png"
+  },
+  {
     "data": "2026-10-06",
     "rotulo": "06/10",
     "titulo": "Defasagem do diesel recua R$ 0,37 e fica em R$ 2,60",
     "chamada": "Destaque: Crude oil prices and refinery margins generally increased throughout the third quarter",
     "arquivo": "relatorios/jornal-2026-10-06.html",
     "slug": "supriprice-2026-10-06",
-    "destaque": "mercado",
+    "destaque": "defasagem",
     "tipoManchete": "defasagem",
     "imagem": "relatorios/jornal-2026-10-06.png"
   },
