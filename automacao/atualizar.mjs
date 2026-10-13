@@ -222,6 +222,14 @@ async function principal() {
     try {
       remoto = await baixarEstado({ slug: SLUG, chave: CHAVE });
     } catch (e) {
+      // Chave recusada: nada vai publicar. Para já, com o recado certo, em vez
+      // de coletar tudo e cair no fim (foi o que aconteceu em 11 a 13/10/2026,
+      // quando uma chave nova foi gerada e as cópias antigas perderam valor).
+      if (/HTTP 401/.test(e.message)) {
+        throw new Error(NUVEM
+          ? 'O HTMLy recusou a chave (401). Atualize o secret HTMLY_API_KEY no GitHub (Settings > Secrets and variables > Actions) com a chave atual do seu Perfil no HTMLy.'
+          : 'O HTMLy recusou a chave (401). Cadastre a chave atual do seu Perfil no HTMLy com: powershell -ExecutionPolicy Bypass -File "automacao\\cadastrar-chave.ps1"');
+      }
       console.warn(`  ! Estado do site indisponível: ${e.message}`);
     }
   }
