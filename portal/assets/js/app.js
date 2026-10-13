@@ -246,7 +246,7 @@
       var fonte = $('#heroFonte');
       if (fonte) {
         fonte.innerHTML = '<span class="mkt__live" aria-hidden="true"></span>Ao vivo · ' + esc(a.data + ' ' + a.hora) +
-          ' · Arbitragem SupriPrice: diesel e gasolina na NYMEX e dólar, menos o preço médio da Petrobras.';
+          ' · Arbitragem SupriPrice, cálculo próprio recalculado a cada minuto.';
       }
     });
   }
@@ -299,7 +299,7 @@
       // Às 08:20 a B3 ainda não abriu: o Ibovespa é o fechamento de ontem.
       // Dizer isso evita que o leitor tome o número como sendo do dia.
       var antigo = hoje && i.dataISO && i.dataISO < hoje;
-      var dica = i.arb ? 'Arbitragem SupriPrice: paridade de importação calculada com as cotações de Nova York e o dólar, menos o preço da Petrobras · variação no dia'
+      var dica = i.arb ? 'Arbitragem SupriPrice · variação no dia'
         : (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
         ' · variação sobre o fechamento anterior';
       return '' +

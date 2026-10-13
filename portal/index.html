@@ -108,7 +108,7 @@
         <h1 class="hero__title">Defasagem entre o preço da Petrobras e a paridade de importação</h1>
         <!-- Resumo em texto, escrito pelo robô a cada atualização: é o que
              buscadores e IAs leem, já que eles não rodam o JavaScript. -->
-        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 13/10/2026, a Arbitragem SupriPrice do diesel A está em <strong>R$ 2,84 por litro</strong>, 86% abaixo da paridade de importação; a da gasolina A, em R$ 0,35 (12%). Cálculo próprio, com as cotações de Nova York e o dólar, recalculado a cada minuto. O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 04/10/2026 a 09/10/2026). Dólar PTAX: R$ 4,99.<!-- RESUMO:FIM --></p>
+        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 13/10/2026, a Arbitragem SupriPrice do diesel A está em <strong>R$ 2,87 por litro</strong>, 88% abaixo da paridade de importação; a da gasolina A, em R$ 0,38 (13%). Cálculo próprio, recalculado a cada minuto. O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 04/10/2026 a 09/10/2026). Dólar PTAX: R$ 4,99.<!-- RESUMO:FIM --></p>
       </div>
       <p class="hero__source" id="heroFonte"></p>
     </div>
@@ -117,25 +117,6 @@
       <div class="hero__products" id="produtos"></div>
       <div class="hero__ticker" id="ticker"></div>
     </div>
-    <details class="arb__metodo">
-      <summary>Como calculamos</summary>
-      <div>
-        <p><b>Preço de importação</b> = cotação do produto na bolsa de Nova York (US$ por galão) ÷ 3,785 litros × dólar
-          + custo de trazer o produto ao Brasil.<br>
-          <b>Arbitragem</b> = preço de importação − preço médio da Petrobras para as distribuidoras.</p>
-        <ul>
-          <li><b>Diesel:</b> contrato futuro de diesel ULSD da NYMEX. <b>Gasolina:</b> contrato futuro de gasolina RBOB da NYMEX.
-            <b>Dólar:</b> cotação comercial. Fonte: Yahoo Finance, com atraso de até 15 minutos.</li>
-          <li><b>Custo de trazer:</b> frete marítimo do Golfo dos EUA, seguro, porto, internação e a diferença entre o contrato
-            de Nova York e o produto à vista no Golfo. Não há cotação pública diária desses custos: o valor é calibrado
-            periodicamente pela equipe SupriPrice com dados de mercado.</li>
-          <li><b>Petrobras:</b> preço médio de venda do diesel A e da gasolina A às distribuidoras, atualizado a cada reajuste.</li>
-        </ul>
-        <p class="arb__aviso">É uma estimativa independente, de método aberto, e pode diferir de outras referências do
-          mercado, que usam outras fontes de cotação e de frete. "Anterior" é a arbitragem no fechamento do pregão
-          anterior. Conteúdo informativo, não constitui recomendação comercial.</p>
-      </div>
-    </details>
   </div>
 </section>
 
@@ -223,8 +204,7 @@
 <!-- ====================== Rodapé ====================== -->
 <footer class="wrap site-footer">
   <span>
-    Arbitragem SupriPrice: cálculo próprio com as cotações da NYMEX e o dólar (Yahoo Finance) e o preço
-    médio da Petrobras. Preço na bomba: ANP, dados abertos.
+    Arbitragem SupriPrice: cálculo próprio. Preço na bomba: ANP, dados abertos.
     Dólar PTAX: Banco Central. Brent: ICE. Indicadores de mercado: Yahoo Finance.
     Mercado de distribuição e market share: ANP, SIMP (dados abertos).
     Manchetes: os veículos citados em cada item,
@@ -260,7 +240,7 @@
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
 <script src="assets/js/medicao.js?v=20261008b"></script>
-<script src="assets/js/dados.js?v=20261013-104217"></script>
-<script src="assets/js/app.js?v=20261013d"></script>
+<script src="assets/js/dados.js?v=20261013-110007"></script>
+<script src="assets/js/app.js?v=20261013e"></script>
 </body>
 </html>

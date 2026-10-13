@@ -5,7 +5,7 @@
 <title>Arbitragem ao vivo — compositor</title>
 <!--
   Vídeo de divulgação da ARBITRAGEM SUPRIPRICE AO VIVO para o Instagram
-  (Reels/Stories 9:16 e Feed 4:5), 24 s, com trilha ORIGINAL sintetizada aqui
+  (Reels/Stories 9:16 e Feed 4:5), 20 s, com trilha ORIGINAL sintetizada aqui
   mesmo (Web Audio): sem música de terceiros, sem risco de direitos autorais.
   Mesmo motor do video/lancamento.html: canvas quadro a quadro, WebCodecs
   (H.264 + AAC) e mp4-muxer. 120 BPM: 1 tempo = 0,5 s; os cortes caem nas batidas.
@@ -15,15 +15,15 @@
            E você ainda negocia com o número de ontem?"
     4–8    revelação: NOVO · Arbitragem SupriPrice · AO VIVO
     8–13   o número: diesel A ao vivo (contagem, oscilação, relógio, linha)
-    13–17  a conta aberta: Nova York × dólar + frete = importação − Petrobras
-    17–20  para quem: TRR / POSTOS / DISTRIBUIDORAS / TRANSPORTADORAS
-    20–24  encerramento: logo, AO VIVO · GRÁTIS, supriprice.com.br, link na bio
+    13–16  para quem: TRR / POSTOS / DISTRIBUIDORAS / TRANSPORTADORAS
+    16–20  encerramento: logo, ARBITRAGEM AO VIVO, supriprice.com.br, link na bio
+  (A cena "como calculamos" saiu a pedido em 13/10/2026: o método não é divulgado.)
 
   Números: os do dados.js do dia (D.arbitragem) — refaça o vídeo para atualizar.
   Uso (servidor projeto-local, porta 8767), no console de
   http://localhost:8767/video/arbitragem.html :
       await Arb.renderizar('stories')      await Arb.renderizar('feed')
-      await Arb.previa('stories', [2, 6, 10, 15, 18, 22])
+      await Arb.previa('stories', [2, 6, 10, 14, 18])
   Saída: video/arbitragem-ao-vivo-{stories,feed}.mp4 e capas .jpg
 -->
 <style>
@@ -40,7 +40,7 @@
 (function () {
   'use strict';
 
-  var FPS = 30, DUR = 24, SR = 48000;
+  var FPS = 30, DUR = 20, SR = 48000;
   var BATIDA = 0.5;                    // 120 BPM
   var COR = {
     tinta: '#060E19', navy: '#0E2A47', navy2: '#16365A', navy3: '#27496F',
@@ -139,24 +139,27 @@
 
   /* ============================================================== TRILHA */
   /*
-   * Lá menor, 120 BPM, colada no roteiro:
-   *   0–4    quatro golpes (uma frase por batida) + subida de tensão
-   *   4      IMPACTO (revelação) · 4–8 pad + tique-taque de relógio
-   *   8–19   pulsação: bumbo, baixo em colcheias, caixa, chimbal, acordes
-   *          (Am – F – C – G); bipes nas oscilações do número; sinos na conta
-   *   17–19  golpes nas palavras (TRR / POSTOS / ...)
-   *   19–20  virada: caixa acelerando + subida
-   *   20     IMPACTO final + acorde longo
+   * Trilha "trailer + trap", lá menor, grade de 120 BPM (meio tempo: a caixa
+   * cai a cada 1 s), colada no roteiro:
+   *   0–4    tique-taque de relógio, coração grave, um golpe por frase,
+   *          sucção reversa e SILÊNCIO de meio tempo antes do impacto
+   *   4      BRAAAM (metais de cinema sintetizados) + queda de sub
+   *   4–8    meio tempo: 808 longo, palmas, chimbal esparso, melodia curta
+   *   8–13   batida cheia: 808 deslizando (Lá–Dó–Mi–Sol), palmas, chimbal com
+   *          repiques; bipes nas oscilações do número
+   *   13–15  uma pancada (808 + palma) em cada palavra; subida
+   *   15.75  silêncio
+   *   16     BRAAAM final + 808 longo + cauda
    */
   async function comporTrilha() {
     var ctx = new OfflineAudioContext(2, SR * DUR, SR);
-    var mestre = ctx.createGain(); mestre.gain.value = 0.85;
+    var mestre = ctx.createGain(); mestre.gain.value = 0.8;
     var comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -16; comp.knee.value = 8; comp.ratio.value = 4;
-    comp.attack.value = 0.004; comp.release.value = 0.22;
-    var ganhoFinal = ctx.createGain(); ganhoFinal.gain.value = 1.45;
+    comp.threshold.value = -18; comp.knee.value = 6; comp.ratio.value = 5;
+    comp.attack.value = 0.003; comp.release.value = 0.18;
+    var ganhoFinal = ctx.createGain(); ganhoFinal.gain.value = 1.6;
     mestre.connect(comp); comp.connect(ganhoFinal); ganhoFinal.connect(ctx.destination);
-    mestre.gain.setValueAtTime(0.85, DUR - 1.4);
+    mestre.gain.setValueAtTime(0.8, DUR - 1.2);
     mestre.gain.linearRampToValueAtTime(0.0001, DUR - 0.05);
 
     function impulso(seg, decai) {
@@ -167,8 +170,8 @@
       }
       return b;
     }
-    var rev = ctx.createConvolver(); rev.buffer = impulso(3.2, 2.6);
-    var revGanho = ctx.createGain(); revGanho.gain.value = 0.32;
+    var rev = ctx.createConvolver(); rev.buffer = impulso(3.6, 2.4);
+    var revGanho = ctx.createGain(); revGanho.gain.value = 0.3;
     rev.connect(revGanho); revGanho.connect(mestre);
 
     var ruido = ctx.createBuffer(1, SR * 2, SR);
@@ -182,177 +185,230 @@
     function ganho(v) { var g = ctx.createGain(); g.gain.value = v; return g; }
     function filtro(tipo, f, q) { var b = ctx.createBiquadFilter(); b.type = tipo; b.frequency.value = f; if (q) b.Q.value = q; return b; }
     function envio(no, mix) { no.connect(mestre); if (mix) { var g = ganho(mix); no.connect(g); g.connect(rev); } }
+    // Saturação (deixa o 808 e o braam "sujos" e presentes no celular).
+    function saturar(q) {
+      var w = ctx.createWaveShaper(), n = 1024, c = new Float32Array(n);
+      for (var i = 0; i < n; i++) { var x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(x * q) / Math.tanh(q); }
+      w.curve = c; w.oversample = '2x'; return w;
+    }
 
-    function impacto(t, forca) {
+    /* ---- instrumentos ---- */
+
+    // 808: senoide grave com estalo inicial, sustentação longa e deslize.
+    function oito(t, f, dur, v, desliza) {
       var o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(26, t + 1.3);
+      o.frequency.setValueAtTime(f * 3.2, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.045);
+      if (desliza) {
+        o.frequency.setValueAtTime(f, t + dur * 0.55);
+        o.frequency.exponentialRampToValueAtTime(desliza, t + dur * 0.8);
+      }
       var g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.0 * forca, t + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4 * forca);
-      o.connect(g); envio(g, 0.4); o.start(t); o.stop(t + 2.6);
-      var n = fonteRuido(t, 1.2), lp = filtro('lowpass', 1400), gn = ctx.createGain();
-      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.7 * forca, t + 0.005);
-      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-      n.connect(lp); lp.connect(gn); envio(gn, 0.8);
-      var n2 = fonteRuido(t, 0.3), bp = filtro('bandpass', 2600, 1.4), g2 = ctx.createGain();
-      g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.35 * forca, t + 0.003);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-      n2.connect(bp); bp.connect(g2); envio(g2, 0.6);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.95, t + 0.004);
+      g.gain.setValueAtTime(v || 0.95, t + 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      var sat = saturar(2.2), lp = filtro('lowpass', 1800);
+      o.connect(g); g.connect(sat); sat.connect(lp); envio(lp, 0); o.start(t); o.stop(t + dur + 0.05);
     }
-    function golpe(t) {
-      var o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.35);
-      var g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.85, t + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
-      o.connect(g); envio(g, 0.35); o.start(t); o.stop(t + 0.8);
-      var n = fonteRuido(t, 0.2), hp = filtro('highpass', 1800), gn = ctx.createGain();
-      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.3, t + 0.003);
-      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-      n.connect(hp); hp.connect(gn); envio(gn, 0.5);
-    }
-    function subida(t0, t1) {
-      var n = fonteRuido(t0, t1 - t0), bp = filtro('bandpass', 300, 2.5), g = ctx.createGain();
-      bp.frequency.setValueAtTime(300, t0); bp.frequency.exponentialRampToValueAtTime(8000, t1);
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.45, t1 - 0.02);
-      g.gain.linearRampToValueAtTime(0.0001, t1);
-      n.connect(bp); bp.connect(g); envio(g, 0.3);
-      var o = ctx.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(880, t1);
-      var lp = filtro('lowpass', 2200), go = ctx.createGain();
-      go.gain.setValueAtTime(0.0001, t0); go.gain.exponentialRampToValueAtTime(0.06, t1 - 0.02);
-      go.gain.linearRampToValueAtTime(0.0001, t1);
-      o.connect(lp); lp.connect(go); envio(go, 0.2); o.start(t0); o.stop(t1);
-    }
+    // Bumbo de ataque (o "tapa" por cima do 808).
     function bumbo(t, v) {
       var o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.11);
+      o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(50, t + 0.07);
       var g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.9, t + 0.003);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
-      o.connect(g); envio(g, 0); o.start(t); o.stop(t + 0.4);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.8, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g); envio(g, 0); o.start(t); o.stop(t + 0.2);
+      var n = fonteRuido(t, 0.02), hp = filtro('highpass', 3000), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.25 * (v || 0.8), t + 0.001);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.015);
+      n.connect(hp); hp.connect(gn); envio(gn, 0);
     }
-    function chimbal(t, v) {
-      var n = fonteRuido(t, 0.08), hp = filtro('highpass', 7500), g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.12, t + 0.002);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      n.connect(hp); hp.connect(g); envio(g, 0.1);
+    // Palma: quatro estalos de ruído bem próximos + cauda.
+    function palma(t, v) {
+      [0, 0.011, 0.022, 0.035].forEach(function (d, i) {
+        var n = fonteRuido(t + d, i === 3 ? 0.3 : 0.03), bp = filtro('bandpass', 1300, 1.1), g = ctx.createGain();
+        var pico = (v || 0.7) * (i === 3 ? 1 : 0.7);
+        g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(pico, t + d + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + (i === 3 ? 0.22 : 0.012));
+        n.connect(bp); bp.connect(g); envio(g, 0.45);
+      });
     }
-    function caixa(t, v) {
-      var n = fonteRuido(t, 0.25), bp = filtro('bandpass', 1900, 0.7), g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.4, t + 0.002);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      n.connect(bp); bp.connect(g); envio(g, 0.35);
-      var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 190;
-      var go = ctx.createGain();
-      go.gain.setValueAtTime(0.0001, t); go.gain.exponentialRampToValueAtTime((v || 0.4) * 0.6, t + 0.002);
-      go.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-      o.connect(go); envio(go, 0.2); o.start(t); o.stop(t + 0.12);
-    }
-    function baixo(t, f, dur) {
-      var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
-      var o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = f / 2;
-      var lp = filtro('lowpass', 900, 6), g = ctx.createGain();
-      lp.frequency.setValueAtTime(1100, t); lp.frequency.exponentialRampToValueAtTime(160, t + dur * 0.9);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.006);
+    function chimbal(t, v, aberto) {
+      var dur = aberto ? 0.18 : 0.04;
+      var n = fonteRuido(t, dur + 0.02), hp = filtro('highpass', 8500), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.14, t + 0.001);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      var g2 = ganho(0.5);
-      o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); envio(g, 0);
-      o.start(t); o.stop(t + dur + 0.02); o2.start(t); o2.stop(t + dur + 0.02);
+      n.connect(hp); hp.connect(g); envio(g, 0.06);
     }
-    function acorde(t0, t1, freqs, v, brilho) {
+    // BRAAAM: metais graves desafinados, filtro abrindo e fechando.
+    function braam(t, dur, forca) {
+      var notas = [55, 110, 82.41, 164.81, 220];
+      var lp = filtro('lowpass', 180, 1.2), sat = saturar(3), g = ctx.createGain();
+      lp.frequency.setValueAtTime(180, t);
+      lp.frequency.exponentialRampToValueAtTime(2600, t + 0.25);
+      lp.frequency.exponentialRampToValueAtTime(500, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55 * forca, t + 0.03);
+      g.gain.setValueAtTime(0.55 * forca, t + dur * 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      notas.forEach(function (f, i) {
+        [-12, 0, 11].forEach(function (cents) {
+          var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents + i;
+          var gv = ganho(i < 2 ? 0.22 : 0.12);
+          o.connect(gv); gv.connect(sat); o.start(t); o.stop(t + dur + 0.05);
+        });
+      });
+      sat.connect(lp); lp.connect(g); envio(g, 0.6);
+    }
+    // Queda de sub + estrondo (impacto de trailer).
+    function impacto(t, forca) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(28, t + 1.4);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.0 * forca, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4 * forca);
+      o.connect(g); envio(g, 0.35); o.start(t); o.stop(t + 2.6);
+      var n = fonteRuido(t, 1.4), lp = filtro('lowpass', 1600), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.8 * forca, t + 0.004);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      n.connect(lp); lp.connect(gn); envio(gn, 0.9);
+    }
+    // Sucção reversa: cresce até exatamente o instante t1 e corta.
+    function reverso(t0, t1, v) {
+      var n = fonteRuido(t0, t1 - t0), bp = filtro('bandpass', 400, 1.5), g = ctx.createGain();
+      bp.frequency.setValueAtTime(400, t0); bp.frequency.exponentialRampToValueAtTime(6000, t1);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v || 0.5, t1 - 0.005);
+      g.gain.linearRampToValueAtTime(0.0001, t1);
+      n.connect(bp); bp.connect(g); envio(g, 0.2);
+    }
+    function subida(t0, t1) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(1760, t1);
+      var lp = filtro('lowpass', 2500), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t1 - 0.02);
+      g.gain.linearRampToValueAtTime(0.0001, t1);
+      o.connect(lp); lp.connect(g); envio(g, 0.3); o.start(t0); o.stop(t1);
+      reverso(t0, t1, 0.4);
+    }
+    // Golpe de frase: pancada grave curta + estalo.
+    function golpe(t, v) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.9, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      var sat = saturar(2);
+      o.connect(g); g.connect(sat); envio(sat, 0.4); o.start(t); o.stop(t + 0.7);
+      var n = fonteRuido(t, 0.15), hp = filtro('highpass', 2000), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.35, t + 0.002);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      n.connect(hp); hp.connect(gn); envio(gn, 0.6);
+    }
+    function tique(t, v, agudo) {
+      var n = fonteRuido(t, 0.03), bp = filtro('bandpass', agudo ? 4200 : 2600, 8), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      n.connect(bp); bp.connect(g); envio(g, 0.2);
+    }
+    // Melodia: "pluck" de onda quadrada com eco.
+    var eco = ctx.createDelay(1.0); eco.delayTime.value = 0.375;
+    var ecoVolta = ganho(0.32), ecoSai = ganho(0.4);
+    eco.connect(ecoVolta); ecoVolta.connect(eco); eco.connect(ecoSai); ecoSai.connect(mestre);
+    function pluck(t, f, v) {
+      var o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f;
+      var lp = filtro('lowpass', 3200, 2), g = ctx.createGain();
+      lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(600, t + 0.25);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.07, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(lp); lp.connect(g); envio(g, 0.3); g.connect(eco); o.start(t); o.stop(t + 0.4);
+    }
+    function pad(t0, t1, freqs, v) {
       freqs.forEach(function (f) {
-        [-7, 7].forEach(function (cents) {
+        [-8, 8].forEach(function (cents) {
           var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents;
-          var lp = filtro('lowpass', brilho || 1500, 0.5), g = ctx.createGain();
-          g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.35);
-          g.gain.setValueAtTime(v, Math.max(t0 + 0.35, t1 - 0.5));
+          var lp = filtro('lowpass', 900, 0.4), g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.6);
+          g.gain.setValueAtTime(v, Math.max(t0 + 0.6, t1 - 0.4));
           g.gain.exponentialRampToValueAtTime(0.0001, t1);
-          o.connect(lp); lp.connect(g); envio(g, 0.45); o.start(t0); o.stop(t1 + 0.05);
+          o.connect(lp); lp.connect(g); envio(g, 0.5); o.start(t0); o.stop(t1 + 0.05);
         });
       });
     }
-    function sino(t, f, v) {
+    function bipe(t, f) {
       var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
       var g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
-      o.connect(g); envio(g, 0.7); o.start(t); o.stop(t + 1.7);
-    }
-    // Tique de relógio: estalo curto e seco.
-    function tique(t, v) {
-      var n = fonteRuido(t, 0.03), bp = filtro('bandpass', 3200, 6), g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.001);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
-      n.connect(bp); bp.connect(g); envio(g, 0.15);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(g); envio(g, 0.3); o.start(t); o.stop(t + 0.15);
     }
 
-    // drone (lá) do começo ao fim
-    [55, 82.41].forEach(function (f, i) {
-      var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = i ? 4 : -4;
-      var lp = filtro('lowpass', 240, 0.8), g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, 0); g.gain.exponentialRampToValueAtTime(0.09, 1.6);
-      g.gain.setValueAtTime(0.09, 19.6); g.gain.exponentialRampToValueAtTime(0.02, 19.95);
-      g.gain.exponentialRampToValueAtTime(0.11, 20.4); g.gain.exponentialRampToValueAtTime(0.0001, DUR - 0.1);
-      o.connect(lp); lp.connect(g); envio(g, 0.3); o.start(0); o.stop(DUR);
-    });
+    /* ---- arranjo ---- */
+    var LA = 55, DO = 65.41, MI = 41.2, SOL = 49.0;      // raízes do 808 (Am – C – Em – G)
 
-    // 0–4: frases + subida + impacto
-    [0.0, 1.0, 2.0, 3.0].forEach(golpe);
-    for (var q = 0; q < 8; q++) tique(q * 0.5 + 0.25, 0.18);
-    subida(2.2, 4.0);
+    // 0–4: relógio, coração, frases
+    for (var q = 0; q < 8; q++) tique(q * 0.5, q % 2 ? 0.16 : 0.22, q % 2 === 0);
+    [0.0, 1.0, 2.0, 3.0].forEach(function (t, i) { golpe(t, 0.8 + i * 0.06); });
+    [0.5, 1.5, 2.5].forEach(function (t) { oito(t, LA, 0.45, 0.55); });   // coração
+    pad(0, 3.8, [110, 130.81, 164.81], 0.012);
+    subida(2.0, 3.72);
+    reverso(3.0, 3.75, 0.55);
+    // 3.75–4.0: silêncio (nada toca) — o impacto bate mais forte
+
+    // 4: BRAAAM
+    braam(4.0, 2.6, 1.0);
     impacto(4.0, 1.0);
-    acorde(4.05, 8.1, [220, 261.63, 329.63, 493.88], 0.022, 1200);
-    sino(4.5, 1318.5, 0.05); sino(5.0, 987.77, 0.04);
-    for (var r2 = 0; r2 < 8; r2++) tique(4 + r2 * 0.5, 0.14);
+    oito(4.0, LA, 2.0, 1.0);
+    // 4–8: meio tempo
+    palma(5.0, 0.6); palma(7.0, 0.7);
+    oito(6.0, LA, 0.9, 0.85, SOL * 2); bumbo(6.0, 0.7);
+    for (var h = 4.5; h < 8; h += 0.5) chimbal(h, 0.1);
+    [[5.25, 440], [5.5, 523.25], [5.75, 659.25], [6.25, 587.33], [6.75, 523.25], [7.25, 493.88]].forEach(function (n) { pluck(n[0], n[1], 0.06); });
+    reverso(7.25, 8.0, 0.4);
 
-    // 8–19: pulsação
-    var CIFRA = [
-      [55.0, [220, 261.63, 329.63]],    // Am
-      [43.65, [174.61, 220, 261.63]],   // F
-      [65.41, [261.63, 329.63, 392.0]], // C
-      [49.0, [196.0, 246.94, 293.66]]   // G
-    ];
-    for (var compasso = 0; compasso < 6; compasso++) {
-      var t0 = 8 + compasso * 2;
-      var c = CIFRA[compasso % 4];
-      acorde(t0, t0 + 2.02, c[1], compasso < 1 ? 0.014 : 0.018, compasso < 1 ? 1100 : 1700);
-      for (var b = 0; b < 4; b++) {
-        var tb = t0 + b * BATIDA;
-        if (tb >= 19.0) continue;
-        bumbo(tb, b === 0 ? 0.95 : 0.8);
-        if (t0 >= 10 && (b === 1 || b === 3)) caixa(tb, 0.32);
-        chimbal(tb + 0.25, 0.1);
-        if (t0 >= 12) chimbal(tb + 0.125, 0.05);
+    // 8–13: batida cheia (4 compassos de 1 s em meio tempo... grade de 0,25 s)
+    var raizes = [LA, LA, DO, DO, MI * 2, MI * 2, SOL, SOL, LA, LA];
+    for (var b = 0; b < 10; b++) {
+      var tb = 8 + b * 0.5;
+      // 808 no tempo forte de cada meio compasso, deslizando para a próxima raiz
+      if (b % 2 === 0) {
+        oito(tb, raizes[b], 0.95, 0.95, b === 4 ? SOL : null);
+        bumbo(tb, 0.85);
+      } else if (b === 3 || b === 7) {
+        oito(tb + 0.25, raizes[b], 0.3, 0.7);                      // contratempo
       }
-      for (var e = 0; e < 8; e++) {
-        var tc = t0 + e * 0.25;
-        if (tc >= 19.0) continue;
-        baixo(tc, e % 4 === 3 ? c[0] * 2 : c[0], 0.22);
+      if (b % 2 === 1) palma(tb, 0.7);                              // palma a cada 1 s
+      // chimbal em semicolcheias; repique em fusas no fim de cada 2 s
+      for (var k = 0; k < 4; k++) {
+        var th = tb + k * 0.125;
+        var repique = (b === 3 || b === 7) && k >= 2;
+        if (repique) { for (var r2 = 0; r2 < 4; r2++) chimbal(th + r2 * 0.03125, 0.07 + r2 * 0.015); }
+        else chimbal(th, k % 2 ? 0.07 : 0.12, k === 3 && b % 4 === 1);
       }
     }
-    [8, 13].forEach(function (t) { impacto(t, 0.55); });
+    // melodia por cima (lá menor)
+    [[8.0, 659.25], [8.25, 587.33], [8.5, 523.25], [9.0, 440], [9.5, 523.25],
+     [10.0, 783.99], [10.25, 659.25], [10.5, 587.33], [11.0, 523.25], [11.5, 587.33],
+     [12.0, 659.25], [12.25, 783.99], [12.5, 880]].forEach(function (n) { pluck(n[0], n[1], 0.05); });
+    pad(8, 13, [220, 261.63, 329.63], 0.008);
     // bipes nas oscilações do número (cena do número, a cada 0,75 s)
-    for (var j = 0; j < 5; j++) sino(9.2 + j * 0.75, j % 2 ? 2349.3 : 2093.0, 0.018);
-    // sinos nas linhas da conta
-    [13.0, 13.5, 14.0, 14.5, 15.0].forEach(function (t, i) { sino(t + 0.05, [880, 987.77, 1046.5, 1174.66, 1318.5][i], 0.03); });
-    sino(15.55, 1760, 0.045);
-    // golpes nas palavras
-    [17, 17.75, 18.5, 19.25].forEach(function (t) { golpe(t); });
+    for (var j = 0; j < 5; j++) bipe(9.2 + j * 0.75, j % 2 ? 1760 : 2093);
+    reverso(12.5, 13.0, 0.45);
 
-    // 19–20: virada
-    var tt = 19.0, passo = 0.25;
-    while (tt < 19.94) {
-      caixa(tt, 0.18 + 0.3 * fase(tt, 19, 0.94));
-      tt += passo;
-      if (tt >= 19.5) passo = 0.0625; else if (tt >= 19.25) passo = 0.125;
-    }
-    subida(18.4, 19.98);
+    // 13–15.75: uma pancada por palavra + subida
+    [13, 13.75, 14.5, 15.25].forEach(function (t, i) {
+      oito(t, [LA, DO, MI * 2, SOL][i], 0.6, 1.0); bumbo(t, 0.9); palma(t, 0.75); golpe(t, 0.6);
+      chimbal(t + 0.375, 0.12, true);
+    });
+    subida(14.0, 15.72);
+    reverso(15.0, 15.75, 0.6);
+    // 15.75–16.0: silêncio
 
-    // 20: impacto final + acorde longo
-    impacto(20.0, 1.15);
-    acorde(20.02, DUR - 0.05, [110, 220, 261.63, 329.63, 493.88], 0.02, 1600);
-    [20.5, 21.0, 21.5, 22.25].forEach(function (t, i) { sino(t, [1318.5, 987.77, 1174.66, 880][i], 0.035); });
+    // 16: BRAAAM final
+    braam(16.0, DUR - 16.05, 1.1);
+    impacto(16.0, 1.15);
+    oito(16.0, LA, 2.6, 1.0);
+    palma(17.0, 0.5);
+    [[16.5, 880], [16.75, 659.25], [17.0, 523.25], [17.5, 440]].forEach(function (n) { pluck(n[0], n[1], 0.05); });
+    pad(16.1, DUR - 0.05, [110, 220, 261.63, 329.63], 0.012);
 
     var pronto = await ctx.startRendering();
     limitar(pronto, 0.89);
@@ -422,13 +478,13 @@
     ctx.fillStyle = ctx.createPattern(R.grao, 'repeat'); ctx.fillRect(ox, oy, F.W + 256, F.H + 256);
     ctx.restore();
     // Clarões nas batidas grandes e pequenos nos cortes
-    [[4, 0.35, 0.55], [20, 0.45, 0.55]].forEach(function (f) {
+    [[4, 0.35, 0.55], [16, 0.45, 0.55]].forEach(function (f) {
       if (T >= f[0] && T < f[0] + f[1]) {
         ctx.fillStyle = 'rgba(255,255,255,' + (f[2] * (1 - fase(T, f[0], f[1]))) + ')';
         ctx.fillRect(0, 0, F.W, F.H);
       }
     });
-    [8, 13, 17, 17.75, 18.5, 19.25].forEach(function (b) {
+    [8, 13, 13.75, 14.5, 15.25].forEach(function (b) {
       if (T >= b && T < b + 0.12) {
         ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * (1 - fase(T, b, 0.12))) + ')';
         ctx.fillRect(0, 0, F.W, F.H);
@@ -727,73 +783,8 @@
         }
       } },
 
-      /* D — 13 a 17: a conta aberta ------------------------------------ */
-      { ini: 13, fim: 17, desenhar: function (ctx, t) {
-        var y = kicker(ctx, F, t, 'Como calculamos', F.topo + (V ? 10 : 0));
-        ctx.save();
-        var pt = chega(fase(t, 0.1, 0.45));
-        ctx.globalAlpha = pt;
-        ctx.textBaseline = 'top';
-        var tamT = caber(ctx, 'Conta aberta. Sem caixa-preta.', 800, V ? 72 : 62, larg);
-        ctx.fillStyle = COR.branco; espacar(ctx, -1);
-        ctx.fillText('Conta aberta. Sem caixa-preta.', F.mx, y + (1 - pt) * 20);
-        espacar(ctx, 0);
-        ctx.restore();
-
-        var linhas = [
-          { op: '', rot: 'Diesel em Nova York', val: usd(A.insumos.diesel), sub: 'por galão · NYMEX' },
-          { op: '×', rot: 'Dólar', val: brl(A.insumos.dolar), sub: 'cotação ao vivo' },
-          { op: '+', rot: 'Frete, porto e internação', val: 'calibrado', sub: 'custo de trazer ao Brasil' },
-          { op: '=', rot: 'Preço de importação', val: brl(d.ppi), sub: 'por litro' },
-          { op: '−', rot: 'Preço da Petrobras', val: brl(d.petro), sub: 'média às distribuidoras' }
-        ];
-        var y0 = y + tamT + (V ? 70 : 62), alt = V ? 128 : 98;
-        linhas.forEach(function (l, i) {
-          var pl = chega(fase(t, i * 0.5, 0.35));
-          if (pl <= 0) return;
-          var ly = y0 + i * alt;
-          ctx.save();
-          ctx.globalAlpha = pl;
-          ctx.translate((1 - pl) * 60, 0);
-          ctx.textBaseline = 'middle';
-          ctx.font = fonte(800, V ? 56 : 48); ctx.fillStyle = COR.marcaClara; ctx.textAlign = 'center';
-          ctx.fillText(l.op, F.mx + 26, ly + 4);
-          ctx.textAlign = 'left';
-          ctx.font = fonte(700, V ? 40 : 34); ctx.fillStyle = COR.branco;
-          ctx.fillText(l.rot, F.mx + 80, ly - 12);
-          ctx.font = fonte(500, V ? 26 : 22); ctx.fillStyle = COR.sobreNavy;
-          ctx.fillText(l.sub, F.mx + 80, ly + 30);
-          ctx.textAlign = 'right';
-          ctx.font = fonte(800, V ? 46 : 40); ctx.fillStyle = i === 2 ? COR.sobreNavy : COR.branco;
-          ctx.fillText(l.val, F.W - F.mx, ly);
-          ctx.fillStyle = 'rgba(201,213,227,0.14)'; ctx.fillRect(F.mx + 80, ly + alt / 2 - 2, larg - 80, 2);
-          ctx.restore();
-        });
-
-        // resultado em destaque
-        var pr = salta(fase(t, 2.55, 0.45));
-        if (t > 2.55) {
-          var ry = y0 + linhas.length * alt + (V ? 40 : 20), rh = V ? 170 : 140;
-          ctx.save();
-          ctx.globalAlpha = Math.min(1, pr);
-          ctx.translate(cx, ry + rh / 2); ctx.scale(lerp(0.9, 1, Math.min(1, pr)), lerp(0.9, 1, Math.min(1, pr)));
-          ctx.shadowColor = 'rgba(179,52,31,0.55)'; ctx.shadowBlur = 50;
-          retRedondo(ctx, -larg / 2, -rh / 2, larg, rh, 26); ctx.fillStyle = COR.marca; ctx.fill();
-          ctx.shadowColor = 'transparent';
-          ctx.textBaseline = 'middle';
-          ctx.font = fonte(800, V ? 40 : 34); ctx.fillStyle = COR.branco; ctx.textAlign = 'left';
-          ctx.fillText('= Arbitragem', -larg / 2 + 40, -18);
-          ctx.font = fonte(700, V ? 28 : 24); ctx.fillStyle = COR.salmao;
-          ctx.fillText('SupriPrice', -larg / 2 + 40, 28);
-          ctx.textAlign = 'right';
-          ctx.font = fonte(800, V ? 96 : 80); ctx.fillStyle = COR.branco;
-          ctx.fillText(brl(Math.abs(d.defasagem)), larg / 2 - 40, 6);
-          ctx.restore();
-        }
-      } },
-
-      /* E — 17 a 20: para quem ----------------------------------------- */
-      { ini: 17, fim: 20, desenhar: function (ctx, t) {
+      /* E — 13 a 16: para quem ----------------------------------------- */
+      { ini: 13, fim: 16, desenhar: function (ctx, t) {
         var y = kicker(ctx, F, t, 'Para quem compra e vende diesel', F.topo + (V ? 10 : 0));
         var palavras = ['TRR', 'POSTOS', 'DISTRIBUIDORAS', 'TRANSPORTADORAS'];
         var k = clamp(Math.floor(t / 0.75), 0, 3);
@@ -831,8 +822,8 @@
         ctx.restore();
       } },
 
-      /* F — 20 a 24: encerramento --------------------------------------- */
-      { ini: 20, fim: 24, desenhar: function (ctx, t) {
+      /* F — 16 a 20: encerramento --------------------------------------- */
+      { ini: 16, fim: 20, desenhar: function (ctx, t) {
         var L = R.logo, lh = V ? 110 : 96, lw = L.width * lh / L.height;
         var cy = F.topo + zona * (V ? 0.3 : 0.28);
         ctx.save();
@@ -1018,8 +1009,23 @@
     return progresso;
   }
 
+  /** Volume da trilha: pico e média (RMS) em dBFS, por trecho de 1 s. */
+  async function medirTrilha() {
+    var buf = await obterTrilha(), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+    var db = function (x) { return +(20 * Math.log10(Math.max(x, 1e-9))).toFixed(1); };
+    var pico = 0, soma = 0, por = [];
+    for (var s0 = 0; s0 < DUR; s0++) {
+      var p = 0, q = 0;
+      for (var i = s0 * SR; i < (s0 + 1) * SR && i < L.length; i++) {
+        var v = Math.max(Math.abs(L[i]), Math.abs(Rr[i])); p = Math.max(p, v); q += L[i] * L[i] + Rr[i] * Rr[i];
+      }
+      pico = Math.max(pico, p); soma += q; por.push(db(Math.sqrt(q / (2 * SR))));
+    }
+    return { pico: db(pico), rms: db(Math.sqrt(soma / (2 * L.length))), porSegundo: por };
+  }
+
   window.Arb = {
-    previa: previa, renderizar: renderizar,
+    previa: previa, renderizar: renderizar, medirTrilha: medirTrilha,
     progresso: function () { return progresso; }
   };
 })();

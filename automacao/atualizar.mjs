@@ -588,7 +588,7 @@ async function principal() {
       atualizadoISO: iso(hoje),
       // A data do boletim fica AQUI, na linha da fonte; o selo do topo fala
       // de quando o site foi atualizado (meta.atualizadoISO).
-      fonte: arbitragem ? 'Arbitragem SupriPrice: diesel e gasolina na bolsa de Nova York (NYMEX) e dólar, menos o preço médio da Petrobras. Recalculada a cada minuto.'
+      fonte: arbitragem ? 'Arbitragem SupriPrice: cálculo próprio, recalculado a cada minuto.'
         : `Fonte: Abicom/StoneX, boletim de ${abicom.data}`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()

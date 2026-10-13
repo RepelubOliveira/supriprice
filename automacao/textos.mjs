@@ -42,7 +42,7 @@ export function resumoHome({ arbitragem, abicom, anp, dolar }) {
     t = `Em ${esc(quando)}, a Arbitragem SupriPrice do diesel A está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
       `${Math.abs(d.pct)}% ${d.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação`;
     if (g) t += `; a da gasolina A, em ${brl(Math.abs(g.defasagem))} (${Math.abs(g.pct)}%)`;
-    t += '. Cálculo próprio, com as cotações de Nova York e o dólar, recalculado a cada minuto.';
+    t += '. Cálculo próprio, recalculado a cada minuto.';
   } else {
     const d = abicom.diesel;
     t = `Em ${esc(abicom.data)}, a defasagem do diesel A ficou em <strong>${brl(d.defasagem)} por litro</strong>, ` +
@@ -122,8 +122,8 @@ export function llmsTxt({ arbitragem, abicom, anp, dolar, share, atualizadoISO }
   L.push('# SupriPrice');
   L.push('');
   L.push('> Portal brasileiro de inteligência do mercado de combustíveis: Arbitragem SupriPrice (defasagem do ' +
-    'diesel e da gasolina em relação à paridade de importação, cálculo próprio a partir das cotações de Nova York ' +
-    'e do dólar, ao vivo), preço na bomba (ANP), market share de ' +
+    'diesel e da gasolina em relação à paridade de importação, cálculo próprio, ao vivo), preço na bomba ' +
+    '(ANP), market share de ' +
     'distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado seis ' +
     'vezes por dia, todos os dias (08h, 09h, 10h, 12h, 15h e 17h, horário de Brasília).');
   L.push('');
@@ -131,9 +131,8 @@ export function llmsTxt({ arbitragem, abicom, anp, dolar, share, atualizadoISO }
   L.push('');
   if (arbitragem) {
     const ad = arbitragem.diesel, ag = arbitragem.gasolina;
-    L.push(`- Arbitragem SupriPrice do diesel A: R$ ${dec(Math.abs(ad.defasagem))} por litro, ${Math.abs(ad.pct)}% ${ad.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação (importação R$ ${dec(ad.ppi)}; Petrobras R$ ${dec(ad.petro)}).`);
+    L.push(`- Arbitragem SupriPrice do diesel A: R$ ${dec(Math.abs(ad.defasagem))} por litro, ${Math.abs(ad.pct)}% ${ad.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação.`);
     if (ag) L.push(`- Arbitragem SupriPrice da gasolina A: R$ ${dec(Math.abs(ag.defasagem))} por litro, ${Math.abs(ag.pct)}%.`);
-    L.push('- Método: cotação do diesel ULSD e da gasolina RBOB na NYMEX (US$/galão) ÷ 3,785 × dólar + custo de trazer, menos o preço médio da Petrobras às distribuidoras.');
   } else {
     L.push(`- Defasagem do diesel A (${abicom.data}): R$ ${dec(d.defasagem)} por litro, ${d.pct}% abaixo da paridade de importação.`);
     if (g?.defasagem != null) L.push(`- Defasagem da gasolina A (${abicom.data}): R$ ${dec(g.defasagem)} por litro${g.pct != null ? `, ${g.pct}%` : ''}.`);
