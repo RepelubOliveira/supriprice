@@ -43,6 +43,7 @@ const P = {
   historico: path.join(RAIZ, 'conteudo', 'historico.json'),
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
+  arbitragemUltima: path.join(RAIZ, 'conteudo', 'arbitragem-ultima.json'),
   abicomUltimo: path.join(RAIZ, 'conteudo', 'abicom-ultimo.json'),
   shareTrr: path.join(RAIZ, 'conteudo', 'share-trr.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
@@ -139,6 +140,42 @@ function montarProdutos(abicom, editorial, anteriores) {
     itens.push(cartao('Gasolina A', abicom.gasolina, Number(precos.gasolina) || 0, anteriores.gasolina));
   }
   return itens;
+}
+
+/**
+ * Cartões do topo com a ARBITRAGEM SUPRIPRICE. "Anterior" = a arbitragem no
+ * fechamento do pregão anterior (o site atualiza ao vivo a partir daí).
+ */
+function montarProdutosSupri(arb, editorial) {
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(arb.quandoISO));
+  const antes = arb.serie.filter((p) => p.data < hoje);
+  const ult = antes[antes.length - 1];
+  const itens = [['diesel', 'Diesel A']];
+  if (editorial.mostrarGasolina !== false) itens.push(['gasolina', 'Gasolina A']);
+  return itens.map(([id, nome]) => ({
+    nome, escopo: 'Arbitragem SupriPrice',
+    petro: arb[id].petro, ppi: arb[id].ppi, defasagem: arb[id].defasagem, pct: arb[id].pct,
+    anterior: ult && typeof ult[id] === 'number' ? ult[id] : null
+  }));
+}
+
+/** Coluna ao lado dos cartões: os insumos da conta e o mercado. */
+function montarTickerSupri(arb, dolar, brent, anp, indicadores) {
+  const usd = (v) => `US$ ${v.toFixed(2).replace('.', ',')}`;
+  const t = [
+    { label: 'Diesel NY (ULSD)', valor: usd(arb.insumos.diesel), nota: '/galão' },
+    { label: 'Gasolina NY (RBOB)', valor: usd(arb.insumos.gasolina), nota: '/galão' },
+    { label: 'Dólar (PTAX)', valor: brl(dolar.valor), nota: '' }
+  ];
+  if (!indicadores?.some((i) => i.id === 'brent')) t.push({ label: 'Brent', valor: usd(brent.valor), nota: '' });
+  const s10 = anp?.produtos?.find((p) => p.nome === 'Diesel S10');
+  if (s10) {
+    t.push({
+      label: 'S10 na bomba', valor: brl(s10.media),
+      nota: s10.variacao == null || Math.abs(s10.variacao) < 0.005 ? '' : (s10.variacao >= 0 ? '+' : '−') + brl(Math.abs(s10.variacao)).replace('R$ ', '')
+    });
+  }
+  return t;
 }
 
 function montarTicker(abicom, dolar, brent, anp, indicadores) {
@@ -322,8 +359,11 @@ async function principal() {
     });
     log(`Arbitragem SupriPrice: diesel ${brl(arbitragem.diesel.defasagem)} (${arbitragem.diesel.pct}%) · ` +
       `gasolina ${brl(arbitragem.gasolina.defasagem)} (${arbitragem.gasolina.pct}%) · ${arbitragem.serie.length} pregões`);
+    await writeFile(P.arbitragemUltima, JSON.stringify(arbitragem) + '\n', 'utf8');
   } catch (e) {
     console.warn(`  ! Arbitragem SupriPrice indisponível: ${e.message}`);
+    arbitragem = await lerJson(P.arbitragemUltima, null);
+    if (arbitragem) log(`Arbitragem SupriPrice: usando o último cálculo (${arbitragem.quandoISO}); o site recalcula ao vivo.`);
   }
 
   log('Buscando preços na bomba (ANP)...');
@@ -535,16 +575,18 @@ async function principal() {
       atualizadoISO: iso(hoje),
       // A data do boletim fica AQUI, na linha da fonte; o selo do topo fala
       // de quando o site foi atualizado (meta.atualizadoISO).
-      fonte: !parcial ? `Fonte: Abicom/StoneX, boletim de ${abicom.data}`
-        : fimDeSemana ? `Fonte: Abicom/StoneX, boletim de ${abicom.data} (a Abicom publica em dias úteis)`
-        : `Fonte: Abicom/StoneX, boletim de ${abicom.data} (o de hoje entra assim que a Abicom publicar)`,
+      fonte: arbitragem ? 'Arbitragem SupriPrice: diesel e gasolina na bolsa de Nova York (NYMEX) e dólar, menos o preço médio da Petrobras. Recalculada a cada minuto.'
+        : `Fonte: Abicom/StoneX, boletim de ${abicom.data}`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()
     },
-    produtos: montarProdutos(abicom, editorial, anteriores),
+    // O topo do site mostra a ARBITRAGEM SUPRIPRICE (a nossa). A Abicom só
+    // entra se o nosso cálculo nunca tiver dado certo (salvaguarda).
+    produtos: arbitragem ? montarProdutosSupri(arbitragem, editorial) : montarProdutos(abicom, editorial, anteriores),
     indicadores,
-    ticker: montarTicker(abicom, dolar, brent, anp, indicadores),
-    serieS10: montarSerie(historico),
+    ticker: arbitragem ? montarTickerSupri(arbitragem, dolar, brent, anp, indicadores) : montarTicker(abicom, dolar, brent, anp, indicadores),
+    serieS10: arbitragem ? montarSerie(arbitragem.serie.map((p) => ({ rotulo: p.rotulo, valor: p.diesel })))
+      : montarSerie(historico),
     polos: montarPolosAnp(anp) || [],
     polosTitulo: 'Preço médio do S10 por região',
     bomba: montarBomba(anp),
@@ -579,14 +621,14 @@ async function principal() {
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   }).format(new Date()).replace(/-/g, '').replace(' ', '-').replace(/:/g, '');
   const TEXTOS = {
-    'index.html': { RESUMO: resumoHome({ abicom, anp, dolar }) },
+    'index.html': { RESUMO: resumoHome({ arbitragem, abicom, anp, dolar }) },
     'market-share.html': {
       RESUMO: resumoShare(share),
       DESTAQUES: destaquesShare(share),
       DATASET: datasetJsonLd(share)
     }
   };
-  const llms = llmsTxt({ abicom, anp, dolar, share, atualizadoISO: iso(hoje) });
+  const llms = llmsTxt({ arbitragem, abicom, anp, dolar, share, atualizadoISO: iso(hoje) });
   await writeFile(path.join(RAIZ, 'portal', 'llms.txt'), llms, 'utf8');
 
   // As duas páginas carregam o dados.js: as duas ganham o endereço novo.
@@ -658,7 +700,7 @@ async function principal() {
 function montarNovidades({ hojeISO, parcial, abicom, dataAbicomISO, anp, share, jornal, negociosNovos = [] }) {
   const itens = [];
   const lado = (p) => (p.desfavoravel ? 'abaixo' : 'acima');
-  if (!parcial && dataAbicomISO === hojeISO && abicom?.diesel) {
+  if (false && !parcial && dataAbicomISO === hojeISO && abicom?.diesel) { // a Abicom saiu do site (13/10/2026)
     const d = abicom.diesel, g = abicom.gasolina;
     itens.push({
       id: `abicom-${hojeISO}`, tipo: 'Defasagem',

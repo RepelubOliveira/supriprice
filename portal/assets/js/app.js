@@ -98,11 +98,11 @@
 
   /* --------------------------------------------------------- arbitragem */
 
-  function montarProdutos() {
+  function montarProdutos(lista) {
     var alvo = $('#produtos'); if (!alvo) return;
-    alvo.innerHTML = (D.produtos || []).map(function (p) {
-      // Dois formatos aceitos: o gerado pela automação traz `defasagem` e `pct`
-      // prontos da Abicom; o antigo, escrito à mão, trazia só petro e ppi.
+    alvo.innerHTML = (lista || D.produtos || []).map(function (p) {
+      // Dois formatos aceitos: com `defasagem` e `pct` prontos (Arbitragem
+      // SupriPrice, do robô ou ao vivo) ou só com petro e ppi.
       var def = (typeof p.defasagem === 'number') ? p.defasagem : (p.ppi - p.petro);
       var pct = (typeof p.pct === 'number') ? p.pct : Math.round(def / p.petro * 100);
       // Sem valor de ontem não há variação a mostrar — inventar um "0,00"
@@ -118,9 +118,9 @@
             '<h2 class="product__name">' + esc(titulo) +
               (p.escopo ? '<span class="product__escopo">' + esc(p.escopo) + '</span>' : '') +
             '</h2>' +
-            '<span class="product__pct tnum">' + pct + '%</span>' +
+            '<span class="product__pct tnum" title="' + (def >= 0 ? 'abaixo' : 'acima') + ' da paridade de importação">' + Math.abs(pct) + '%</span>' +
           '</div>' +
-          '<p class="product__value"><b class="tnum">' + brl(def) + '</b><span>/litro</span></p>' +
+          '<p class="product__value"><b class="tnum">' + brl(Math.abs(def)) + '</b><span>/litro</span></p>' +
           (temOntem
             ? '<p class="product__prev">Anterior <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
               '<span style="color:' + (delta >= 0 ? '#FFB4A6' : '#9FE0BF') + ';font-weight:700;">' +
@@ -227,56 +227,25 @@
     });
   }
 
-  function montarArbitragem() {
-    var caixa = $('#arbSupri');
-    if (!caixa) return;
-    if (!ARB || !ARB.diesel) { caixa.hidden = true; return; }
-    var abicom = {};
-    (D.produtos || []).forEach(function (p) { abicom[/gasolina/i.test(p.nome) ? 'gasolina' : 'diesel'] = p; });
-    var dataAbicom = (D.meta && D.meta.dataISO) || '';
-    dataAbicom = dataAbicom ? dataAbicom.slice(8, 10) + '/' + dataAbicom.slice(5, 7) : '';
-
-    function sparkline(prod) {
-      var pts = (ARB.serie || []).map(function (p) { return p[prod]; }).filter(function (v) { return typeof v === 'number'; });
-      if (pts.length < 5) return '';
-      var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts), W = 240, H = 44;
-      var xy = pts.map(function (v, i) {
-        return (i * W / (pts.length - 1)).toFixed(1) + ',' + (H - 4 - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
-      }).join(' ');
-      return '<svg class="arb__spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
-        '<polyline points="' + xy + '"/></svg>' +
-        '<p class="arb__spark-leg">' + pts.length + ' pregões · mín. ' + brl(lo) + ' · máx. ' + brl(hi) + '</p>';
-    }
-
-    function desenhar(a, aoVivo) {
-      $('#arbHora').innerHTML = (aoVivo ? '<span class="mkt__live" aria-hidden="true"></span>Ao vivo · ' : 'Cotações de ') +
-        esc(a.data + ' ' + a.hora);
-      $('#arbCartoes').innerHTML = ARB_PRODUTOS.map(function (p) {
-        var x = a[p.id], delta = x.inicio ? x.defasagem - x.inicio.defasagem : null;
-        var mov = delta == null ? '' : Math.abs(delta) < 0.005 ? 'estável no dia'
-          : (delta > 0 ? '▲ ' : '▼ ') + brl(Math.abs(delta)) + ' no dia';
-        var ab = abicom[p.id];
-        return '' +
-          '<article class="arb__cartao">' +
-            '<p class="arb__nome">' + esc(p.nome) + '<span>' + (x.defasagem >= 0 ? 'abaixo da paridade' : 'acima da paridade') + '</span></p>' +
-            '<p class="arb__valor tnum">' + brl(Math.abs(x.defasagem)) + '<small>/litro · ' + Math.abs(x.pct) + '%</small></p>' +
-            '<p class="arb__mov tnum' + (delta > 0.004 ? ' is-alta' : delta < -0.004 ? ' is-baixa' : '') + '">' + esc(mov) + '</p>' +
-            '<dl class="arb__conta tnum">' +
-              '<div><dt>Importação</dt><dd>' + brl(x.ppi) + '</dd></div>' +
-              '<div><dt>Petrobras</dt><dd>' + brl(x.petro) + '</dd></div>' +
-              (ab && typeof ab.defasagem === 'number' ? '<div><dt>Abicom ' + esc(dataAbicom) + '</dt><dd>' + brl(ab.defasagem) + '</dd></div>' : '') +
-            '</dl>' +
-            sparkline(p.id) +
-          '</article>';
-      }).join('');
-    }
-
-    desenhar(arbDoRobo(), false);
-    caixa.hidden = false;
-    // A faixa de cotações avisa a cada consulta ao vivo (uma por minuto).
+  /** Topo ao vivo: a cada consulta da faixa (uma por minuto), refaz os cartões. */
+  function ligarTopoAoVivo() {
+    if (!ARB) return;
     document.addEventListener('sp:cotacoes', function (ev) {
       var a = arbAoVivo(ev.detail);
-      if (a) desenhar(a, true);
+      if (!a) return;
+      var nomes = { diesel: 'Diesel A', gasolina: 'Gasolina A' };
+      var mostrar = (D.produtos || []).map(function (p) { return /gasolina/i.test(p.nome) ? 'gasolina' : 'diesel'; });
+      if (!mostrar.length) mostrar = ['diesel', 'gasolina'];
+      montarProdutos(mostrar.map(function (id) {
+        var x = a[id];
+        return { nome: nomes[id], escopo: 'Arbitragem SupriPrice', petro: x.petro, ppi: x.ppi,
+          defasagem: x.defasagem, pct: x.pct, anterior: x.inicio ? x.inicio.defasagem : null };
+      }));
+      var fonte = $('#heroFonte');
+      if (fonte) {
+        fonte.innerHTML = '<span class="mkt__live" aria-hidden="true"></span>Ao vivo · ' + esc(a.data + ' ' + a.hora) +
+          ' · Arbitragem SupriPrice: diesel e gasolina na NYMEX e dólar, menos o preço médio da Petrobras.';
+      }
     });
   }
 
@@ -502,7 +471,7 @@
     alvo.removeAttribute('aria-label');
 
     if (d.length < 5) {
-      alvo.innerHTML = '<p class="linha__vazio"><b>Série em formação</b>O gráfico ganha um ponto por boletim da Abicom. ' +
+      alvo.innerHTML = '<p class="linha__vazio"><b>Série em formação</b>O gráfico ganha um ponto por pregão. ' +
         'Já são ' + d.length + '.</p>';
       return;
     }
@@ -523,14 +492,14 @@
 
     alvo.innerHTML =
       '<ul class="linha__resumo">' +
-        '<li><span>Último boletim</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' + pts[iUlt].rot + '</small></li>' +
-        '<li><span>Média do período</span><b class="tnum">' + brl(media) + '</b><small>' + pts.length + ' boletins</small></li>' +
+        '<li><span>Último pregão</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' + pts[iUlt].rot + '</small></li>' +
+        '<li><span>Média do período</span><b class="tnum">' + brl(media) + '</b><small>' + pts.length + ' pregões</small></li>' +
         '<li><span>Máxima</span><b class="tnum">' + brl(hi) + '</b><small>' + pts[iMax].rot + '</small></li>' +
         '<li><span>Mínima</span><b class="tnum">' + brl(lo) + '</b><small>' + pts[iMin].rot + '</small></li>' +
       '</ul>' +
       '<div class="linha__area"></div>' +
       '<p class="linha__legenda">' +
-        '<span><i class="linha__chave linha__chave--linha"></i>Defasagem em cada boletim</span>' +
+        '<span><i class="linha__chave linha__chave--linha"></i>Arbitragem em cada pregão</span>' +
         '<span><i class="linha__chave linha__chave--media"></i>Média do período</span>' +
         '<span><i class="linha__chave linha__chave--acima"></i>Acima da média</span>' +
         '<span><i class="linha__chave linha__chave--abaixo"></i>Abaixo da média</span>' +
@@ -575,7 +544,7 @@
       var rotulos = rotulo(iMax, 'Máx. ' + brl(hi)) + rotulo(iMin, 'Mín. ' + brl(lo), true);
       if (iUlt !== iMax && iUlt !== iMin) rotulos += rotulo(iUlt, brl(pts[iUlt].v), pts[iUlt].v < media);
 
-      var desc = 'Defasagem do diesel de ' + pts[0].rot + ' a ' + pts[iUlt].rot + ': último boletim ' + brl(pts[iUlt].v) +
+      var desc = 'Arbitragem SupriPrice do diesel de ' + pts[0].rot + ' a ' + pts[iUlt].rot + ': último pregão ' + brl(pts[iUlt].v) +
         ', média ' + brl(media) + ', máxima ' + brl(hi) + ' em ' + pts[iMax].rot + ', mínima ' + brl(lo) + ' em ' + pts[iMin].rot + '.';
 
       area.innerHTML =
@@ -613,7 +582,7 @@
         foco.setAttribute('cx', x); foco.setAttribute('cy', y); foco.setAttribute('visibility', 'visible');
         var dv = p.ant == null ? null : p.v - p.ant;
         dica.innerHTML = '<b>' + DIAS_SEM[p.dow] + ', ' + p.rot + '</b><span class="tnum">' + brl(p.v) + ' por litro</span>' +
-          (dv == null ? '' : '<small class="tnum">' + (Math.abs(dv) < 0.005 ? 'igual ao boletim anterior'
+          (dv == null ? '' : '<small class="tnum">' + (Math.abs(dv) < 0.005 ? 'igual ao pregão anterior'
             : (dv > 0 ? '▲ alta' : '▼ queda') + ' de ' + brl(Math.abs(dv)) + ' no dia') + '</small>') +
           '<small class="tnum">' + (p.v >= media ? brl(p.v - media) + ' acima da média' : brl(media - p.v) + ' abaixo da média') + '</small>';
         dica.hidden = false;
@@ -1554,7 +1523,7 @@
   /* -------------------------------------------------------------- início */
 
   creditoNaCopia();
-  try { montarArbitragem(); } catch (e) { console.error('[SupriPrice] arbitragem:', e); }
+  try { ligarTopoAoVivo(); } catch (e) { console.error('[SupriPrice] arbitragem:', e); }
   montarMercado();
   montarSelo();
   montarProdutos();

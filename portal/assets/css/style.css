@@ -802,6 +802,8 @@ button { cursor: pointer; }
 .arb__metodo ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .arb__metodo b { color: #fff; }
 .arb__aviso { font-size: 13px; }
+.hero .arb__metodo { margin-top: 22px; }
+.hero__source .mkt__live { margin-right: 6px; vertical-align: middle; }
 @media (max-width: 760px) {
   .arb { padding: 20px 16px; }
   .arb__valor { font-size: 38px; }
