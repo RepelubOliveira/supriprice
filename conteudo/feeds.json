@@ -190,6 +190,9 @@
     "bloqueadas": [
       "compra de diesel", "compra de combust", "compra de gasolina", "compra de etanol", "compra de petróleo",
       "compra de gás", "compra de glp", "compras de diesel", "compras de combust", "importação de diesel",
+      "venda de diesel", "venda de biodiesel", "venda de combust", "venda de gasolina", "venda de etanol",
+      "venda de glp", "vendas de diesel", "vendas de combust", "proíbe venda", "proibir venda", "proibição",
+      "restrição à venda", "restrição a venda",
       "compra de votos", "compra de veículos", "compra de carro", "compra de caminh", "compra de ônibus",
       "compra de ingresso", "compra premiada", "black friday", "promoção", "cupom", "sorteio", "fraude",
       "vaga de emprego", "vagas", "concurso", "horóscopo", "loteria", "mega-sena", "ônibus", "portugal"
