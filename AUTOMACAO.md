@@ -438,6 +438,12 @@ passo 2 (só as de celular e a do jornal do dia), abra
 `await Lanc.renderizar('stories')` e `await Lanc.renderizar('feed')`.
 Números e manchetes vêm do `dados.js` do dia.
 
+**Vídeo da Arbitragem SupriPrice ao vivo:** `video/arbitragem.html` (24 s,
+Reels/Stories e Feed, trilha original). Não precisa de capturas: os números
+vêm do `dados.js`. Abra `http://localhost:8767/video/arbitragem.html` e rode
+`await Arb.renderizar('stories')` e `await Arb.renderizar('feed')`. Saem
+`video/arbitragem-ao-vivo-*.mp4` e as capas.
+
 ---
 
 ## Limites
