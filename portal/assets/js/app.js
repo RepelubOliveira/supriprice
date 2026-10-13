@@ -353,75 +353,162 @@
 
   /* ------------------------------------------------------------ gráfico */
 
+  // Defasagem do diesel no período, numa linha simples de ler: um ponto por
+  // boletim, a MÉDIA do período tracejada e a área entre as duas pintada
+  // (vermelho = acima da média, azul = abaixo). Só três valores escritos no
+  // desenho (último, máxima e mínima); o resto aparece na dica ao passar o
+  // mouse ou tocar. Acima, os quatro números do período por extenso.
+  // O SVG é desenhado na largura real da caixa (sem esticar o texto) e
+  // refeito quando a janela muda de tamanho.
+  var DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
   function montarGrafico() {
     var alvo = $('#grafico'); if (!alvo || !D.serieS10) return;
-    var s = D.serieS10, d = s.pontos || [];
+    var d = D.serieS10.pontos || [];
+    // Página publicada antiga (figure.chart) também recebe o desenho novo.
+    alvo.className = 'linha';
+    alvo.removeAttribute('role');
+    alvo.removeAttribute('aria-label');
 
-    // Com a automação recém-ligada a série começa vazia e enche um ponto por
-    // dia útil. Desenhar uma linha com 2 pontos passaria uma ideia falsa de
-    // tendência, então até lá o espaço explica o que está acontecendo.
     if (d.length < 5) {
-      alvo.innerHTML =
-        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;' +
-        'align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;">' +
-          '<span style="font-size:15px;font-weight:600;color:var(--ink-3);">' +
-            'Série em formação</span>' +
-          '<span style="font-size:13.5px;color:var(--muted);max-width:46ch;line-height:1.45;">' +
-            'O gráfico ganha um ponto por dia útil. Já são ' + d.length +
-            '. Com cinco ou mais, a curva aparece aqui.</span>' +
-        '</div>';
+      alvo.innerHTML = '<p class="linha__vazio"><b>Série em formação</b>O gráfico ganha um ponto por boletim da Abicom. ' +
+        'Já são ' + d.length + '.</p>';
       return;
     }
-    var x0 = 44, x1 = 624, y0 = 200, y1 = 18;
-    var lo = s.escala.min, hi = s.escala.max;
-    var X = function (i) { return x0 + (x1 - x0) * i / (d.length - 1); };
-    var Y = function (v) { return y0 - (y0 - y1) * (v - lo) / (hi - lo); };
 
-    var linha = 'M' + d.map(function (p, i) { return X(i).toFixed(1) + ',' + Y(p[1]).toFixed(1); }).join(' L');
-    var area = linha + ' L' + x1 + ',' + y0 + ' L' + x0 + ',' + y0 + ' Z';
-    var grade = s.escala.linhas.map(function (v) { return { y: Y(v), label: num(v) }; });
-    var passo = Math.max(1, Math.round((d.length - 1) / 4));
-    var eixoX = [];
-    for (var i = 0; i < d.length; i += passo) eixoX.push({ x: X(i), label: d[i][0] });
-    if (eixoX[eixoX.length - 1].label !== d[d.length - 1][0]) {
-      eixoX.push({ x: X(d.length - 1), label: d[d.length - 1][0] });
-    }
-    var marcas = (s.marcadores || []).filter(function (m) { return d[m.i]; }).map(function (m) {
-      return {
-        x: X(m.i), y: Y(d[m.i][1]),
-        tx: X(m.i) + (m.ancora === 'end' ? -8 : 8),
-        ty: Y(d[m.i][1]) + m.dy,
-        texto: m.texto, ancora: m.ancora
-      };
+    // "dd/mm" -> dia da semana (para a dica). O ano vem do boletim mais
+    // recente; mês maior que o dele é do ano anterior.
+    var ref = (D.meta && D.meta.dataISO) || new Date().toISOString().slice(0, 10);
+    var anoRef = +ref.slice(0, 4), mesRef = +ref.slice(5, 7);
+    var pts = d.map(function (p, i) {
+      var dd = +p[0].slice(0, 2), mm = +p[0].slice(3, 5);
+      var dow = new Date(Date.UTC(mm > mesRef ? anoRef - 1 : anoRef, mm - 1, dd, 12)).getUTCDay();
+      return { rot: p[0], v: p[1], dow: dow, ant: i ? d[i - 1][1] : null };
     });
+    var vals = pts.map(function (p) { return p.v; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var media = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+    var iMax = vals.indexOf(hi), iMin = vals.indexOf(lo), iUlt = pts.length - 1;
 
-    var svg = '<svg viewBox="0 0 640 230" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
-      grade.map(function (g) {
-        return '<line x1="40" x2="632" y1="' + g.y.toFixed(1) + '" y2="' + g.y.toFixed(1) +
-               '" stroke="#E6E1D5" stroke-width="1"/>';
-      }).join('') +
-      '<path d="' + area + '" fill="#B3341F" fill-opacity="0.08"/>' +
-      '<path d="' + linha + '" fill="none" stroke="#B3341F" stroke-width="2.2" stroke-linejoin="round"/>' +
-      marcas.map(function (m) {
-        return '<circle cx="' + m.x.toFixed(1) + '" cy="' + m.y.toFixed(1) +
-               '" r="4" fill="#FFFFFF" stroke="#0E2A47" stroke-width="2"/>';
-      }).join('') +
-      '</svg>';
+    alvo.innerHTML =
+      '<ul class="linha__resumo">' +
+        '<li><span>Último boletim</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' + pts[iUlt].rot + '</small></li>' +
+        '<li><span>Média do período</span><b class="tnum">' + brl(media) + '</b><small>' + pts.length + ' boletins</small></li>' +
+        '<li><span>Máxima</span><b class="tnum">' + brl(hi) + '</b><small>' + pts[iMax].rot + '</small></li>' +
+        '<li><span>Mínima</span><b class="tnum">' + brl(lo) + '</b><small>' + pts[iMin].rot + '</small></li>' +
+      '</ul>' +
+      '<div class="linha__area"></div>' +
+      '<p class="linha__legenda">' +
+        '<span><i class="linha__chave linha__chave--linha"></i>Defasagem em cada boletim</span>' +
+        '<span><i class="linha__chave linha__chave--media"></i>Média do período</span>' +
+        '<span><i class="linha__chave linha__chave--acima"></i>Acima da média</span>' +
+        '<span><i class="linha__chave linha__chave--abaixo"></i>Abaixo da média</span>' +
+      '</p>';
+    var area = $('.linha__area', alvo);
 
-    function rotulo(x, y, ancora, texto, fs, fw, cor) {
-      var tf = ancora === 'end' ? 'translate(-100%,-50%)'
-             : ancora === 'middle' ? 'translate(-50%,-50%)' : 'translate(0,-50%)';
-      return '<span class="chart__label" style="left:' + (x / 640 * 100).toFixed(2) + '%;top:' +
-        (y / 230 * 100).toFixed(2) + '%;transform:' + tf + ';font-size:' + fs +
-        ';font-weight:' + fw + ';color:' + cor + ';">' + esc(texto) + '</span>';
+    function desenhar() {
+      var W = Math.max(280, area.clientWidth), estreito = W < 560;
+      var H = estreito ? 230 : 280;
+      var m = { e: estreito ? 46 : 58, d: estreito ? 14 : 24, t: 28, b: 30 };
+      // Escala com folga e linhas de grade em passos redondos de R$ 0,25/0,50.
+      var passo = (hi - lo) > 1.2 ? 0.5 : 0.25;
+      var yMin = Math.floor((lo - 0.1) / passo) * passo, yMax = Math.ceil((hi + 0.1) / passo) * passo;
+      var X = function (i) { return m.e + (W - m.e - m.d) * i / (pts.length - 1); };
+      var Y = function (v) { return m.t + (H - m.t - m.b) * (yMax - v) / (yMax - yMin); };
+      var yMed = Y(media);
+      var f = function (n) { return n.toFixed(1); };
+
+      var grade = '';
+      for (var g = yMin; g <= yMax + 1e-9; g += passo) {
+        grade += '<line x1="' + m.e + '" x2="' + (W - m.d) + '" y1="' + f(Y(g)) + '" y2="' + f(Y(g)) + '" class="linha__grade"/>' +
+          '<text x="' + (m.e - 8) + '" y="' + f(Y(g) + 4) + '" text-anchor="end" class="linha__eixo">' + (estreito ? num(g) : brl(g)) + '</text>';
+      }
+      // Datas no eixo de baixo: umas 5 (3 no celular), sempre com a última.
+      var nx = estreito ? 3 : 5, pX = Math.max(1, Math.round((pts.length - 1) / (nx - 1))), datas = '';
+      for (var i = 0; i < pts.length; i += pX) {
+        if (i === pts.length - 1 || pts.length - 1 - i < pX / 2) continue;
+        datas += '<text x="' + f(X(i)) + '" y="' + (H - 8) + '" text-anchor="middle" class="linha__eixo">' + pts[i].rot + '</text>';
+      }
+      datas += '<text x="' + f(X(iUlt)) + '" y="' + (H - 8) + '" text-anchor="end" class="linha__eixo">' + pts[iUlt].rot + '</text>';
+
+      var caminho = 'M' + pts.map(function (p, i) { return f(X(i)) + ',' + f(Y(p.v)); }).join(' L');
+      var fecha = ' L' + f(X(iUlt)) + ',' + f(yMed) + ' L' + f(X(0)) + ',' + f(yMed) + ' Z';
+
+      // Valor escrito em 3 pontos; o rótulo vai acima (ou abaixo, se for a
+      // mínima) e não sai da caixa.
+      function rotulo(i, texto, embaixo) {
+        var x = X(i), y = Y(pts[i].v) + (embaixo ? 20 : -11);
+        var anc = x > W - 60 ? 'end' : x < m.e + 30 ? 'start' : 'middle';
+        return '<text x="' + f(x) + '" y="' + f(y) + '" text-anchor="' + anc + '" class="linha__valor">' + texto + '</text>';
+      }
+      var rotulos = rotulo(iMax, 'Máx. ' + brl(hi)) + rotulo(iMin, 'Mín. ' + brl(lo), true);
+      if (iUlt !== iMax && iUlt !== iMin) rotulos += rotulo(iUlt, brl(pts[iUlt].v), pts[iUlt].v < media);
+
+      var desc = 'Defasagem do diesel de ' + pts[0].rot + ' a ' + pts[iUlt].rot + ': último boletim ' + brl(pts[iUlt].v) +
+        ', média ' + brl(media) + ', máxima ' + brl(hi) + ' em ' + pts[iMax].rot + ', mínima ' + brl(lo) + ' em ' + pts[iMin].rot + '.';
+
+      area.innerHTML =
+        '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + esc(desc) + '">' +
+          '<defs>' +
+            '<clipPath id="lnAcima"><rect x="0" y="0" width="' + W + '" height="' + f(yMed) + '"/></clipPath>' +
+            '<clipPath id="lnAbaixo"><rect x="0" y="' + f(yMed) + '" width="' + W + '" height="' + f(H - yMed) + '"/></clipPath>' +
+          '</defs>' +
+          grade +
+          '<path d="' + caminho + fecha + '" class="linha__acima" clip-path="url(#lnAcima)"/>' +
+          '<path d="' + caminho + fecha + '" class="linha__abaixo" clip-path="url(#lnAbaixo)"/>' +
+          '<line x1="' + m.e + '" x2="' + (W - m.d) + '" y1="' + f(yMed) + '" y2="' + f(yMed) + '" class="linha__media"/>' +
+          '<path d="' + caminho + '" class="linha__traco"/>' +
+          '<text x="' + m.e + '" y="' + f(yMed - 6) + '" class="linha__media-txt">média ' + brl(media) + '</text>' +
+          pts.map(function (p, i) {
+            var destaque = i === iMax || i === iMin || i === iUlt;
+            return '<circle cx="' + f(X(i)) + '" cy="' + f(Y(p.v)) + '" r="' + (destaque ? 5 : 3) + '" class="linha__ponto' + (destaque ? ' is-destaque' : '') + '"/>';
+          }).join('') +
+          rotulos + datas +
+          '<line class="linha__guia" y1="' + m.t + '" y2="' + (H - m.b) + '" x1="0" x2="0" visibility="hidden"/>' +
+          '<circle class="linha__foco" r="7" cx="0" cy="0" visibility="hidden"/>' +
+          '<rect class="linha__toque" x="' + m.e + '" y="0" width="' + (W - m.e - m.d) + '" height="' + H + '"/>' +
+        '</svg>' +
+        '<div class="linha__dica" hidden></div>';
+
+      // Dica: o boletim mais perto do mouse/dedo.
+      var svg = $('svg', area), guia = $('.linha__guia', area), foco = $('.linha__foco', area), dica = $('.linha__dica', area);
+      function mostrar(ev) {
+        var r = svg.getBoundingClientRect();
+        var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+        var i = Math.round((cx - m.e) / (W - m.e - m.d) * (pts.length - 1));
+        i = Math.max(0, Math.min(pts.length - 1, i));
+        var p = pts[i], x = X(i), y = Y(p.v);
+        guia.setAttribute('x1', x); guia.setAttribute('x2', x); guia.setAttribute('visibility', 'visible');
+        foco.setAttribute('cx', x); foco.setAttribute('cy', y); foco.setAttribute('visibility', 'visible');
+        var dv = p.ant == null ? null : p.v - p.ant;
+        dica.innerHTML = '<b>' + DIAS_SEM[p.dow] + ', ' + p.rot + '</b><span class="tnum">' + brl(p.v) + ' por litro</span>' +
+          (dv == null ? '' : '<small class="tnum">' + (Math.abs(dv) < 0.005 ? 'igual ao boletim anterior'
+            : (dv > 0 ? '▲ alta' : '▼ queda') + ' de ' + brl(Math.abs(dv)) + ' no dia') + '</small>') +
+          '<small class="tnum">' + (p.v >= media ? brl(p.v - media) + ' acima da média' : brl(media - p.v) + ' abaixo da média') + '</small>';
+        dica.hidden = false;
+        var dx = x + 14;
+        if (dx + dica.offsetWidth > W) dx = x - 14 - dica.offsetWidth;
+        dica.style.left = Math.max(0, dx) + 'px';
+        dica.style.top = Math.max(0, Math.min(H - dica.offsetHeight, y - dica.offsetHeight / 2)) + 'px';
+      }
+      function esconder() {
+        guia.setAttribute('visibility', 'hidden'); foco.setAttribute('visibility', 'hidden'); dica.hidden = true;
+      }
+      var toque = $('.linha__toque', area);
+      toque.addEventListener('mousemove', mostrar);
+      toque.addEventListener('mouseleave', esconder);
+      toque.addEventListener('touchstart', mostrar, { passive: true });
+      toque.addEventListener('touchmove', mostrar, { passive: true });
     }
 
-    var rotulos =
-      grade.map(function (g) { return rotulo(34, g.y, 'end', g.label, '12px', 400, '#55606E'); }).join('') +
-      eixoX.map(function (e) { return rotulo(e.x, 218, 'middle', e.label, '12px', 400, '#55606E'); }).join('') +
-      marcas.map(function (m) { return rotulo(m.tx, m.ty - 3, m.ancora, m.texto, '13px', 600, '#0E2A47'); }).join('');
-
-    alvo.innerHTML = svg + rotulos;
+    desenhar();
+    var ultimaLargura = area.clientWidth, espera;
+    window.addEventListener('resize', function () {
+      clearTimeout(espera);
+      espera = setTimeout(function () {
+        if (area.clientWidth !== ultimaLargura) { ultimaLargura = area.clientWidth; desenhar(); }
+      }, 150);
+    });
   }
 
   /* ------------------------------------------------------ painéis fixos */
@@ -1202,7 +1289,7 @@
           }
         });
       }, { rootMargin: '-72px 0px -70% 0px' });
-      ['arbitragem', 'painel', 'noticias', 'jornal', 'arquivo'].forEach(function (id) {
+      ['arbitragem', 'painel', 'jornal', 'noticias', 'arquivo'].forEach(function (id) {
         var el = document.getElementById(id); if (el) io.observe(el);
       });
     }

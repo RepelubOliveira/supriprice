@@ -47,7 +47,7 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261008b">
+<link rel="stylesheet" href="assets/css/style.css?v=20261013a">
 </head>
 <body>
 
@@ -86,8 +86,8 @@
       <a href="#arbitragem">Arbitragem</a>
       <a href="#painel">Mercado</a>
       <a href="market-share.html">Market share</a>
-      <a href="#noticias">Notícias</a>
       <a href="#jornal">Jornal do dia</a>
+      <a href="#noticias">Notícias</a>
       <a href="#arquivo">Arquivo</a>
     </nav>
   </div>
@@ -108,7 +108,7 @@
         <h1 class="hero__title">Defasagem entre o preço da Petrobras e a paridade de importação</h1>
         <!-- Resumo em texto, escrito pelo robô a cada atualização: é o que
              buscadores e IAs leem, já que eles não rodam o JavaScript. -->
-        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 09/10/2026, a defasagem do diesel A ficou em <strong>R$ 3,06 por litro</strong>, 91% abaixo da paridade de importação (Abicom/StoneX); a da gasolina A, em R$ 0,57 (19%). O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 27/09/2026 a 02/10/2026). Dólar PTAX: R$ 5,01.<!-- RESUMO:FIM --></p>
+        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 09/10/2026, a defasagem do diesel A ficou em <strong>R$ 3,06 por litro</strong>, 91% abaixo da paridade de importação (Abicom/StoneX); a da gasolina A, em R$ 0,57 (19%). O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 04/10/2026 a 09/10/2026). Dólar PTAX: R$ 4,99.<!-- RESUMO:FIM --></p>
       </div>
       <p class="hero__source" id="heroFonte"></p>
     </div>
@@ -130,8 +130,7 @@
         <h2 class="card__title">Defasagem do diesel, últimos 30 dias</h2>
         <p class="card__note">R$ por litro, média dos polos</p>
       </div>
-      <figure class="chart" id="grafico" role="img"
-              aria-label="Gráfico de linha da defasagem média do diesel nos últimos 30 dias"></figure>
+      <div class="linha" id="grafico"></div>
     </div>
 
     <div class="card is-full">
@@ -172,6 +171,15 @@
     <a class="btn btn--primary" href="market-share.html">Ver market share completo →</a>
   </section>
 
+  <!-- Jornal do dia -->
+  <section class="section" id="jornal" aria-labelledby="jornalTitulo">
+    <div class="section-head">
+      <h2 id="jornalTitulo">Jornal do dia</h2>
+      <p>Uma página com os números e as manchetes — baixe em PDF, PNG, JPEG ou HTML</p>
+    </div>
+    <div class="editions" id="edicoes"></div>
+  </section>
+
   <!-- Notícias -->
   <section class="section" id="noticias" aria-labelledby="noticiasTitulo">
     <div class="section-head">
@@ -180,15 +188,6 @@
     </div>
     <div class="news" id="listaNoticias"></div>
     <p class="card__note" id="noticiasRodape"></p>
-  </section>
-
-  <!-- Jornal do dia -->
-  <section class="section" id="jornal" aria-labelledby="jornalTitulo">
-    <div class="section-head">
-      <h2 id="jornalTitulo">Jornal do dia</h2>
-      <p>Uma página com os números e as manchetes — baixe em PDF, PNG, JPEG ou HTML</p>
-    </div>
-    <div class="editions" id="edicoes"></div>
   </section>
 
   <!-- Arquivo -->
@@ -241,7 +240,7 @@
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
 <script src="assets/js/medicao.js?v=20261008b"></script>
-<script src="assets/js/dados.js?v=20261009-120030"></script>
-<script src="assets/js/app.js?v=20261009a"></script>
+<script src="assets/js/dados.js?v=20261013-083049"></script>
+<script src="assets/js/app.js?v=20261013a"></script>
 </body>
 </html>

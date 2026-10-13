@@ -330,6 +330,44 @@ button { cursor: pointer; }
 .chart { position: relative; width: 100%; aspect-ratio: 640 / 230; }
 .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .chart__label { position: absolute; white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
+/* Linha da defasagem com a média do período (app.js, montarGrafico) */
+.linha { position: relative; }
+.linha__vazio { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+.linha__vazio b { display: block; color: var(--ink-3); font-size: 15px; margin-bottom: 4px; }
+.linha__resumo { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); }
+.linha__resumo li { background: var(--surface); padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.linha__resumo span { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.linha__resumo b { font-size: 20px; color: var(--navy); }
+.linha__resumo small { font-size: 12px; color: var(--muted); }
+.linha__area { position: relative; width: 100%; }
+.linha__area svg { display: block; width: 100%; height: auto; overflow: visible; }
+.linha__grade { stroke: #ECE7DC; stroke-width: 1; }
+.linha__eixo { font-size: 12px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.linha__acima { fill: #B3341F; fill-opacity: .13; }
+.linha__abaixo { fill: #27496F; fill-opacity: .12; }
+.linha__media { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.linha__media-txt { font-size: 12px; font-weight: 600; fill: var(--ink-3); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.linha__traco { fill: none; stroke: var(--navy); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.linha__ponto { fill: var(--navy); stroke: var(--surface); stroke-width: 1.5; }
+.linha__ponto.is-destaque { fill: var(--surface); stroke: var(--navy); stroke-width: 2.5; }
+.linha__valor { font-size: 13px; font-weight: 700; fill: var(--navy); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.linha__guia { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.linha__foco { fill: var(--surface); stroke: #B3341F; stroke-width: 3; }
+.linha__toque { fill: transparent; cursor: crosshair; }
+.linha__dica { position: absolute; z-index: 5; min-width: 150px; padding: 8px 11px; border-radius: 6px; background: var(--navy); color: #fff; font-size: 13px; line-height: 1.4; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.18); display: flex; flex-direction: column; }
+.linha__dica[hidden] { display: none; }
+.linha__dica small { color: #C9D5E3; font-size: 12px; }
+.linha__legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.linha__legenda span { display: inline-flex; align-items: center; gap: 7px; }
+.linha__chave { display: inline-block; width: 20px; }
+.linha__chave--linha { height: 0; border-top: 2.5px solid var(--navy); }
+.linha__chave--media { height: 0; border-top: 1.5px dashed var(--ink-3); }
+.linha__chave--acima { height: 12px; background: rgba(179,52,31,.18); border-radius: 2px; }
+.linha__chave--abaixo { height: 12px; background: rgba(39,73,111,.16); border-radius: 2px; }
+@media (max-width: 760px) {
+  .linha__resumo { grid-template-columns: repeat(2, 1fr); }
+  .linha__eixo { font-size: 11px; }
+}
 
 .ports { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); }
 .port { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
