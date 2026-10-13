@@ -26,6 +26,15 @@ const INDICADORES = [
   { id: 'wti', nome: 'WTI', simbolo: 'CL=F', moeda: 'USD' },
 ];
 
+// Insumos da ARBITRAGEM SUPRIPRICE (a paridade calculada no próprio site):
+// diesel e gasolina na bolsa de Nova York, em US$/galão. Vão num campo à
+// parte ("insumos"), fora da faixa: páginas antigas ainda guardadas no
+// navegador dos visitantes ignoram o campo novo.
+const INSUMOS = [
+  { id: 'diesel_ny', nome: 'Diesel NY (ULSD)', simbolo: 'HO=F', moeda: 'USD' },
+  { id: 'gasolina_ny', nome: 'Gasolina NY (RBOB)', simbolo: 'RB=F', moeda: 'USD' },
+];
+
 const VARIACAO_MAXIMA = 15;
 const VALIDADE_MS = 60_000;
 
@@ -39,7 +48,7 @@ const LOCAL = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
-type Indicador = (typeof INDICADORES)[number];
+type Indicador = { id: string; nome: string; simbolo: string; moeda: string };
 
 function emBrasilia(quando: Date, o: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', ...o }).format(quando);
@@ -90,7 +99,9 @@ async function montarCorpo(): Promise<string> {
     else falhas.push(INDICADORES[i].id);
   }
   if (!indicadores.length) throw new Error('Yahoo não respondeu nenhum indicador');
-  return JSON.stringify({ geradoISO: new Date().toISOString(), indicadores, falhas });
+  const insumos = (await Promise.allSettled(INSUMOS.map(lerIndicador)))
+    .flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  return JSON.stringify({ geradoISO: new Date().toISOString(), indicadores, insumos, falhas });
 }
 
 async function obterCorpo(): Promise<string> {

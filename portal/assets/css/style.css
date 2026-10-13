@@ -767,6 +767,46 @@ button { cursor: pointer; }
   .novidades__selo i { animation: none; }
 }
 
+/* --- Arbitragem SupriPrice (a nossa paridade, ao vivo) ------------------- */
+.arb {
+  background: var(--navy); color: #fff; border-radius: var(--radius);
+  padding: 24px 26px; display: flex; flex-direction: column; gap: 18px;
+}
+.arb[hidden] { display: none; }
+.arb__eyebrow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--salmon);
+}
+.arb__hora { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--on-navy); }
+.arb h2 { font-size: 24px; line-height: 1.2; margin-top: 6px; }
+.arb__sub { font-size: 15px; color: var(--on-navy); margin-top: 4px; max-width: 70ch; }
+.arb__cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.arb__cartao { background: var(--navy-2); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.arb__nome { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; font-weight: 700; }
+.arb__nome span { font-size: 12.5px; font-weight: 600; color: var(--on-navy); }
+.arb__valor { font-size: 44px; font-weight: 700; line-height: 1.05; }
+.arb__valor small { font-size: 15px; font-weight: 600; color: var(--on-navy); margin-left: 6px; }
+.arb__mov { font-size: 14px; font-weight: 700; color: var(--on-navy); min-height: 1.2em; }
+.arb__mov.is-alta { color: var(--salmon); }
+.arb__mov.is-baixa { color: var(--green-light); }
+.arb__conta { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 6px 0 0; padding-top: 10px; border-top: 1px solid var(--navy-line); }
+.arb__conta div { display: flex; flex-direction: column; }
+.arb__conta dt { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--on-navy); }
+.arb__conta dd { margin: 0; font-size: 17px; font-weight: 700; }
+.arb__spark { width: 100%; height: 44px; margin-top: 8px; }
+.arb__spark polyline { fill: none; stroke: var(--salmon); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.arb__spark-leg { font-size: 12px; color: var(--on-navy); }
+.arb__metodo { border-top: 1px solid var(--navy-line); padding-top: 12px; font-size: 14px; color: var(--on-navy); }
+.arb__metodo summary { cursor: pointer; font-weight: 700; color: #fff; }
+.arb__metodo div { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; line-height: 1.5; max-width: 90ch; }
+.arb__metodo ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.arb__metodo b { color: #fff; }
+.arb__aviso { font-size: 13px; }
+@media (max-width: 760px) {
+  .arb { padding: 20px 16px; }
+  .arb__valor { font-size: 38px; }
+}
+
 /* --- Responsivo ---------------------------------------------------------- */
 @media (max-width: 760px) {
   .nav-toggle { display: inline-block; }

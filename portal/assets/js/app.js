@@ -154,6 +154,132 @@
     }).join('');
   }
 
+  /* ------------------------------------------ arbitragem SupriPrice */
+
+  // A NOSSA paridade de importação (automacao/paridade.mjs), recalculada ao
+  // vivo no navegador com as cotações da função do Supabase:
+  //   importação = cotação em Nova York (US$/galão) / 3,785 x dólar + custo
+  //   arbitragem = importação - preço da Petrobras
+  // O robô entrega no dados.js os custos calibrados, os preços da Petrobras,
+  // a última leitura e a série diária; aqui só se refaz a conta a cada minuto.
+  var ARB = D.arbitragem || null;
+  var ARB_PRODUTOS = [
+    { id: 'diesel', nome: 'Diesel A', insumo: 'diesel_ny' },
+    { id: 'gasolina', nome: 'Gasolina A', insumo: 'gasolina_ny' }
+  ];
+
+  function contaArb(prod, cotacao, dolar) {
+    var custo = ARB.custos[prod], petro = ARB.precos[prod];
+    var ppi = cotacao / ARB.litrosPorGalao * dolar + custo;
+    return { ppi: ppi, petro: petro, defasagem: ppi - petro, pct: Math.round((ppi - petro) / petro * 100) };
+  }
+
+  /**
+   * Arbitragem ao vivo a partir da resposta da função de cotações. Devolve
+   * null se faltar alguma cotação. `inicio` é a conta com os fechamentos
+   * anteriores (para dizer quanto mudou no dia).
+   */
+  function arbAoVivo(j) {
+    if (!ARB || !j) return null;
+    var por = {};
+    (j.indicadores || []).concat(j.insumos || []).forEach(function (i) { if (i && i.id) por[i.id] = i; });
+    var dol = por.dolar;
+    if (!dol) return null;
+    var out = { hora: '', data: '', dataISO: '' };
+    var ok = true;
+    ARB_PRODUTOS.forEach(function (p) {
+      var c = por[p.insumo];
+      if (!c) { ok = false; return; }
+      out[p.id] = contaArb(p.id, c.valor, dol.valor);
+      out[p.id].inicio = contaArb(p.id, c.anterior, dol.anterior);
+      if (!out.hora || c.hora > out.hora) { out.hora = c.hora; out.data = c.data; out.dataISO = c.dataISO; }
+    });
+    return ok ? out : null;
+  }
+
+  /** A mesma forma, a partir do que o robô gravou (antes da 1ª consulta ao vivo). */
+  function arbDoRobo() {
+    if (!ARB || !ARB.diesel) return null;
+    var hoje = hojeBrasilia();
+    var antes = (ARB.serie || []).filter(function (p) { return !hoje || p.data < hoje; });
+    var ult = antes[antes.length - 1];
+    var quando = new Date(ARB.quandoISO);
+    var out = {
+      hora: quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      data: quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      dataISO: ARB.quandoISO.slice(0, 10)
+    };
+    ARB_PRODUTOS.forEach(function (p) {
+      out[p.id] = { ppi: ARB[p.id].ppi, petro: ARB[p.id].petro, defasagem: ARB[p.id].defasagem, pct: ARB[p.id].pct,
+        inicio: ult ? { defasagem: ult[p.id] } : null };
+    });
+    return out;
+  }
+
+  /** Itens da faixa de cotações: a arbitragem entra junto com dólar e petróleo. */
+  function arbItensFaixa(a) {
+    if (!a) return [];
+    return ARB_PRODUTOS.map(function (p) {
+      var x = a[p.id], delta = x.inicio ? x.defasagem - x.inicio.defasagem : 0;
+      return { id: 'arb_' + p.id, nome: 'Arbitragem SupriPrice ' + (p.id === 'diesel' ? 'diesel' : 'gasolina'),
+        moeda: 'BRL', arb: true, valor: x.defasagem, delta: delta,
+        variacao: Math.abs(delta) < 0.005 ? 0 : delta, data: a.data, hora: a.hora, dataISO: a.dataISO };
+    });
+  }
+
+  function montarArbitragem() {
+    var caixa = $('#arbSupri');
+    if (!caixa) return;
+    if (!ARB || !ARB.diesel) { caixa.hidden = true; return; }
+    var abicom = {};
+    (D.produtos || []).forEach(function (p) { abicom[/gasolina/i.test(p.nome) ? 'gasolina' : 'diesel'] = p; });
+    var dataAbicom = (D.meta && D.meta.dataISO) || '';
+    dataAbicom = dataAbicom ? dataAbicom.slice(8, 10) + '/' + dataAbicom.slice(5, 7) : '';
+
+    function sparkline(prod) {
+      var pts = (ARB.serie || []).map(function (p) { return p[prod]; }).filter(function (v) { return typeof v === 'number'; });
+      if (pts.length < 5) return '';
+      var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts), W = 240, H = 44;
+      var xy = pts.map(function (v, i) {
+        return (i * W / (pts.length - 1)).toFixed(1) + ',' + (H - 4 - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
+      }).join(' ');
+      return '<svg class="arb__spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+        '<polyline points="' + xy + '"/></svg>' +
+        '<p class="arb__spark-leg">' + pts.length + ' pregões · mín. ' + brl(lo) + ' · máx. ' + brl(hi) + '</p>';
+    }
+
+    function desenhar(a, aoVivo) {
+      $('#arbHora').innerHTML = (aoVivo ? '<span class="mkt__live" aria-hidden="true"></span>Ao vivo · ' : 'Cotações de ') +
+        esc(a.data + ' ' + a.hora);
+      $('#arbCartoes').innerHTML = ARB_PRODUTOS.map(function (p) {
+        var x = a[p.id], delta = x.inicio ? x.defasagem - x.inicio.defasagem : null;
+        var mov = delta == null ? '' : Math.abs(delta) < 0.005 ? 'estável no dia'
+          : (delta > 0 ? '▲ ' : '▼ ') + brl(Math.abs(delta)) + ' no dia';
+        var ab = abicom[p.id];
+        return '' +
+          '<article class="arb__cartao">' +
+            '<p class="arb__nome">' + esc(p.nome) + '<span>' + (x.defasagem >= 0 ? 'abaixo da paridade' : 'acima da paridade') + '</span></p>' +
+            '<p class="arb__valor tnum">' + brl(Math.abs(x.defasagem)) + '<small>/litro · ' + Math.abs(x.pct) + '%</small></p>' +
+            '<p class="arb__mov tnum' + (delta > 0.004 ? ' is-alta' : delta < -0.004 ? ' is-baixa' : '') + '">' + esc(mov) + '</p>' +
+            '<dl class="arb__conta tnum">' +
+              '<div><dt>Importação</dt><dd>' + brl(x.ppi) + '</dd></div>' +
+              '<div><dt>Petrobras</dt><dd>' + brl(x.petro) + '</dd></div>' +
+              (ab && typeof ab.defasagem === 'number' ? '<div><dt>Abicom ' + esc(dataAbicom) + '</dt><dd>' + brl(ab.defasagem) + '</dd></div>' : '') +
+            '</dl>' +
+            sparkline(p.id) +
+          '</article>';
+      }).join('');
+    }
+
+    desenhar(arbDoRobo(), false);
+    caixa.hidden = false;
+    // A faixa de cotações avisa a cada consulta ao vivo (uma por minuto).
+    document.addEventListener('sp:cotacoes', function (ev) {
+      var a = arbAoVivo(ev.detail);
+      if (a) desenhar(a, true);
+    });
+  }
+
   /* ----------------------------------------------------- faixa de mercado */
 
   // Convenção de bolsa, OPOSTA à do painel de combustível: aqui alta é verde e
@@ -186,7 +312,7 @@
   function montarMercado() {
     var caixa = $('#mercado'), lista = $('#mercadoLista'), meta = $('#mercadoMeta');
     if (!caixa || !lista) return;
-    var ind = D.indicadores || [];
+    var ind = (D.indicadores || []).concat(arbItensFaixa(arbDoRobo()));
     var aoVivo = false;
     // O dia da EXECUÇÃO, não o do boletim: na atualização parcial das 07:00 o
     // boletim é de ontem, mas a cotação do dólar das 06:50 é de hoje. Com as
@@ -198,17 +324,18 @@
       var sentido = i.variacao > 0 ? 'up' : (i.variacao < 0 ? 'down' : 'flat');
       var seta = sentido === 'up' ? '▲' : (sentido === 'down' ? '▼' : '');
       var pct = (sentido === 'up' ? '+' : (sentido === 'down' ? '−' : '')) +
-        num(Math.abs(i.variacao)) + '%';
+        (i.arb ? 'R$ ' + num(Math.abs(i.delta || 0)) : num(Math.abs(i.variacao)) + '%');
       // Às 08:20 a B3 ainda não abriu: o Ibovespa é o fechamento de ontem.
       // Dizer isso evita que o leitor tome o número como sendo do dia.
       var antigo = hoje && i.dataISO && i.dataISO < hoje;
-      var dica = (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
+      var dica = i.arb ? 'Arbitragem SupriPrice: paridade de importação calculada com as cotações de Nova York e o dólar, menos o preço da Petrobras · variação no dia'
+        : (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
         ' · variação sobre o fechamento anterior';
       return '' +
         '<li class="mkt__item" data-ind="' + esc(i.id) + '" title="' + esc(dica) + '"' +
           (eco ? ' aria-hidden="true"' : '') + '>' +
           '<span class="mkt__name">' + esc(i.nome) + '</span>' +
-          '<span class="mkt__val tnum">' + esc(valorIndicador(i)) + '</span>' +
+          '<span class="mkt__val tnum">' + esc(i.arb ? brl(i.valor) : valorIndicador(i)) + '</span>' +
           '<span class="mkt__chg mkt__chg--' + sentido + ' tnum">' +
             (seta ? '<span aria-hidden="true">' + seta + '</span> ' : '') +
             '<span class="sr-only">' + (sentido === 'up' ? 'alta de ' : (sentido === 'down' ? 'queda de ' : 'estável, ')) + '</span>' +
@@ -286,7 +413,11 @@
       var limite = ctrl && setTimeout(function () { ctrl.abort(); }, 10000);
       fetch(COTACOES_URL, { signal: ctrl ? ctrl.signal : undefined, credentials: 'omit' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (j) { if (j && j.indicadores && j.indicadores.length) aplicarAoVivo(j.indicadores); })
+        .then(function (j) {
+          if (!j || !j.indicadores || !j.indicadores.length) return;
+          aplicarAoVivo(j.indicadores.concat(arbItensFaixa(arbAoVivo(j))));
+          try { document.dispatchEvent(new CustomEvent('sp:cotacoes', { detail: j })); } catch (e) { /* navegador antigo */ }
+        })
         // Falhou: fica o que já está na tela, com a hora de cada cotação.
         .catch(function () {})
         .then(function () { if (limite) clearTimeout(limite); });
@@ -1423,6 +1554,7 @@
   /* -------------------------------------------------------------- início */
 
   creditoNaCopia();
+  try { montarArbitragem(); } catch (e) { console.error('[SupriPrice] arbitragem:', e); }
   montarMercado();
   montarSelo();
   montarProdutos();

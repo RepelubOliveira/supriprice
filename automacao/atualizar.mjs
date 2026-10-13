@@ -30,6 +30,7 @@ import { coletarNoticias, buscarRadar, buscarNegocios } from './noticias.mjs';
 import { lerShare } from './share.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
+import { lerArbitragem } from './paridade.mjs';
 import { fotografarJornal } from './imagem.mjs';
 import { publicarArquivos, lerArquivoSite } from './publicar.mjs';
 import { CAMINHO_ESTADO, baixarEstado, sincronizar, montarEstado, marcarPublicacao, ultimaRodadaPrevista } from './estado.mjs';
@@ -309,6 +310,22 @@ async function principal() {
   const indicadores = await lerIndicadores();
   log(`Mercado: ${indicadores.map((i) => `${i.nome} ${i.variacao > 0 ? '+' : ''}${i.variacao}%`).join(' · ') || 'nenhum indicador disponível'}`);
 
+  // ARBITRAGEM SUPRIPRICE: a nossa paridade (Nova York + dólar + custo de
+  // trazer), independente da Abicom. Falhou? O site sai sem o bloco e o
+  // próprio navegador do leitor tenta calcular ao vivo.
+  let arbitragem = null;
+  try {
+    const pp = editorial.precosPetrobras || {};
+    arbitragem = await lerArbitragem({
+      precos: { diesel: Number(pp.diesel), gasolina: Number(pp.gasolina) },
+      custos: editorial.arbitragemSupriPrice?.custos || { diesel: 0, gasolina: 0 }
+    });
+    log(`Arbitragem SupriPrice: diesel ${brl(arbitragem.diesel.defasagem)} (${arbitragem.diesel.pct}%) · ` +
+      `gasolina ${brl(arbitragem.gasolina.defasagem)} (${arbitragem.gasolina.pct}%) · ${arbitragem.serie.length} pregões`);
+  } catch (e) {
+    console.warn(`  ! Arbitragem SupriPrice indisponível: ${e.message}`);
+  }
+
   log('Buscando preços na bomba (ANP)...');
   // Se a ANP não responder, vale a ÚLTIMA LEITURA BOA dela, guardada a cada
   // sucesso — nunca números fixos. Antes havia uma "reserva" no
@@ -537,6 +554,8 @@ async function principal() {
     agenda: editorial.agenda,
     noticias: noticias ? noticias.editorias : {},
     novidades,
+    arbitragem: arbitragem ? { ...arbitragem, calibradoEm: editorial.arbitragemSupriPrice?.calibradoEm || null,
+      calibracao: editorial.arbitragemSupriPrice?.calibracao || null } : null,
     edicoes: edicoes.slice(0, 3),
     arquivo: edicoes.map((e) => ({
       data: e.rotulo, tag: 'Diário', titulo: e.titulo, arquivo: e.arquivo, slug: e.slug

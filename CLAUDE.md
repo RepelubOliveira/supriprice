@@ -24,7 +24,14 @@ Converse em português.
   12, 15 e 17h, todos os dias, via `rodar-diario.ps1` (espera a rede, 3 tentativas).
   Reserva na nuvem: `.github/workflows/atualizar-panorama.yml` (meia hora depois;
   só age se o computador não atualizou; a Abicom bloqueia servidores, então lá é parcial).
-- `supabase/functions/cotacoes` — proxy das cotações ao vivo da faixa do site.
+- `supabase/functions/cotacoes` — proxy das cotações ao vivo da faixa do site (e, no campo
+  `insumos`, diesel HO=F e gasolina RB=F de Nova York para a arbitragem ao vivo).
+- **Arbitragem SupriPrice** (`automacao/paridade.mjs` + `montarArbitragem` no app.js): a nossa
+  paridade, independente da Abicom. Importação = Nova York (US$/gal) / 3,785 x dólar + custo de
+  trazer; arbitragem = importação − Petrobras. Custos calibrados em `editorial.json →
+  arbitragemSupriPrice` (`node automacao/paridade.mjs --calibrar`, revisar ~1x/mês). O preço da
+  Petrobras (`editorial.json → precosPetrobras`) precisa ser atualizado no dia de cada reajuste.
+  Aberta a todos por enquanto; quando a assinatura começar, o ao vivo fica só para assinantes.
 
 ## Comandos
 

@@ -26,11 +26,10 @@
   "mostrarGasolina": true,
   "precosPetrobras": {
     "_nota": [
-      "R$/litro nas refinarias. Serve só para as barras comparativas do topo.",
-      "A Petrobras reajusta poucas vezes por ano e a própria Abicom anuncia —",
-      "quando isso acontecer, o log da automação mostra no boletim do dia.",
-      "Se ficar desatualizado, o número grande (a defasagem) continua correto:",
-      "ele vem pronto da Abicom e não depende deste campo."
+      "R$/litro nas refinarias (média), diesel A e gasolina A.",
+      "IMPORTANTE: é a base da ARBITRAGEM SUPRIPRICE (a nossa paridade). Quando a",
+      "Petrobras reajustar, atualize aqui no mesmo dia — senão a nossa arbitragem",
+      "fica errada. (A defasagem da Abicom vem pronta e não depende deste campo.)"
     ],
     "diesel": 3.28,
     "gasolina": 2.96
@@ -111,5 +110,20 @@
       "arquivo": "relatorios/2026-09-11-geral.html",
       "slug": "supriprice-geral-2026-09-11"
     }
-  ]
+  ],
+
+  "arbitragemSupriPrice": {
+    "_nota": [
+      "A NOSSA paridade de importação (automacao/paridade.mjs), independente da Abicom.",
+      "Preço de importação = cotação em Nova York (US$/galão) / 3,785 x dólar + custo de trazer.",
+      "Arbitragem = preço de importação - preço da Petrobras (precosPetrobras, acima).",
+      "custos = 'custo de trazer' em R$/L: frete, seguro, porto, internação e a diferença",
+      "entre o contrato de Nova York e o preço à vista do Golfo. Calibrado com",
+      "`node automacao/paridade.mjs --calibrar`; revisar uma vez por mês ou quando o",
+      "frete marítimo mudar muito. Negativo é normal (Nova York vale mais que o Golfo)."
+    ],
+    "custos": { "diesel": -0.23, "gasolina": -0.80 },
+    "calibradoEm": "2026-10-13",
+    "calibracao": "28 boletins da Abicom (31/08 a 09/10/2026); erro médio R$ 0,11/L no diesel e R$ 0,15/L na gasolina"
+  }
 }
