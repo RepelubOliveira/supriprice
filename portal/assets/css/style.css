@@ -803,6 +803,7 @@ button { cursor: pointer; }
 .arb__metodo b { color: #fff; }
 .arb__aviso { font-size: 13px; }
 .hero .arb__metodo { margin-top: 22px; }
+.hero__products:has(.arb__cartao) { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
 .hero__source .mkt__live { margin-right: 6px; vertical-align: middle; }
 @media (max-width: 760px) {
   .arb { padding: 20px 16px; }

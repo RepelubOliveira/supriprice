@@ -98,46 +98,48 @@
 
   /* --------------------------------------------------------- arbitragem */
 
+  /**
+   * Cartões do topo (Arbitragem SupriPrice), no estilo escolhido em 13/10:
+   * valor grande, quanto mudou no dia, a conta (importação e Petrobras) e a
+   * mini-linha dos últimos pregões. Recebe a lista do robô ou a calculada
+   * ao vivo (ligarTopoAoVivo).
+   */
   function montarProdutos(lista) {
     var alvo = $('#produtos'); if (!alvo) return;
+    var serie = (D.arbitragem && D.arbitragem.serie) || [];
+
+    function sparkline(prod) {
+      var pts = serie.map(function (x) { return x[prod]; }).filter(function (v) { return typeof v === 'number'; });
+      if (pts.length < 5) return '';
+      var lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts), W = 240, H = 44;
+      var xy = pts.map(function (v, i) {
+        return (i * W / (pts.length - 1)).toFixed(1) + ',' + (H - 4 - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
+      }).join(' ');
+      return '<svg class="arb__spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+        '<polyline points="' + xy + '"/></svg>' +
+        '<p class="arb__spark-leg">' + pts.length + ' pregões · mín. ' + brl(lo) + ' · máx. ' + brl(hi) + '</p>';
+    }
+
     alvo.innerHTML = (lista || D.produtos || []).map(function (p) {
-      // Dois formatos aceitos: com `defasagem` e `pct` prontos (Arbitragem
-      // SupriPrice, do robô ou ao vivo) ou só com petro e ppi.
+      // Com `defasagem` e `pct` prontos (robô ou ao vivo) ou só petro e ppi.
       var def = (typeof p.defasagem === 'number') ? p.defasagem : (p.ppi - p.petro);
       var pct = (typeof p.pct === 'number') ? p.pct : Math.round(def / p.petro * 100);
-      // Sem valor de ontem não há variação a mostrar — inventar um "0,00"
-      // daria a entender que o preço ficou parado.
-      var temOntem = typeof p.anterior === 'number';
-      var delta = temOntem ? def - p.anterior : 0;
-      var sinal = delta >= 0 ? '+' : '-';
-      // "S10" vira "Diesel S10"; "Diesel A" já vem completo.
+      var delta = typeof p.anterior === 'number' ? def - p.anterior : null;
+      var mov = delta == null ? '' : Math.abs(delta) < 0.005 ? 'estável no dia'
+        : (delta > 0 ? '▲ ' : '▼ ') + brl(Math.abs(delta)) + ' no dia';
+      var prod = /gasolina/i.test(p.nome) ? 'gasolina' : 'diesel';
       var titulo = /^(S10|S500)$/.test(p.nome) ? 'Diesel ' + p.nome : p.nome;
       return '' +
-        '<article class="product">' +
-          '<div class="product__top">' +
-            '<h2 class="product__name">' + esc(titulo) +
-              (p.escopo ? '<span class="product__escopo">' + esc(p.escopo) + '</span>' : '') +
-            '</h2>' +
-            '<span class="product__pct tnum" title="' + (def >= 0 ? 'abaixo' : 'acima') + ' da paridade de importação">' + Math.abs(pct) + '%</span>' +
-          '</div>' +
-          '<p class="product__value"><b class="tnum">' + brl(Math.abs(def)) + '</b><span>/litro</span></p>' +
-          (temOntem
-            ? '<p class="product__prev">Anterior <strong class="tnum">' + brl(p.anterior) + '</strong> ' +
-              '<span style="color:' + (delta >= 0 ? '#FFB4A6' : '#9FE0BF') + ';font-weight:700;">' +
-              sinal + num(Math.abs(delta)) + '</span></p>'
-            : '<p class="product__prev">Primeira leitura registrada</p>') +
-          '<div class="product__rows">' +
-            '<div class="product__row">' +
-              '<span>Petrobras</span>' +
-              '<span class="bar"><i style="width:' + (p.petro / p.ppi * 100).toFixed(1) + '%"></i></span>' +
-              '<span class="tnum">' + brl(p.petro) + '</span>' +
-            '</div>' +
-            '<div class="product__row">' +
-              '<span>Importação</span>' +
-              '<span class="bar"><i class="is-import" style="width:100%"></i></span>' +
-              '<span class="tnum">' + brl(p.ppi) + '</span>' +
-            '</div>' +
-          '</div>' +
+        '<article class="arb__cartao">' +
+          '<p class="arb__nome">' + esc(titulo) + '<span>' + (def >= 0 ? 'abaixo da paridade' : 'acima da paridade') + '</span></p>' +
+          '<p class="arb__valor tnum">' + brl(Math.abs(def)) + '<small>/litro · ' + Math.abs(pct) + '%</small></p>' +
+          '<p class="arb__mov tnum' + (delta > 0.004 ? ' is-alta' : delta < -0.004 ? ' is-baixa' : '') + '"' +
+            (delta == null ? '' : ' title="Variação desde o fechamento do pregão anterior"') + '>' + esc(mov) + '</p>' +
+          '<dl class="arb__conta tnum">' +
+            '<div><dt>Importação</dt><dd>' + brl(p.ppi) + '</dd></div>' +
+            '<div><dt>Petrobras</dt><dd>' + brl(p.petro) + '</dd></div>' +
+          '</dl>' +
+          sparkline(prod) +
         '</article>';
     }).join('');
   }

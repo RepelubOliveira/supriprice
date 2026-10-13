@@ -519,10 +519,23 @@ async function principal() {
   const corteNeg = Date.now() - 5 * 864e5;
   const negociosJornal = negocios.filter((n) => (!regNegocios.noJornal[n.id] || regNegocios.noJornal[n.id] === hojeISO) &&
     (!n.data || new Date(n.data).getTime() >= corteNeg));
+  // O jornal usa a ARBITRAGEM SUPRIPRICE (a mesma do site): número de hoje,
+  // todo dia, sem esperar a Abicom. A série do gráfico é a nossa, um ponto
+  // por pregão. Sem o nosso cálculo (salvaguarda), volta ao boletim da Abicom.
+  const arbJ = arbitragem ? {
+    abicom: {
+      data: iso(hoje).split("-").reverse().join("/"),
+      diesel: { ...arbitragem.diesel, desfavoravel: arbitragem.diesel.defasagem >= 0 },
+      gasolina: { ...arbitragem.gasolina, desfavoravel: arbitragem.gasolina.defasagem >= 0 }
+    },
+    historico: arbitragem.serie.map((p) => ({ data: p.data, rotulo: p.rotulo, valor: p.diesel, gasolina: p.gasolina }))
+  } : null;
   const jornal = gerarJornal({
-    data: hoje, abicom, brent, dolar, anp, noticias, historico, indicadores,
-    share: shareNoJornal, shareResumo: share, analise, radar, parcial, fimDeSemana, dataAbicomISO, edicoesAntes,
-    negocios: negociosJornal
+    data: hoje, abicom: arbJ ? arbJ.abicom : abicom, brent, dolar, anp, noticias,
+    historico: arbJ ? arbJ.historico : historico, indicadores,
+    share: shareNoJornal, shareResumo: share, analise, radar,
+    parcial: arbJ ? false : parcial, fimDeSemana, dataAbicomISO: arbJ ? iso(hoje) : dataAbicomISO, edicoesAntes,
+    negocios: negociosJornal, propria: !!arbJ
   });
   for (const id of jornal.negociosPublicados) regNegocios.noJornal[id] = regNegocios.noJornal[id] || hojeISO;
   if (jornal.negociosPublicados.length) log(`Jornal: com ${jornal.negociosPublicados.length} negócio(s) do setor.`);
@@ -532,7 +545,7 @@ async function principal() {
   }
   await mkdir(P.relatorios, { recursive: true });
   await writeFile(path.join(P.relatorios, jornal.nomeArquivo), jornal.html, 'utf8');
-  log(`Jornal${parcial ? ' (sem boletim novo da Abicom)' : ''}: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}" · destaque do dia: ${jornal.destaque}`);
+  log(`Jornal${parcial && !arbJ ? ' (sem boletim novo da Abicom)' : ''}: ${jornal.nomeArquivo} (${(jornal.html.length / 1024).toFixed(1)} KB) — "${jornal.titulo}" · destaque do dia: ${jornal.destaque}`);
 
   // A "foto" do jornal em PNG 1080x1920, tirada pelo Edge do computador: é o
   // arquivo que o site entrega no download (ver automacao/imagem.mjs).
