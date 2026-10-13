@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Arbitragem ao vivo (narrado) — compositor</title>
+<!--
+  Versão NARRADA do vídeo da Arbitragem SupriPrice ao vivo (Reels/Stories 9:16
+  e Feed 4:5), ~27,5 s. Mesmo motor e mesmas cenas do video/arbitragem.html,
+  com a locução da Aline Mota (ElevenLabs, leitura 3:
+  video/narracao/aline-3.mp3) e MÚSICA DE FUNDO BAIXA, que abaixa ainda mais
+  quando a voz fala (ducking). Os impactos ficam num canal à parte, sem abaixar.
+
+  As cenas entram nas frases. Marcas medidas nas pausas da leitura 3 (+0,5 s
+  de respiro no começo):
+     0,5  "O diesel lá fora muda a cada minuto. O dólar também.
+           E você ainda negocia com o número de ontem?"
+     6,9  "Chegou a Arbitragem SupriPrice."   9,29 "Ao vivo."
+    10,22 "A defasagem do diesel e da gasolina, recalculada a cada minuto."
+    14,43 "Para TRR, posto, distribuidora e transportadora que negociam com
+           o número do momento."
+    19,92 "Acesse supriprice.com.br. Aberto para todos, por tempo limitado."
+  Trocou a leitura? Meça as pausas de novo e ajuste MARCAS abaixo.
+
+  Uso: http://localhost:8767/video/arbitragem-narrado.html
+      await ArbN.renderizar('stories')      await ArbN.renderizar('feed')
+  Saída: video/arbitragem-narrado-{stories,feed}.mp4 e capas .jpg
+-->
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 14px system-ui, sans-serif; }
+  canvas { display: block; max-width: 100%; max-height: 90vh; margin: 0 auto; }
+  #status { padding: 8px 12px; }
+</style>
+</head>
+<body>
+<div id="status">pronto</div>
+<canvas id="quadro"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var FPS = 30, DUR = 27.5, SR = 48000;
+  var VOZ = '/video/narracao/aline-3.mp3', VOZ_INICIO = 0.5;
+  // Marcas do vídeo (s), coladas nas frases da locução.
+  var MARCAS = { gancho: [0.53, 2.35, 3.41, 4.53], revela: 6.9, aoVivo: 9.29, numero: 10.22,
+    paraQuem: 14.43, palavras: [14.45, 14.75, 15.6, 16.45], fim: 19.92, aberto: 22.85, linkBio: 24.1 };
+  var BATIDA = 0.5;                    // 120 BPM
+  var COR = {
+    tinta: '#060E19', navy: '#0E2A47', navy2: '#16365A', navy3: '#27496F',
+    marca: '#B3341F', marcaClara: '#E0533A', salmao: '#FFB4A6',
+    sobreNavy: '#C9D5E3', verde: '#58B17B', verdeClaro: '#9FE0BF', branco: '#FFFFFF'
+  };
+  var FONTE = 'Plex';
+
+  // Zonas seguras (Stories: o Instagram cobre topo e base).
+  var FORMATOS = {
+    stories: { W: 1080, H: 1920, topo: 250, base: 1580, mx: 90, bitrate: 14e6 },
+    feed:    { W: 1080, H: 1350, topo: 90,  base: 1262, mx: 90, bitrate: 12e6 }
+  };
+
+  /* ------------------------------------------------------------ utilidades */
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function fase(t, ini, dur) { return clamp((t - ini) / dur, 0, 1); }
+  function suave(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+  function chega(p) { return 1 - Math.pow(1 - p, 3); }
+  function salta(p) { var c = 1.70158, d = c + 1; return 1 + d * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+  function fonte(peso, tam) { return peso + ' ' + tam + 'px ' + FONTE; }
+  function brl(v, c) { return 'R$ ' + Number(v).toFixed(c == null ? 2 : c).replace('.', ','); }
+  function usd(v) { return 'US$ ' + Number(v).toFixed(2).replace('.', ','); }
+
+  function retRedondo(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function quebrar(ctx, texto, max) {
+    var palavras = String(texto).split(/\s+/), linhas = [], atual = '';
+    palavras.forEach(function (p) {
+      var teste = atual ? atual + ' ' + p : p;
+      if (ctx.measureText(teste).width > max && atual) { linhas.push(atual); atual = p; }
+      else atual = teste;
+    });
+    if (atual) linhas.push(atual);
+    return linhas;
+  }
+  function espacar(ctx, px) { if ('letterSpacing' in ctx) ctx.letterSpacing = px + 'px'; }
+  function carregarImagem(src) {
+    return new Promise(function (ok, erro) {
+      var i = new Image();
+      i.onload = function () { ok(i); };
+      i.onerror = function () { erro(new Error('não carregou ' + src)); };
+      i.src = src;
+    });
+  }
+  function status(msg) { document.getElementById('status').textContent = msg; }
+  /** Pseudoaleatório determinístico: o mesmo quadro sai sempre igual. */
+  function acaso(semente) { var x = Math.sin(semente * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+  /* ------------------------------------------------------------- recursos */
+
+  var R = null;
+
+  async function preparar() {
+    if (R) return R;
+    var faces = [
+      new FontFace(FONTE, 'url(/portal/assets/fonts/plex-latin.woff2)', { weight: '100 900' }),
+      new FontFace(FONTE, 'url(/portal/assets/fonts/plex-latin-ext.woff2)', { weight: '100 900' })
+    ];
+    for (var i = 0; i < faces.length; i++) document.fonts.add(await faces[i].load());
+    await new Promise(function (ok, erro) {
+      var s = document.createElement('script');
+      s.src = '/portal/assets/js/dados.js?t=' + Date.now(); s.onload = ok;
+      s.onerror = function () { erro(new Error('dados.js não carregou')); };
+      document.head.appendChild(s);
+    });
+    var D = window.DADOS;
+    if (!D || !D.arbitragem || !D.arbitragem.diesel) throw new Error('dados.js sem a Arbitragem SupriPrice');
+    var logo = await carregarImagem('/portal/assets/supriprice-logo.png');
+
+    var grao = document.createElement('canvas');
+    grao.width = grao.height = 256;
+    var gctx = grao.getContext('2d'), gd = gctx.createImageData(256, 256);
+    for (var k = 0; k < gd.data.length; k += 4) {
+      var v = Math.floor(acaso(k + 1) * 255);
+      gd.data[k] = gd.data[k + 1] = gd.data[k + 2] = v; gd.data[k + 3] = 255;
+    }
+    gctx.putImageData(gd, 0, 0);
+
+    var A = D.arbitragem;
+    var quando = new Date(A.quandoISO);
+    var hm = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+      .format(quando).split(':').map(Number);
+    var acV = new OfflineAudioContext(2, SR, SR);
+    var voz = await acV.decodeAudioData(await (await fetch(VOZ)).arrayBuffer());
+    R = { D: D, A: A, logo: logo, grao: grao, hora: hm[0], minuto: hm[1], voz: voz };
+    return R;
+  }
+
+  /* ============================================================== TRILHA */
+  /*
+   * Trilha "trailer + trap", lá menor, grade de 120 BPM (meio tempo: a caixa
+   * cai a cada 1 s), colada no roteiro:
+   *   0–4    tique-taque de relógio, coração grave, um golpe por frase,
+   *          sucção reversa e SILÊNCIO de meio tempo antes do impacto
+   *   4      BRAAAM (metais de cinema sintetizados) + queda de sub
+   *   4–8    meio tempo: 808 longo, palmas, chimbal esparso, melodia curta
+   *   8–13   batida cheia: 808 deslizando (Lá–Dó–Mi–Sol), palmas, chimbal com
+   *          repiques; bipes nas oscilações do número
+   *   13–15  uma pancada (808 + palma) em cada palavra; subida
+   *   15.75  silêncio
+   *   16     BRAAAM final + 808 longo + cauda
+   */
+  async function comporTrilha() {
+    var ctx = new OfflineAudioContext(2, SR * DUR, SR);
+    var mestre = ctx.createGain(); mestre.gain.value = 0.8;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 6; comp.ratio.value = 5;
+    comp.attack.value = 0.003; comp.release.value = 0.18;
+    var ganhoFinal = ctx.createGain(); ganhoFinal.gain.value = 1.15;
+    mestre.connect(comp); comp.connect(ganhoFinal); ganhoFinal.connect(ctx.destination);
+    // Música de fundo BAIXA; abaixa mais quando a voz fala (ducking).
+    var MUS_NORMAL = 0.26, MUS_SOB_VOZ = 0.12;
+    var musica = ctx.createGain(); musica.gain.value = MUS_NORMAL; musica.connect(mestre);
+    // Impactos (braam, quedas, golpes): canal próprio, sem ducking.
+    var efeitos = ctx.createGain(); efeitos.gain.value = 0.42; efeitos.connect(mestre);
+    var destino = musica;
+    function noCanalDeEfeitos(fn) { destino = efeitos; try { fn(); } finally { destino = musica; } }
+    mestre.gain.setValueAtTime(0.8, DUR - 1.2);
+    mestre.gain.linearRampToValueAtTime(0.0001, DUR - 0.05);
+
+    function impulso(seg, decai) {
+      var n = SR * seg, b = ctx.createBuffer(2, n, SR);
+      for (var c = 0; c < 2; c++) {
+        var d = b.getChannelData(c);
+        for (var i = 0; i < n; i++) d[i] = (acaso(i * 7 + c * 13 + 3) * 2 - 1) * Math.pow(1 - i / n, decai);
+      }
+      return b;
+    }
+    var rev = ctx.createConvolver(); rev.buffer = impulso(3.6, 2.4);
+    var revGanho = ctx.createGain(); revGanho.gain.value = 0.3;
+    rev.connect(revGanho); revGanho.connect(musica);
+
+    var ruido = ctx.createBuffer(1, SR * 2, SR);
+    var rd = ruido.getChannelData(0);
+    for (var i = 0; i < rd.length; i++) rd[i] = acaso(i + 99) * 2 - 1;
+
+    function fonteRuido(t, dur) {
+      var s = ctx.createBufferSource(); s.buffer = ruido; s.loop = true;
+      s.start(t); s.stop(t + dur); return s;
+    }
+    function ganho(v) { var g = ctx.createGain(); g.gain.value = v; return g; }
+    function filtro(tipo, f, q) { var b = ctx.createBiquadFilter(); b.type = tipo; b.frequency.value = f; if (q) b.Q.value = q; return b; }
+    function envio(no, mix) { no.connect(destino); if (mix) { var g = ganho(mix); no.connect(g); g.connect(rev); } }
+    // Saturação (deixa o 808 e o braam "sujos" e presentes no celular).
+    function saturar(q) {
+      var w = ctx.createWaveShaper(), n = 1024, c = new Float32Array(n);
+      for (var i = 0; i < n; i++) { var x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(x * q) / Math.tanh(q); }
+      w.curve = c; w.oversample = '2x'; return w;
+    }
+
+    /* ---- instrumentos ---- */
+
+    // 808: senoide grave com estalo inicial, sustentação longa e deslize.
+    function oito(t, f, dur, v, desliza) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(f * 3.2, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.045);
+      if (desliza) {
+        o.frequency.setValueAtTime(f, t + dur * 0.55);
+        o.frequency.exponentialRampToValueAtTime(desliza, t + dur * 0.8);
+      }
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.95, t + 0.004);
+      g.gain.setValueAtTime(v || 0.95, t + 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      var sat = saturar(2.2), lp = filtro('lowpass', 1800);
+      o.connect(g); g.connect(sat); sat.connect(lp); envio(lp, 0); o.start(t); o.stop(t + dur + 0.05);
+    }
+    // Bumbo de ataque (o "tapa" por cima do 808).
+    function bumbo(t, v) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(50, t + 0.07);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.8, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g); envio(g, 0); o.start(t); o.stop(t + 0.2);
+      var n = fonteRuido(t, 0.02), hp = filtro('highpass', 3000), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.25 * (v || 0.8), t + 0.001);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.015);
+      n.connect(hp); hp.connect(gn); envio(gn, 0);
+    }
+    // Palma: quatro estalos de ruído bem próximos + cauda.
+    function palma(t, v) {
+      [0, 0.011, 0.022, 0.035].forEach(function (d, i) {
+        var n = fonteRuido(t + d, i === 3 ? 0.3 : 0.03), bp = filtro('bandpass', 1300, 1.1), g = ctx.createGain();
+        var pico = (v || 0.7) * (i === 3 ? 1 : 0.7);
+        g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(pico, t + d + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + (i === 3 ? 0.22 : 0.012));
+        n.connect(bp); bp.connect(g); envio(g, 0.45);
+      });
+    }
+    function chimbal(t, v, aberto) {
+      var dur = aberto ? 0.18 : 0.04;
+      var n = fonteRuido(t, dur + 0.02), hp = filtro('highpass', 8500), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.14, t + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      n.connect(hp); hp.connect(g); envio(g, 0.06);
+    }
+    // BRAAAM: metais graves desafinados, filtro abrindo e fechando.
+    function braam(t, dur, forca) {
+      var notas = [55, 110, 82.41, 164.81, 220];
+      var lp = filtro('lowpass', 180, 1.2), sat = saturar(3), g = ctx.createGain();
+      lp.frequency.setValueAtTime(180, t);
+      lp.frequency.exponentialRampToValueAtTime(2600, t + 0.25);
+      lp.frequency.exponentialRampToValueAtTime(500, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55 * forca, t + 0.03);
+      g.gain.setValueAtTime(0.55 * forca, t + dur * 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      notas.forEach(function (f, i) {
+        [-12, 0, 11].forEach(function (cents) {
+          var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents + i;
+          var gv = ganho(i < 2 ? 0.22 : 0.12);
+          o.connect(gv); gv.connect(sat); o.start(t); o.stop(t + dur + 0.05);
+        });
+      });
+      sat.connect(lp); lp.connect(g); envio(g, 0.6);
+    }
+    // Queda de sub + estrondo (impacto de trailer).
+    function impacto(t, forca) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(28, t + 1.4);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.0 * forca, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4 * forca);
+      o.connect(g); envio(g, 0.35); o.start(t); o.stop(t + 2.6);
+      var n = fonteRuido(t, 1.4), lp = filtro('lowpass', 1600), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.8 * forca, t + 0.004);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      n.connect(lp); lp.connect(gn); envio(gn, 0.9);
+    }
+    // Sucção reversa: cresce até exatamente o instante t1 e corta.
+    function reverso(t0, t1, v) {
+      var n = fonteRuido(t0, t1 - t0), bp = filtro('bandpass', 400, 1.5), g = ctx.createGain();
+      bp.frequency.setValueAtTime(400, t0); bp.frequency.exponentialRampToValueAtTime(6000, t1);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v || 0.5, t1 - 0.005);
+      g.gain.linearRampToValueAtTime(0.0001, t1);
+      n.connect(bp); bp.connect(g); envio(g, 0.2);
+    }
+    function subida(t0, t1) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(1760, t1);
+      var lp = filtro('lowpass', 2500), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t1 - 0.02);
+      g.gain.linearRampToValueAtTime(0.0001, t1);
+      o.connect(lp); lp.connect(g); envio(g, 0.3); o.start(t0); o.stop(t1);
+      reverso(t0, t1, 0.4);
+    }
+    // Golpe de frase: pancada grave curta + estalo.
+    function golpe(t, v) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.9, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      var sat = saturar(2);
+      o.connect(g); g.connect(sat); envio(sat, 0.4); o.start(t); o.stop(t + 0.7);
+      var n = fonteRuido(t, 0.15), hp = filtro('highpass', 2000), gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.35, t + 0.002);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      n.connect(hp); hp.connect(gn); envio(gn, 0.6);
+    }
+    function tique(t, v, agudo) {
+      var n = fonteRuido(t, 0.03), bp = filtro('bandpass', agudo ? 4200 : 2600, 8), g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      n.connect(bp); bp.connect(g); envio(g, 0.2);
+    }
+    // Melodia: "pluck" de onda quadrada com eco.
+    var eco = ctx.createDelay(1.0); eco.delayTime.value = 0.375;
+    var ecoVolta = ganho(0.32), ecoSai = ganho(0.4);
+    eco.connect(ecoVolta); ecoVolta.connect(eco); eco.connect(ecoSai); ecoSai.connect(musica);
+    function pluck(t, f, v) {
+      var o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f;
+      var lp = filtro('lowpass', 3200, 2), g = ctx.createGain();
+      lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(600, t + 0.25);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.07, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(lp); lp.connect(g); envio(g, 0.3); g.connect(eco); o.start(t); o.stop(t + 0.4);
+    }
+    function pad(t0, t1, freqs, v) {
+      freqs.forEach(function (f) {
+        [-8, 8].forEach(function (cents) {
+          var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents;
+          var lp = filtro('lowpass', 900, 0.4), g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.6);
+          g.gain.setValueAtTime(v, Math.max(t0 + 0.6, t1 - 0.4));
+          g.gain.exponentialRampToValueAtTime(0.0001, t1);
+          o.connect(lp); lp.connect(g); envio(g, 0.5); o.start(t0); o.stop(t1 + 0.05);
+        });
+      });
+    }
+    function bipe(t, f) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(g); envio(g, 0.3); o.start(t); o.stop(t + 0.15);
+    }
+
+    /* ---- locução + ducking ---- */
+    var voz = ctx.createBufferSource(); voz.buffer = R.voz;
+    var vozGanho = ganho(1.0);
+    // Leve brilho na voz para cortar a música no alto-falante do celular.
+    var presenca = filtro('peaking', 3200, 0.9); presenca.gain.value = 2.5;
+    voz.connect(presenca); presenca.connect(vozGanho); vozGanho.connect(mestre);
+    voz.start(VOZ_INICIO);
+    // Envelope da voz em janelas de 50 ms: música abaixa onde há fala.
+    (function () {
+      var d = R.voz.getChannelData(0), jan = Math.round(SR * 0.05), lim = 0.02, ativo = false;
+      for (var i = 0; i < d.length; i += jan) {
+        var sq = 0; for (var k = i; k < Math.min(d.length, i + jan); k++) sq += d[k] * d[k];
+        var fala = Math.sqrt(sq / jan) > lim;
+        if (fala !== ativo) {
+          var t = VOZ_INICIO + i / SR;
+          musica.gain.setTargetAtTime(fala ? MUS_SOB_VOZ : MUS_NORMAL, Math.max(0, t - (fala ? 0.05 : 0)), fala ? 0.04 : 0.25);
+          ativo = fala;
+        }
+      }
+    })();
+
+    /* ---- arranjo (fundo leve, 120 BPM a partir da revelação) ---- */
+    var M = MARCAS, LA = 55, DO = 65.41, MI = 41.2, SOL = 49.0;
+
+    // Gancho: relógio, coração grave, tapete
+    for (var q = 0; q < Math.floor(M.revela * 2); q++) tique(q * 0.5, q % 2 ? 0.12 : 0.17, q % 2 === 0);
+    for (var c0 = 1.0; c0 < M.revela - 0.6; c0 += 1.0) oito(c0, LA, 0.45, 0.45);
+    pad(0, M.revela, [110, 130.81, 164.81], 0.012);
+    reverso(M.revela - 0.8, M.revela - 0.03, 0.45);
+
+    // Revelação
+    noCanalDeEfeitos(function () { braam(M.revela, 2.4, 0.9); impacto(M.revela, 0.85); });
+    oito(M.revela, LA, 1.8, 0.8);
+    noCanalDeEfeitos(function () { golpe(M.aoVivo, 0.7); });
+
+    // Batida leve do resto do vídeo (grade de 0,5 s a partir da revelação)
+    var raizes = [LA, LA, DO, DO, MI * 2, MI * 2, SOL, SOL];
+    var nBat = Math.floor((M.fim - 0.6 - M.revela) / 0.5);
+    for (var b = 2; b < nBat; b++) {
+      var tb = M.revela + b * 0.5, r = raizes[Math.floor(b / 2) % 8];
+      if (b % 2 === 0) { oito(tb, r, 0.9, 0.7); bumbo(tb, 0.6); }
+      if (b % 4 === 3) palma(tb, 0.45);
+      for (var k = 0; k < 4; k++) chimbal(tb + k * 0.125, k % 2 ? 0.05 : 0.09, k === 3 && b % 8 === 7);
+    }
+    // Melodia discreta em lá menor, a cada 2 compassos
+    var mel = [659.25, 587.33, 523.25, 440, 523.25, 587.33, 659.25, 783.99];
+    for (var m0 = M.numero; m0 < M.fim - 1; m0 += 2) {
+      mel.slice(0, 4).forEach(function (f, i) { pluck(m0 + i * 0.25, mel[(i + Math.round(m0)) % 8], 0.035); });
+    }
+    pad(M.revela, M.fim, [220, 261.63, 329.63], 0.007);
+    // Bipes nas oscilações do número
+    for (var j = 0; j < 4; j++) bipe(M.numero + 1.2 + j * 0.75, j % 2 ? 1760 : 2093);
+    // Uma pancada leve em cada palavra (TRR / POSTOS / ...)
+    noCanalDeEfeitos(function () { M.palavras.forEach(function (t) { golpe(t, 0.45); }); });
+    reverso(M.fim - 0.8, M.fim - 0.03, 0.4);
+
+    // Encerramento: quando a voz acaba, a música sobe e fecha o vídeo
+    var fimVoz = VOZ_INICIO + R.voz.duration;
+    musica.gain.cancelScheduledValues(fimVoz);
+    musica.gain.setTargetAtTime(0.55, fimVoz + 0.05, 0.2);
+    noCanalDeEfeitos(function () { braam(M.fim, DUR - M.fim - 0.1, 0.9); impacto(M.fim, 0.9); impacto(fimVoz + 0.1, 0.55); });
+    oito(fimVoz + 0.1, LA, 2.0, 0.85);
+    [[fimVoz + 0.2, 1318.5], [fimVoz + 0.45, 987.77], [fimVoz + 0.7, 1174.66], [fimVoz + 1.1, 880]].forEach(function (n) { pluck(n[0], n[1], 0.06); });
+    oito(M.fim, LA, 2.4, 0.8);
+    pad(M.fim + 0.1, DUR - 0.05, [110, 220, 261.63, 329.63], 0.011);
+    [[M.fim + 0.5, 880], [M.fim + 0.75, 659.25], [M.fim + 1.0, 523.25], [M.fim + 1.5, 440]].forEach(function (n) { pluck(n[0], n[1], 0.04); });
+
+    var pronto = await ctx.startRendering();
+    limitar(pronto, 0.89);
+    return pronto;
+  }
+
+  /** Limitador com antecipação (ver lancamento.html). Teto -1 dBFS. */
+  function limitar(buf, teto) {
+    var n = buf.length, L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+    var olhar = Math.round(SR * 0.005);
+    var soltar = Math.exp(-1 / (SR * 0.08)), atacar = Math.exp(-1 / (SR * 0.0008));
+    var exigido = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var p = Math.max(Math.abs(L[i]), Math.abs(Rc[i]));
+      exigido[i] = p > teto ? teto / p : 1;
+    }
+    var minimo = new Float32Array(n), fila = new Int32Array(n), ini = 0, fim = 0;
+    for (var j = n - 1; j >= 0; j--) {
+      while (fim > ini && exigido[fila[fim - 1]] >= exigido[j]) fim--;
+      fila[fim++] = j;
+      while (fila[ini] > j + olhar) ini++;
+      minimo[j] = exigido[fila[ini]];
+    }
+    var g = 1;
+    for (var k = 0; k < n; k++) {
+      var alvo = minimo[k];
+      g = alvo < g ? alvo + (g - alvo) * atacar : alvo + (g - alvo) * soltar;
+      L[k] = Math.max(-teto, Math.min(teto, L[k] * g));
+      Rc[k] = Math.max(-teto, Math.min(teto, Rc[k] * g));
+    }
+  }
+
+  /* =========================================================== DESENHO */
+
+  function fundo(ctx, F, T) {
+    var g = ctx.createLinearGradient(0, 0, 0, F.H);
+    g.addColorStop(0, '#081A2E'); g.addColorStop(0.55, COR.tinta); g.addColorStop(1, '#0A1F37');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, F.W, F.H);
+    var r = Math.max(F.W, F.H) * 0.65;
+    var bx = F.W * (0.85 + 0.06 * Math.sin(T * 0.35)), by = F.H * (0.15 + 0.04 * Math.cos(T * 0.3));
+    var gr = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+    gr.addColorStop(0, 'rgba(179,52,31,0.32)'); gr.addColorStop(1, 'rgba(179,52,31,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, F.W, F.H);
+    var cx = F.W * (0.1 + 0.05 * Math.cos(T * 0.25)), cy = F.H * 0.92;
+    var gb = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.9);
+    gb.addColorStop(0, 'rgba(39,73,111,0.6)'); gb.addColorStop(1, 'rgba(39,73,111,0)');
+    ctx.fillStyle = gb; ctx.fillRect(0, 0, F.W, F.H);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(201,213,227,0.045)'; ctx.lineWidth = 1;
+    var passo = 90, off = (T * 12) % passo;
+    ctx.beginPath();
+    for (var x = -passo + off; x < F.W + passo; x += passo) { ctx.moveTo(x, 0); ctx.lineTo(x, F.H); }
+    for (var y = -passo + off; y < F.H + passo; y += passo) { ctx.moveTo(0, y); ctx.lineTo(F.W, y); }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function acabamento(ctx, F, n, T) {
+    var v = ctx.createRadialGradient(F.W / 2, F.H / 2, Math.min(F.W, F.H) * 0.35, F.W / 2, F.H / 2, Math.max(F.W, F.H) * 0.78);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, F.W, F.H);
+    ctx.save();
+    ctx.globalAlpha = 0.045;
+    ctx.globalCompositeOperation = 'overlay';
+    var ox = Math.floor(acaso(n + 1) * 256), oy = Math.floor(acaso(n + 7) * 256);
+    ctx.translate(-ox, -oy);
+    ctx.fillStyle = ctx.createPattern(R.grao, 'repeat'); ctx.fillRect(ox, oy, F.W + 256, F.H + 256);
+    ctx.restore();
+    // Clarões nas batidas grandes e pequenos nos cortes
+    [[MARCAS.revela, 0.35, 0.45], [MARCAS.fim, 0.45, 0.45]].forEach(function (f) {
+      if (T >= f[0] && T < f[0] + f[1]) {
+        ctx.fillStyle = 'rgba(255,255,255,' + (f[2] * (1 - fase(T, f[0], f[1]))) + ')';
+        ctx.fillRect(0, 0, F.W, F.H);
+      }
+    });
+    [MARCAS.aoVivo, MARCAS.numero].concat(MARCAS.palavras).forEach(function (b) {
+      if (T >= b && T < b + 0.12) {
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * (1 - fase(T, b, 0.12))) + ')';
+        ctx.fillRect(0, 0, F.W, F.H);
+      }
+    });
+  }
+
+  /** Kicker (+ traço) no topo da zona segura. Devolve o y logo abaixo. */
+  function kicker(ctx, F, t, texto, y, atraso) {
+    var p = chega(fase(t, atraso || 0.05, 0.45));
+    ctx.save();
+    ctx.globalAlpha *= p;
+    ctx.textBaseline = 'top';
+    ctx.font = fonte(700, 28); ctx.fillStyle = COR.salmao; espacar(ctx, 5);
+    ctx.fillText(texto.toUpperCase(), F.mx + (1 - p) * -20, y);
+    espacar(ctx, 0);
+    ctx.fillStyle = COR.marcaClara;
+    ctx.fillRect(F.mx, y + 40, 64 * chega(fase(t, (atraso || 0.05) + 0.15, 0.5)), 5);
+    ctx.restore();
+    return y + 70;
+  }
+
+  function pilula(ctx, texto, cx, cy, tam, cor, fundoCor, alfa, escala, ponto) {
+    ctx.save();
+    ctx.globalAlpha *= alfa;
+    ctx.font = fonte(700, tam); espacar(ctx, 2);
+    var extra = ponto ? tam * 1.1 : 0;
+    var w = ctx.measureText(texto).width + tam * 1.6 + extra, h = tam * 2;
+    ctx.translate(cx, cy); ctx.scale(escala, escala);
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+    retRedondo(ctx, -w / 2, -h / 2, w, h, h / 2);
+    ctx.fillStyle = fundoCor; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    if (ponto) {
+      ctx.beginPath(); ctx.arc(-w / 2 + tam * 0.8 + tam * 0.3, 0, tam * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = ponto; ctx.fill();
+    }
+    ctx.fillStyle = cor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(texto, extra / 2, 2);
+    espacar(ctx, 0);
+    ctx.restore();
+  }
+
+  /** Ponto "ao vivo" pulsando, com anel que se expande. */
+  function pontoVivo(ctx, x, y, r, t) {
+    var ciclo = (t % 1.0);
+    ctx.save();
+    ctx.globalAlpha *= (1 - ciclo) * 0.6;
+    ctx.beginPath(); ctx.arc(x, y, r * (1 + ciclo * 1.8), 0, Math.PI * 2);
+    ctx.fillStyle = COR.marcaClara; ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = COR.marcaClara; ctx.fill();
+  }
+
+  /** Texto que encolhe até caber na largura. */
+  function caber(ctx, texto, peso, tam, max, minimo) {
+    ctx.font = fonte(peso, tam);
+    while (ctx.measureText(texto).width > max && tam > (minimo || 24)) { tam -= 2; ctx.font = fonte(peso, tam); }
+    return tam;
+  }
+
+  /* -------------------------------------------------------------- cenas */
+
+  function cenas(F) {
+    var V = F.nome === 'stories', A = R.A;
+    var cx = F.W / 2, zona = F.base - F.topo, larg = F.W - 2 * F.mx;
+    var d = A.diesel, g = A.gasolina;
+    var serie = (A.serie || []).map(function (p) { return p.diesel; }).filter(function (v) { return typeof v === 'number'; });
+    var lo = Math.min.apply(null, serie), hi = Math.max.apply(null, serie);
+
+    // Oscilação "ao vivo" do número: um degrau a cada 0,75 s, de até 2
+    // centavos para cima ou para baixo, terminando no valor real.
+    function aoVivo(t) {
+      if (t < 1.2) return { v: d.defasagem, k: -1, dv: 0 };
+      var k = Math.floor((t - 1.2) / 0.75);
+      if (k >= 4) return { v: d.defasagem, k: 4, dv: 0 };
+      var dv = Math.round((acaso(k * 3 + 11) - 0.5) * 4) / 100 || 0.01;
+      return { v: d.defasagem + dv, k: k, dv: dv };
+    }
+    function relogio(minAMais) {
+      var m = R.hora * 60 + R.minuto + minAMais;
+      return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    }
+
+    return [
+      /* A — 0 a 4: gancho ------------------------------------------------ */
+      { ini: 0, fim: MARCAS.revela, desenhar: function (ctx, t) {
+        var G = MARCAS.gancho;
+        var frases = [
+          { t: G[0], txt: 'O diesel lá fora muda' },
+          { t: G[1], txt: 'a cada minuto.' },
+          { t: G[2], txt: 'O dólar também.' },
+          { t: G[3], txt: 'E você ainda negocia com o número de ontem?', destaque: true }
+        ];
+        var tam = V ? 92 : 80, y = F.topo + zona * (V ? 0.16 : 0.1);
+        ctx.textBaseline = 'top';
+        frases.forEach(function (f, i) {
+          if (t < f.t) return;
+          var p = chega(fase(t, f.t, 0.28));
+          var apagada = i < 3 && t >= frases[Math.min(3, i + 1)].t ? 0.4 : 1;
+          ctx.save();
+          ctx.globalAlpha = p * apagada;
+          ctx.font = fonte(800, f.destaque ? tam * 0.88 : tam); espacar(ctx, -2);
+          var linhas = quebrar(ctx, f.txt, larg);
+          var e = lerp(1.18, 1, p);
+          ctx.translate(F.mx, y); ctx.scale(e, e);
+          ctx.fillStyle = f.destaque ? COR.salmao : COR.branco;
+          linhas.forEach(function (l, k) { ctx.fillText(l, 0, k * (f.destaque ? tam * 0.88 : tam) * 1.08); });
+          espacar(ctx, 0);
+          ctx.restore();
+          y += linhas.length * (f.destaque ? tam * 0.88 : tam) * 1.08 + (i === 2 ? tam * 0.55 : 18);
+        });
+        // relógio discreto no rodapé da zona, girando
+        ctx.save();
+        ctx.globalAlpha = 0.5 * chega(fase(t, 0.2, 0.6));
+        var rx = F.W - F.mx - 60, ry = F.base - 90, rr = 46;
+        ctx.strokeStyle = COR.sobreNavy; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineCap = 'round';
+        var ang = -Math.PI / 2 + t * Math.PI;   // meia volta por segundo
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(ang) * rr * 0.75, ry + Math.sin(ang) * rr * 0.75); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(ang / 12) * rr * 0.5, ry + Math.sin(ang / 12) * rr * 0.5); ctx.stroke();
+        ctx.restore();
+      } },
+
+      /* B — 4 a 8: revelação ------------------------------------------- */
+      { ini: MARCAS.revela, fim: MARCAS.numero, desenhar: function (ctx, t) {
+        var cy = F.topo + zona * (V ? 0.36 : 0.34);
+        // raios girando atrás
+        ctx.save();
+        ctx.globalAlpha = 0.28 * (1 - fase(t, 0.3, 3.2));
+        ctx.translate(cx, cy); ctx.rotate(t * 0.18);
+        for (var k = 0; k < 20; k++) {
+          ctx.rotate(Math.PI * 2 / 20);
+          var gg = ctx.createLinearGradient(0, 0, F.H * 0.6, 0);
+          gg.addColorStop(0, 'rgba(224,83,58,0.55)'); gg.addColorStop(1, 'rgba(224,83,58,0)');
+          ctx.fillStyle = gg;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(F.H * 0.6, -16); ctx.lineTo(F.H * 0.6, 16); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+
+        var pn = salta(fase(t, 0.05, 0.4));
+        pilula(ctx, 'NOVO NO SUPRIPRICE', cx, cy - (V ? 250 : 210), 28, COR.branco, COR.marca, Math.min(1, pn), pn);
+
+        var pt = chega(fase(t, 0.2, 0.5));
+        ctx.save();
+        ctx.globalAlpha = pt;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        var tam = caber(ctx, 'Arbitragem', 800, V ? 150 : 128, larg);
+        ctx.fillStyle = COR.branco; espacar(ctx, -3);
+        ctx.fillText('Arbitragem', cx, cy - tam * 0.55 + (1 - pt) * 40);
+        ctx.fillStyle = COR.salmao;
+        ctx.fillText('SupriPrice', cx, cy + tam * 0.5 + (1 - pt) * 60);
+        espacar(ctx, 0);
+        ctx.restore();
+
+        // AO VIVO grande, com ponto pulsando
+        var tVivo = MARCAS.aoVivo - MARCAS.revela;
+        var pv = salta(fase(t, tVivo, 0.45));
+        if (t > tVivo) {
+          ctx.save();
+          var vy = cy + (V ? 230 : 200);
+          ctx.globalAlpha = Math.min(1, pv);
+          ctx.translate(cx, vy); ctx.scale(pv, pv);
+          ctx.font = fonte(800, V ? 64 : 56); espacar(ctx, 6);
+          var w = ctx.measureText('AO VIVO').width + (V ? 150 : 130), h = V ? 116 : 100;
+          retRedondo(ctx, -w / 2, -h / 2, w, h, h / 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(224,83,58,0.9)'; ctx.stroke();
+          pontoVivo(ctx, -w / 2 + h * 0.55, 0, V ? 16 : 14, t);
+          ctx.fillStyle = COR.branco; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('AO VIVO', h * 0.3, 3);
+          espacar(ctx, 0);
+          ctx.restore();
+        }
+
+        var ps = chega(fase(t, 1.0, 0.5));
+        ctx.save();
+        ctx.globalAlpha = ps;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = fonte(500, V ? 40 : 34); ctx.fillStyle = COR.sobreNavy;
+        quebrar(ctx, 'A defasagem do diesel e da gasolina, recalculada a cada minuto.', larg * 0.92)
+          .forEach(function (l, i) { ctx.fillText(l, cx, cy + (V ? 330 : 290) + i * (V ? 54 : 46) + (1 - ps) * 20); });
+        ctx.restore();
+      } },
+
+      /* C — 8 a 13: o número ao vivo ----------------------------------- */
+      { ini: MARCAS.numero, fim: MARCAS.paraQuem, desenhar: function (ctx, t) {
+        var y = kicker(ctx, F, t, 'Diesel A · agora', F.topo + (V ? 10 : 0));
+        var cartX = F.mx, cartW = larg, cartY = y + 10, cartH = V ? 860 : 700;
+        var pc = chega(fase(t, 0.05, 0.4));
+        ctx.save();
+        ctx.globalAlpha = pc;
+        ctx.translate(0, (1 - pc) * 40);
+        ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 24;
+        retRedondo(ctx, cartX, cartY, cartW, cartH, 28); ctx.fillStyle = COR.navy2; ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(201,213,227,0.14)'; ctx.stroke();
+
+        var px = cartX + 56, py = cartY + 56;
+        // cabeçalho: nome + ao vivo + relógio
+        var av = aoVivo(t);
+        ctx.textBaseline = 'middle';
+        ctx.font = fonte(700, 38); ctx.fillStyle = COR.branco; ctx.textAlign = 'left';
+        ctx.fillText('Diesel A', px, py + 10);
+        pontoVivo(ctx, cartX + cartW - 250, py + 10, 11, t);
+        ctx.font = fonte(700, 30); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText('Ao vivo · ' + relogio(Math.max(0, av.k + 1)), cartX + cartW - 228, py + 12);
+
+        // valor grande, contando
+        var pcont = suave(fase(t, 0.15, 1.0));
+        var mostra = t < 1.2 ? d.defasagem * pcont : av.v;
+        var vy = py + (V ? 240 : 200);
+        ctx.textBaseline = 'alphabetic';
+        var txtV = brl(Math.abs(mostra));
+        // cabe junto com o "/litro" dentro do cartão
+        var tamV = V ? 200 : 168;
+        ctx.font = fonte(800, tamV); espacar(ctx, -4);
+        while (ctx.measureText(brl(Math.max(9.99, Math.abs(d.defasagem)))).width > cartW - 112 - 140 && tamV > 90) {
+          tamV -= 4; ctx.font = fonte(800, tamV);
+        }
+        ctx.fillStyle = COR.branco;
+        ctx.fillText(txtV, px - 6, vy);
+        var wv = ctx.measureText(txtV).width;
+        espacar(ctx, 0);
+        ctx.font = fonte(600, V ? 38 : 34); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText('/litro', px + wv + 14, vy - 12);
+
+        // linha de leitura + movimento
+        ctx.font = fonte(600, V ? 36 : 32); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText(Math.abs(d.pct) + '% abaixo da paridade de importação', px, vy + (V ? 68 : 58));
+        if (av.k >= 0 && av.k < 4) {
+          var pm = 1 - fase(t, 1.2 + av.k * 0.75 + 0.45, 0.3);
+          ctx.globalAlpha = pc * Math.max(0.35, pm);
+          ctx.font = fonte(700, V ? 36 : 32);
+          ctx.fillStyle = av.dv > 0 ? COR.salmao : COR.verdeClaro;
+          ctx.fillText((av.dv > 0 ? '▲ ' : '▼ ') + brl(Math.abs(av.dv)) + ' no último minuto', px, vy + (V ? 126 : 110));
+          ctx.globalAlpha = pc;
+        }
+
+        // conta resumida
+        var cy2 = vy + (V ? 190 : 160);
+        ctx.fillStyle = 'rgba(201,213,227,0.18)'; ctx.fillRect(px, cy2 - 30, cartW - 112, 2);
+        [['IMPORTAÇÃO', brl(d.ppi)], ['PETROBRAS', brl(d.petro)]].forEach(function (c, i) {
+          var xx = px + i * 300;
+          ctx.font = fonte(700, 24); ctx.fillStyle = COR.sobreNavy; espacar(ctx, 2);
+          ctx.fillText(c[0], xx, cy2 + 12);
+          espacar(ctx, 0);
+          ctx.font = fonte(800, 46); ctx.fillStyle = COR.branco;
+          ctx.fillText(c[1], xx, cy2 + 66);
+        });
+
+        // linha dos pregões, se desenhando
+        if (serie.length > 4) {
+          var lx = px, ly = cy2 + (V ? 120 : 100), lw = cartW - 112, lh = V ? 170 : 120;
+          var pl = suave(fase(t, 0.6, 2.2));
+          var nPts = Math.max(2, Math.ceil(serie.length * pl));
+          ctx.save();
+          ctx.beginPath();
+          for (var i = 0; i < nPts; i++) {
+            var xx2 = lx + i * lw / (serie.length - 1);
+            var yy = ly + lh - (hi === lo ? 0.5 : (serie[i] - lo) / (hi - lo)) * lh;
+            if (i) ctx.lineTo(xx2, yy); else ctx.moveTo(xx2, yy);
+          }
+          ctx.strokeStyle = COR.salmao; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+          ctx.stroke();
+          var ux = lx + (nPts - 1) * lw / (serie.length - 1);
+          var uy = ly + lh - (hi === lo ? 0.5 : (serie[nPts - 1] - lo) / (hi - lo)) * lh;
+          pontoVivo(ctx, ux, uy, 9, t);
+          ctx.restore();
+          ctx.font = fonte(500, V ? 28 : 24); ctx.fillStyle = COR.sobreNavy;
+          ctx.globalAlpha = pc * chega(fase(t, 2.4, 0.5));
+          ctx.fillText(serie.length + ' pregões · mín. ' + brl(lo) + ' · máx. ' + brl(hi), lx, ly + lh + (V ? 52 : 44));
+          ctx.globalAlpha = pc;
+        }
+        ctx.restore();
+
+        // gasolina, cartão menor
+        var pg = chega(fase(t, 1.6, 0.45));
+        if (g) {
+          ctx.save();
+          ctx.globalAlpha = pg;
+          var gy = cartY + cartH + (V ? 36 : 26), gh = V ? 130 : 110;
+          ctx.translate(0, (1 - pg) * 30);
+          retRedondo(ctx, cartX, gy, cartW, gh, 24); ctx.fillStyle = 'rgba(22,54,90,0.85)'; ctx.fill();
+          ctx.textBaseline = 'middle';
+          ctx.font = fonte(700, 34); ctx.fillStyle = COR.branco;
+          ctx.fillText('Gasolina A', cartX + 50, gy + gh / 2);
+          ctx.textAlign = 'right';
+          ctx.font = fonte(600, 28);
+          var suf = '/litro · ' + Math.abs(g.pct) + '%', ws = ctx.measureText(suf).width;
+          ctx.fillStyle = COR.sobreNavy;
+          ctx.fillText(suf, cartX + cartW - 46, gy + gh / 2 + 4);
+          ctx.font = fonte(800, V ? 56 : 48); ctx.fillStyle = COR.branco;
+          ctx.fillText(brl(Math.abs(g.defasagem)), cartX + cartW - 46 - ws - 14, gy + gh / 2 + 2);
+          ctx.restore();
+        }
+      } },
+
+      /* E — 13 a 16: para quem ----------------------------------------- */
+      { ini: MARCAS.paraQuem, fim: MARCAS.fim, desenhar: function (ctx, t) {
+        var y = kicker(ctx, F, t, 'Para quem compra e vende diesel', F.topo + (V ? 10 : 0));
+        var palavras = ['TRR', 'POSTOS', 'DISTRIBUIDORAS', 'TRANSPORTADORAS'];
+        var tw = MARCAS.palavras.map(function (x) { return x - MARCAS.paraQuem; });
+        var k = 0; tw.forEach(function (x, i) { if (t >= x) k = i; });
+        var tl = t - tw[k];
+        var p = chega(fase(tl, 0, 0.22));
+        var cy = F.topo + zona * (V ? 0.44 : 0.42);
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        // as anteriores, pequenas, empilhadas acima
+        for (var i = 0; i < k; i++) {
+          ctx.globalAlpha = 0.35;
+          var tp = caber(ctx, palavras[i], 800, V ? 54 : 46, larg);
+          ctx.fillStyle = COR.sobreNavy;
+          ctx.fillText(palavras[i], cx, cy - (k - i) * (V ? 78 : 64) - (V ? 90 : 70));
+        }
+        ctx.globalAlpha = p;
+        var tam = caber(ctx, palavras[k], 800, V ? 170 : 140, larg, 60);
+        var e = lerp(1.35, 1, p);
+        ctx.translate(cx, cy); ctx.scale(e, e);
+        espacar(ctx, -2);
+        ctx.fillStyle = COR.branco;
+        ctx.fillText(palavras[k], 0, 0);
+        espacar(ctx, 0);
+        ctx.restore();
+
+        var pf = chega(fase(t, tw[3] + 0.6, 0.5));
+        ctx.save();
+        ctx.globalAlpha = pf;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        var tf = caber(ctx, 'Negocie com o número do momento.', 700, V ? 54 : 46, larg);
+        ctx.fillStyle = COR.salmao;
+        ctx.fillText('Negocie com o número do momento.', cx, cy + (V ? 170 : 140) + (1 - pf) * 20);
+        ctx.font = fonte(500, V ? 36 : 30); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText('Não com o boletim de ontem.', cx, cy + (V ? 170 : 140) + tf * 1.35);
+        ctx.restore();
+      } },
+
+      /* F — 16 a 20: encerramento --------------------------------------- */
+      { ini: MARCAS.fim, fim: DUR, desenhar: function (ctx, t) {
+        var L = R.logo, lh = V ? 110 : 96, lw = L.width * lh / L.height;
+        var cy = F.topo + zona * (V ? 0.3 : 0.28);
+        ctx.save();
+        ctx.globalAlpha = 0.35 * (1 - fase(t, 0.2, 2.5));
+        ctx.translate(cx, cy + 140); ctx.rotate(t * 0.15);
+        for (var k = 0; k < 24; k++) {
+          ctx.rotate(Math.PI * 2 / 24);
+          var gg = ctx.createLinearGradient(0, 0, F.H * 0.7, 0);
+          gg.addColorStop(0, 'rgba(224,83,58,0.6)'); gg.addColorStop(1, 'rgba(224,83,58,0)');
+          ctx.fillStyle = gg;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(F.H * 0.7, -14); ctx.lineTo(F.H * 0.7, 14); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        var pl = chega(fase(t, 0, 0.6));
+        ctx.save();
+        ctx.globalAlpha = pl;
+        ctx.translate(cx, cy); var e = lerp(1.2, 1, pl); ctx.scale(e, e);
+        ctx.drawImage(L, -lw / 2, -lh / 2, lw, lh);
+        ctx.restore();
+
+        var pj = salta(fase(t, 0.3, 0.45));
+        pilula(ctx, 'ARBITRAGEM AO VIVO', cx, cy + lh / 2 + 80, 28, COR.branco, COR.marca, Math.min(1, pj), pj, COR.branco);
+
+        var pu = chega(fase(t, 0.55, 0.5));
+        ctx.save();
+        ctx.globalAlpha = pu;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        var tam = caber(ctx, 'supriprice.com.br', 800, V ? 86 : 74, larg, 40);
+        espacar(ctx, -2); ctx.fillStyle = COR.branco;
+        var uy = cy + lh / 2 + 160 + (1 - pu) * 30;
+        ctx.fillText('supriprice.com.br', cx, uy);
+        espacar(ctx, 0);
+        var ps = chega(fase(t, 0.85, 0.5));
+        ctx.globalAlpha = ps;
+        ctx.font = fonte(600, V ? 38 : 32); ctx.fillStyle = COR.sobreNavy;
+        ctx.fillText('Diesel e gasolina · atualiza a cada minuto', cx, uy + tam * 1.3);
+        var pa = chega(fase(t, MARCAS.aberto - MARCAS.fim, 0.5));
+        ctx.globalAlpha = pa;
+        ctx.font = fonte(700, V ? 40 : 34); ctx.fillStyle = COR.salmao;
+        ctx.fillText('Aberto para todos por tempo limitado', cx, uy + tam * 1.3 + (V ? 80 : 66));
+        ctx.globalAlpha = chega(fase(t, MARCAS.linkBio - MARCAS.fim, 0.5));
+        ctx.font = fonte(800, V ? 44 : 38); ctx.fillStyle = COR.branco;
+        ctx.fillText('Link na bio', cx, uy + tam * 1.3 + (V ? 160 : 132));
+        ctx.restore();
+      } }
+    ];
+  }
+
+  /* --------------------------------------------------------- linha do tempo */
+
+  var roteiro = {};
+
+  function montar(nome) {
+    var F = Object.assign({ nome: nome }, FORMATOS[nome]);
+    roteiro[nome] = { F: F, cenas: cenas(F) };
+    return roteiro[nome];
+  }
+
+  function desenharQuadro(ctx, nome, n) {
+    var T = n / FPS, r = roteiro[nome], F = r.F;
+    fundo(ctx, F, T);
+    r.cenas.forEach(function (c, i) {
+      if (T < c.ini || T >= c.fim) return;
+      var t = T - c.ini, dur = c.fim - c.ini;
+      var entra = i === 0 ? 1 : chega(fase(t, 0, 0.22));
+      var sai = i === r.cenas.length - 1 ? 1 : 1 - fase(t, dur - 0.15, 0.15);
+      ctx.save();
+      ctx.globalAlpha = entra * sai;
+      if (entra < 1) {
+        ctx.filter = 'blur(' + ((1 - entra) * 18).toFixed(1) + 'px)';
+        ctx.translate(0, (1 - entra) * 60);
+      }
+      c.desenhar(ctx, t);
+      ctx.restore();
+    });
+    acabamento(ctx, F, n, T);
+  }
+
+  /* ------------------------------------------------------------- saída */
+
+  function gravar(caminho, corpo) {
+    return fetch('/__gravar?path=' + encodeURIComponent(caminho), { method: 'POST', body: corpo })
+      .then(function (r) { if (!r.ok) throw new Error('gravar ' + caminho + ': HTTP ' + r.status); return r.text(); });
+  }
+
+  async function previa(nome, tempos) {
+    await preparar();
+    montar(nome);
+    var F = roteiro[nome].F, c = document.getElementById('quadro');
+    c.width = F.W; c.height = F.H;
+    var ctx = c.getContext('2d');
+    var salvos = [];
+    for (var i = 0; i < tempos.length; i++) {
+      desenharQuadro(ctx, nome, Math.round(tempos[i] * FPS));
+      var b = await new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.88); });
+      var arq = 'video/capturas/arbn-' + nome + '-' + String(tempos[i]).replace('.', '_') + '.jpg';
+      await gravar(arq, b); salvos.push(arq);
+    }
+    return salvos;
+  }
+
+  var trilha = null;
+  async function obterTrilha() {
+    if (!trilha) trilha = await comporTrilha();
+    return trilha;
+  }
+
+  var progresso = { estado: 'parado' };
+
+  async function renderizar(nome) {
+    progresso = { estado: 'preparando', formato: nome };
+    await preparar();
+    var r = montar(nome), F = r.F;
+    var c = document.getElementById('quadro');
+    c.width = F.W; c.height = F.H;
+    var ctx = c.getContext('2d', { alpha: false });
+    var quadros = DUR * FPS;
+
+    var codec = null, cands = ['avc1.640033', 'avc1.640032', 'avc1.64002A'];
+    for (var i = 0; i < cands.length && !codec; i++) {
+      var s = await VideoEncoder.isConfigSupported({ codec: cands[i], width: F.W, height: F.H, bitrate: F.bitrate, framerate: FPS });
+      if (s.supported) codec = cands[i];
+    }
+    if (!codec) throw new Error('H.264 não suportado em ' + F.W + 'x' + F.H);
+
+    var muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      video: { codec: 'avc', width: F.W, height: F.H, frameRate: FPS },
+      audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 2 },
+      fastStart: 'in-memory'
+    });
+
+    var erroA = null;
+    var aenc = new AudioEncoder({
+      output: function (chunk, meta) { muxer.addAudioChunk(chunk, meta); },
+      error: function (e) { erroA = e; }
+    });
+    aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 192000 });
+    var buf = await obterTrilha(), L = buf.getChannelData(0), Rc = buf.getChannelData(1);
+    var BLOCO = 1024;
+    for (var a = 0; a < buf.length; a += BLOCO) {
+      var nf = Math.min(BLOCO, buf.length - a), plano = new Float32Array(nf * 2);
+      plano.set(L.subarray(a, a + nf), 0); plano.set(Rc.subarray(a, a + nf), nf);
+      var ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: nf, numberOfChannels: 2,
+        timestamp: Math.round(a / SR * 1e6), data: plano });
+      aenc.encode(ad); ad.close();
+    }
+    await aenc.flush();
+    if (erroA) throw erroA;
+
+    var erroV = null;
+    var enc = new VideoEncoder({
+      output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
+      error: function (e) { erroV = e; }
+    });
+    enc.configure({ codec: codec, width: F.W, height: F.H, bitrate: F.bitrate, framerate: FPS,
+      latencyMode: 'quality', avc: { format: 'avc' } });
+    var inicio = performance.now();
+    for (var n = 0; n < quadros; n++) {
+      if (erroV) throw erroV;
+      desenharQuadro(ctx, nome, n);
+      var vf = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      enc.encode(vf, { keyFrame: n % FPS === 0 });
+      vf.close();
+      while (enc.encodeQueueSize > 6) {
+        await new Promise(function (ok) { enc.addEventListener('dequeue', ok, { once: true }); });
+      }
+      if (n % 30 === 0) { progresso = { estado: 'codificando', formato: nome, quadro: n, de: quadros }; status(nome + ': ' + n + '/' + quadros); }
+    }
+    await enc.flush();
+    if (erroV) throw erroV;
+    muxer.finalize();
+    var saida = muxer.target.buffer;
+    var arquivo = 'video/arbitragem-narrado-' + nome + '.mp4';
+    await gravar(arquivo, new Blob([saida], { type: 'video/mp4' }));
+
+    // Capa: a revelação com o AO VIVO já na tela.
+    desenharQuadro(ctx, nome, Math.round(9.8 * FPS));
+    await gravar('video/capa-arbitragem-narrado-' + nome + '.jpg', await new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.92); }));
+
+    progresso = { estado: 'pronto', formato: nome, arquivo: arquivo, bytes: saida.byteLength, codec: codec,
+      levou: +((performance.now() - inicio) / 1000).toFixed(1) };
+    status(nome + ': pronto');
+    return progresso;
+  }
+
+  /** Volume da trilha: pico e média (RMS) em dBFS, por trecho de 1 s. */
+  async function medirTrilha() {
+    await preparar();
+    var buf = await obterTrilha(), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+    var db = function (x) { return +(20 * Math.log10(Math.max(x, 1e-9))).toFixed(1); };
+    var pico = 0, soma = 0, por = [];
+    for (var s0 = 0; s0 < DUR; s0++) {
+      var p = 0, q = 0;
+      for (var i = s0 * SR; i < (s0 + 1) * SR && i < L.length; i++) {
+        var v = Math.max(Math.abs(L[i]), Math.abs(Rr[i])); p = Math.max(p, v); q += L[i] * L[i] + Rr[i] * Rr[i];
+      }
+      pico = Math.max(pico, p); soma += q; por.push(db(Math.sqrt(q / (2 * SR))));
+    }
+    return { pico: db(pico), rms: db(Math.sqrt(soma / (2 * L.length))), porSegundo: por };
+  }
+
+  window.ArbN = {
+    previa: previa, renderizar: renderizar, medirTrilha: medirTrilha,
+    progresso: function () { return progresso; }
+  };
+})();
+</script>
+</body>
+</html>

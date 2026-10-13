@@ -1011,6 +1011,7 @@
 
   /** Volume da trilha: pico e média (RMS) em dBFS, por trecho de 1 s. */
   async function medirTrilha() {
+    await preparar();
     var buf = await obterTrilha(), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
     var db = function (x) { return +(20 * Math.log10(Math.max(x, 1e-9))).toFixed(1); };
     var pico = 0, soma = 0, por = [];
