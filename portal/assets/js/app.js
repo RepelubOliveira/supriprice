@@ -1193,6 +1193,29 @@
    * pela ANP em três linhas. Os números completos, com filtro de período e de
    * estado, ficam em market-share.html (share.js).
    */
+  /**
+   * Quando sai o próximo mês do market share, pelo calendário da ANP: dia 20
+   * a prévia do mês anterior, dia 1 o consolidado do retrasado. Responde a
+   * "estamos em outubro e ainda é agosto?" (em 14/10/2026 a base da ANP, de
+   * 01/10, ia só até agosto; setembro sai em 20/10). Também usada pela aba.
+   */
+  function proximaShare(ref) {
+    if (!ref || !ref.mes) return '';
+    var hoje = hojeBrasilia() || new Date().toISOString().slice(0, 10);
+    var a = +hoje.slice(0, 4), m = +hoje.slice(5, 7), dia = +hoje.slice(8, 10);
+    var MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    var antA = m === 1 ? a - 1 : a, antM = m === 1 ? 12 : m - 1;
+    var anterior = antA + '-' + ('0' + antM).slice(-2);
+    var rot = MES[antM - 1] + '/' + String(antA).slice(2);
+    var dd = function (d, mes) { return ('0' + d).slice(-2) + '/' + ('0' + mes).slice(-2); };
+    if (ref.mes < anterior) {
+      return 'prévia de ' + rot + ' prevista para ' + dd(20, m) + (dia > 20 ? ' (a ANP ainda não divulgou)' : '');
+    }
+    if (ref.mes === anterior && ref.preliminar) return rot + ' consolidado previsto para ' + dd(1, m === 12 ? 1 : m + 1);
+    return '';
+  }
+  window.spProximaShare = proximaShare;
+
   function montarShare() {
     var S = D.share, caixa = $('#share');
     var M = S && S.mercado;
@@ -1213,7 +1236,9 @@
       partes[0] += ' (' + (M.varMesPct > 0 ? '+' : M.varMesPct < 0 ? '−' : '') + dec1(Math.abs(M.varMesPct)) + '% no mês)';
     }
     if (M.canalTrr) partes.push('o canal TRR ficou com ' + dec1(M.canalTrr.share) + '%');
-    $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.';
+    var prox = proximaShare(ref);
+    $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.' +
+      (prox ? ' <small class="share-teaser__prox">ANP: ' + esc(prox) + '.</small>' : '');
 
     $('#shareTop').innerHTML = M.mes.top.slice(0, 3).map(function (x) {
       return '<li><span>' + x.pos + '. ' + esc(x.curto || x.nome) + '</span><b>' + dec1(x.share) + '%</b></li>';

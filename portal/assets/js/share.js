@@ -546,15 +546,17 @@
   function montarRodape() {
     var base = SR.base ? SR.base.split('-').reverse().join('/') : '';
     var ref = S && S.referencia;
+    var prox = ref && window.spProximaShare ? window.spProximaShare(ref) : '';
     $('#msBase').textContent = 'Fonte: ANP, SIMP · base de ' + base +
-      (ref ? ' · último mês: ' + rotulo(ref.mes) + (ref.preliminar ? ' (preliminar)' : '') : '');
+      (ref ? ' · último mês: ' + rotulo(ref.mes) + (ref.preliminar ? ' (preliminar)' : '') : '') +
+      (prox ? ' · ' + prox : '');
 
     var lnk = function (u, t) { u = urlSegura(u); return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t; };
     $('#msFonte').innerHTML = 'Fonte: ANP, SIMP (volumes declarados pelos agentes), bases dos painéis ' +
       lnk(S.urlPainelLiquidos, 'Mercado Brasileiro de Combustíveis Líquidos') + ' e ' +
       lnk(S.urlPainel, 'Mercado Brasileiro de TRR') + (base ? ', atualizadas em ' + esc(base) : '') +
       '. Diesel, gasolina, etanol e óleo combustível, em mil m³. A ANP publica no dia 1 (mês retrasado, consolidado) ' +
-      'e no dia 20 (mês anterior, preliminar); o portal confere uma vez por dia. Estados: vendas dentro do estado, ' +
+      'e no dia 20 (mês anterior, preliminar); o portal confere a cada atualização, seis vezes por dia. Estados: vendas dentro do estado, ' +
       'de empresas de qualquer origem. Empresas do mesmo grupo com CNPJ próprio aparecem separadas, como a ANP as registra.';
 
     var csv = S.csv && urlSegura(S.csv), baixar = $('#msCsv');

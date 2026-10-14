@@ -807,6 +807,7 @@ button { cursor: pointer; }
 .hero__source .mkt__live { margin-right: 6px; vertical-align: middle; }
 /* Data da última rodada do robô: discreta, no fim das fontes do rodapé. */
 .site-footer__carimbo { opacity: .7; }
+.share-teaser__prox { display: block; margin-top: 6px; font-size: 12.5px; opacity: .75; }
 .site-footer__carimbo:not(:empty)::before { content: " "; }
 /* Ponto de hoje no gráfico da arbitragem, acompanhando o ao vivo. */
 .linha__vivo { fill: none; stroke: #2E8B57; stroke-width: 2; transform-box: fill-box; transform-origin: center;

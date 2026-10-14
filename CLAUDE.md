@@ -59,6 +59,13 @@ node automacao/share.mjs                 # testa só o market share
 
 ## Armadilhas já conhecidas
 
+- Preço na bomba: as médias (Brasil, regiões, estados) vêm do RESUMO SEMANAL oficial da ANP
+  (`resumo_semanal_lpc_*.xlsx`, achado na página "últimas semanas pesquisadas"), não da média
+  simples do CSV posto a posto: a ANP pondera e a diferença chega a R$ 0,25 num estado. O CSV
+  fica de reserva. O CSV tem endereços com `;` entre aspas: ler com `celulasCsv`, nunca `split(';')`.
+- Market share: a ANP atualiza a base dia 1 (mês retrasado) e dia 20 (prévia do mês anterior).
+  Em outubro, até o dia 20, o último mês é agosto mesmo; o site mostra a próxima divulgação.
+
 - `.js`/`.css` no HTMLy têm cache imutável de 30 dias: ao mudar um asset, troque o
   `?v=` nas DUAS páginas e publique o asset ANTES das páginas (o robô só publica
   dados.js, páginas, jornal e estado; app.js/share.js/medicao.js/style.css sobem à parte

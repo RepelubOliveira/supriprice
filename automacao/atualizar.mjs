@@ -392,11 +392,14 @@ async function principal() {
       ? new TextDecoder('utf-8', { ignoreBOM: false }).decode(await readFile(csvLocal))
       : undefined);
     const s10 = anp.produtos.find((p) => p.nome === 'Diesel S10');
-    log(`ANP: S10 ${brl(s10.media)} em ${anp.totalColetas} postos (${anp.periodo.de} a ${anp.periodo.ate})`);
+    log(`ANP: S10 ${brl(s10.media)} em ${anp.totalColetas} postos (${anp.periodo.de} a ${anp.periodo.ate}) · ` +
+      (anp.origem === 'resumo-semanal' ? 'médias oficiais do resumo semanal' : 'médias do CSV posto a posto'));
     // Dia em que esta semana da ANP apareceu pela primeira vez: o pop-up de
-    // novidades do site só avisa "preço na bomba atualizado" nesse dia.
+    // novidades do site só avisa "preço na bomba atualizado" nesse dia. A
+    // semana é a data de INÍCIO: o fim muda (09 no CSV, 10 no resumo) e não
+    // é semana nova.
     const antes = await lerJson(P.anpUltima, null);
-    anp.novoEm = antes?.periodo?.ate === anp.periodo.ate ? (antes.novoEm || antes.periodo.ate) : iso(hoje);
+    anp.novoEm = antes?.periodo?.de === anp.periodo.de ? (antes.novoEm || antes.periodo.ate) : iso(hoje);
     await writeFile(P.anpUltima, JSON.stringify(anp) + '\n', 'utf8');
   } catch (e) {
     console.warn(`  ! ANP indisponível: ${e.message}`);
