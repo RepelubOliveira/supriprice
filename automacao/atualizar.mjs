@@ -574,7 +574,7 @@ async function principal() {
   const jornal = gerarJornal({
     data: hoje, abicom: arbJ ? arbJ.abicom : abicom, brent, dolar, anp, noticias,
     historico: arbJ ? arbJ.historico : historico, indicadores,
-    share: shareNoJornal, shareResumo: share, analise, radar,
+    share: shareNoJornal, shareResumo: share, previa: previaShare, analise, radar,
     parcial: arbJ ? false : parcial, fimDeSemana, dataAbicomISO: arbJ ? iso(hoje) : dataAbicomISO, edicoesAntes,
     negocios: negociosJornal, propria: !!arbJ
   });

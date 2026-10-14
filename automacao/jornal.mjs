@@ -71,7 +71,7 @@ function ultimaAnalise(edicoesAntes, analise) {
  * Tipos: share (divulgação da ANP), analise, mercado, defasagem, bomba,
  * estados, share-estado.
  */
-export function escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios }) {
+export function escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios, previa }) {
   const anteriores = (edicoesAntes || []).filter((e) => e.data < iso);
   const recentes = anteriores.slice(0, 3).map((e) => (e.destaque || '').split(':')[0]);
   const c = [];
@@ -97,6 +97,9 @@ export function escolherDestaque({ iso, abicom, anp, historico, indicadores, sha
   if (anp?.maisCaros?.length && anp?.maisBaratos?.length) c.push({ tipo: 'estados', nota: 0.45 });
   const ufs = (shareResumo?.destaques || []).filter((e) => e.topDist?.length || e.topTrr?.length);
   if (ufs.length) c.push({ tipo: 'share-estado', nota: 0.5 });
+  // Prévia do mês no Power BI da ANP (parcial): assunto de vez em quando; vira
+  // notícia forte quando a maior parte do volume já foi declarada (ranking).
+  if (previa?.mercado?.top?.length) c.push({ tipo: 'previa', nota: previa.mercado.ranking ? 3 : 1.2 });
 
   for (const x of c) {
     if (x.semDesconto) continue;
@@ -113,7 +116,7 @@ export function escolherDestaque({ iso, abicom, anp, historico, indicadores, sha
 }
 
 /** Uma frase de manchete a partir do bloco do dia. */
-function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso }) {
+function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso, previa }) {
   switch (destaque?.tipo) {
     case 'defasagem': {
       const pts = (historico || []).slice(-20).map((p) => p.valor);
@@ -148,12 +151,20 @@ function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo
       return { tipo: 'd-share-estado', chapeu: 'Market share · ANP',
         manchete: `${lider.nome} lidera a venda de combustíveis em ${e.nome}, com ${num(lider.share, 1)}%` };
     }
+    case 'previa': {
+      const m = previa?.mercado, l = m?.top?.[0];
+      if (!l) return null;
+      return { tipo: 'd-previa', chapeu: `Prévia de ${previa.rotulo} · ANP`,
+        manchete: m.ranking
+          ? `Prévia de ${previa.rotulo}: ${l.curto} lidera com ${num(l.share, 1)}% das vendas`
+          : `Prévia de ${previa.rotulo}: ${num(m.cobertura, 0)}% do volume das distribuidoras já declarado à ANP` };
+    }
     default: return null;
   }
 }
 
 /** A manchete: o fato mais forte, sem repetir o tipo da edição anterior. */
-function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios }) {
+function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios, previa }) {
   const d = abicom.diesel;
   const anterior = (edicoesAntes || []).find((e) => e.data < iso)?.tipoManchete || '';
   const c = [];
@@ -194,7 +205,7 @@ function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, ana
   }
   // A manchete que nasce do destaque do dia: garante que o jornal não abra
   // sempre com a mesma frase quando não há fato forte.
-  const md = mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso });
+  const md = mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso, previa });
   if (md) c.push({ ...md, nota: 1.0 });
   if (!parcial && d.diasJanelaFechada > 200) {
     c.push({ tipo: 'janela', nota: 0.8, chapeu: 'Arbitragem', manchete: `Janela de importação completa ${d.diasJanelaFechada} dias fechada` });
@@ -432,6 +443,28 @@ function blocoShareEstado(shareResumo, uf) {
   </section>`;
 }
 
+/**
+ * Prévia do mês (Power BI da ANP, parcial). Enquanto a maior parte do volume
+ * não foi declarada: volume de cada empresa e variação sobre o próprio mês
+ * anterior, sem participação (quem ainda não declarou distorceria).
+ */
+function blocoPrevia(previa) {
+  const pct = (v) => (v == null ? '' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${num(Math.abs(v), 1)}%`);
+  const lista = (t, b) => !b?.top?.length ? '' : `<div class="share__col"><p class="share__tit">${t}</p><ol>${b.top.slice(0, 4).map((x) =>
+    b.ranking
+      ? `<li><span>${esc(x.curto)}</span><b>${num(x.share, 1)}%</b><i>${pct(x.deltaPP).replace('%', '')}</i></li>`
+      : `<li><span>${esc(x.curto)}</span><b>${mil(x.volume)}</b><i>${pct(x.varPct)}</i></li>`).join('')}</ol></div>`;
+  const m = previa.mercado;
+  const faltam = m?.faltam?.length ? ` Ainda não aparecem: ${esc(m.faltam.join(', '))}.` : '';
+  return `
+  <section class="bloco bloco--share">
+    <p class="bloco__chapeu">Prévia de ${esc(previa.rotulo)} · ANP · parcial</p>
+    <p class="bloco__texto">${m ? `<strong>${num(m.cobertura, 0)}%</strong> do volume de ${esc(previa.anterior)} já declarado (${m.agentes} de ${m.agentesAntes} distribuidoras).` : ''}${faltam}</p>
+    <div class="share">${lista(m?.ranking ? 'Distribuidoras' : 'Distribuidoras · mil m³', m)}${lista(previa.trrs?.ranking ? 'TRRs' : 'TRRs · mil m³', previa.trrs)}</div>
+    <p class="bloco__assina">${m?.ranking ? 'p.p. sobre ' + esc(previa.anterior) : '% sobre ' + esc(previa.anterior) + ', da própria empresa'}. Números parciais, até a planilha oficial da ANP.</p>
+  </section>`;
+}
+
 /** Negócios do setor: o principal com resumo, mais até 2 outros. */
 function blocoNegocios(negocios) {
   const [n, ...outros] = negocios;
@@ -481,15 +514,15 @@ function blocoNoticias(editorias, radar, analise) {
 export function gerarJornal({
   data, abicom, brent, dolar, anp, noticias, historico, indicadores,
   share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = [],
-  negocios = [], propria = false
+  negocios = [], propria = false, previa = null
 }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   dataAbicomISO = dataAbicomISO || iso;
 
   // O bloco do dia muda todo dia (ver escolherDestaque).
-  const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios });
+  const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios, previa });
   const { chapeu, manchete, tipoManchete, analiseNaManchete } = escolherManchete({
-    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios
+    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios, previa
   });
 
   let bloco = '', faixa = '';
@@ -501,6 +534,7 @@ export function gerarJornal({
     case 'estados': bloco = blocoEstados(anp); break;
     case 'share-estado': bloco = blocoShareEstado(shareResumo, destaque.uf); break;
     case 'negocios': bloco = blocoNegocios(negocios); break;
+    case 'previa': bloco = blocoPrevia(previa); break;
     default: bloco = anp ? blocoAnp(anp) : '';
   }
   // Dia de divulgação da ANP em que outro assunto ganhou o bloco: o market

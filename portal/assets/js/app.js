@@ -1240,7 +1240,7 @@
     // Prévia do mês seguinte, lida no Power BI da ANP (só enquanto a planilha não o traz).
     var P = S.previa, pm = P && P.mercado;
     var previa = P && (!ref.mes || P.mes > ref.mes) && pm
-      ? ' <a class="share-teaser__previa" href="market-share.html#previa">Prévia de ' + esc(P.rotulo) + ' no Power BI da ANP: ' +
+      ? ' <a class="share-teaser__previa" href="market-share.html#previa">Prévia de ' + esc(P.rotulo) + ': ' +
         dec1(pm.cobertura) + '% do volume já declarado →</a>'
       : '';
     $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.' + previa +

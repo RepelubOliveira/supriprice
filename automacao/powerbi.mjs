@@ -15,7 +15,7 @@
  * algo, isto falha e o site simplesmente fica com a planilha.
  */
 
-import { nomeCurto } from './share.mjs';
+import { nomeCurto, ESTADOS } from './share.mjs';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 const API = 'https://wabi-brazil-south-api.analysis.windows.net';
@@ -60,7 +60,9 @@ function decodificar(j, nomes) {
     for (let i = 0; i < schema.length; i++) {
       if (R & (1 << i)) v[i] = ant[i];
       else if (N & (1 << i)) v[i] = null;
-      else { let x = c[k++]; if (schema[i].DN) x = dicts[schema[i].DN][x]; v[i] = x; }
+      // Coluna com dicionário: número = posição no dicionário; texto = valor
+      // literal (o Power BI para de usar o dicionário depois de ~100 valores).
+      else { let x = c[k++]; if (schema[i].DN && typeof x === 'number') x = dicts[schema[i].DN][x]; v[i] = x; }
     }
     ant = v;
     out.push(Object.fromEntries(nomes.map((n, i) => [n, v[i]])));
@@ -113,28 +115,32 @@ const r2 = (v) => Math.round(v * 100) / 100;
 // 63% de participação. Aí o site mostra só quanto cada empresa já declarou.
 const COBERTURA_RANKING = 0.9;
 
-/** Volume por empresa num mês: Map(chave -> { nome, volume }). */
+/**
+ * Volume por empresa e UF de destino num mês: { BR: Map, porUf: { MG: Map, ... } },
+ * cada Map(chave -> { nome, volume }). Uma consulta só (empresa x UF).
+ */
 async function porEmpresa(painel, { fato, empresa, tipo }, mes) {
   const linhas = await consultar(painel, {
     de: [['f', fato], ['t', 'DM_TEMPO'], ['e', empresa]],
-    campos: [['ag', col('e', 'NOM_RAZAO_SOCIAL')], ['q', soma('f', 'QTD_PRODUTO')]],
+    campos: [['ag', col('e', 'NOM_RAZAO_SOCIAL')], ['uf', col('f', 'SIG_UF_DEST')], ['q', soma('f', 'QTD_PRODUTO')]],
     onde: [em('t', 'ANO', [`${+mes.slice(0, 4)}L`]), em('t', 'NUM_MES', [`${+mes.slice(5, 7)}L`]), em('f', 'TIPO_EXTRACAO', [`'${tipo}'`])]
   });
-  const m = new Map();
+  const out = { BR: new Map(), porUf: {} };
+  const somar = (m, k, nome, q) => { const a = m.get(k) || { nome, volume: 0 }; a.volume += q; m.set(k, a); };
   for (const l of linhas) {
     const q = +l.q || 0;
     if (q <= 0) continue;
-    const k = chaveNome(l.ag);
-    const a = m.get(k) || { nome: String(l.ag).replace(/\s+/g, ' ').trim(), volume: 0 };
-    a.volume += q; m.set(k, a);
+    const k = chaveNome(l.ag), nome = String(l.ag).replace(/\s+/g, ' ').trim();
+    somar(out.BR, k, nome, q);
+    const uf = String(l.uf || '').trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(uf)) somar(out.porUf[uf] ||= new Map(), k, nome, q);
   }
-  return m;
+  return out;
 }
 
-/** Um bloco da prévia (mercado geral, TRRs ou distribuidoras para TRR). */
-async function bloco(painel, fonte, mes) {
-  const [agora, antes] = await Promise.all([porEmpresa(painel, fonte, mes), porEmpresa(painel, fonte, mesAnterior(mes))]);
-  if (!agora.size || !antes.size) return null;
+/** Um bloco da prévia a partir dos volumes do mês e do anterior (Brasil ou um estado). */
+function bloco(agora, antes) {
+  if (!agora?.size || !antes?.size) return null;
   const soma = (m) => [...m.values()].reduce((s, x) => s + x.volume, 0);
   const totalAntes = soma(antes), total = soma(agora);
   // Cobertura: quanto do mercado do mês anterior já declarou este mês.
@@ -160,9 +166,19 @@ async function bloco(painel, fonte, mes) {
   };
 }
 
+async function blocos(painel, fonte, mes, comEstados) {
+  const [agora, antes] = await Promise.all([porEmpresa(painel, fonte, mes), porEmpresa(painel, fonte, mesAnterior(mes))]);
+  return {
+    BR: bloco(agora.BR, antes.BR),
+    porUf: comEstados ? Object.fromEntries(ESTADOS.map((uf) => [uf, bloco(agora.porUf[uf], antes.porUf[uf])])) : {}
+  };
+}
+
 /**
  * Prévia do mês seguinte ao último da planilha, lida no Power BI. Null se o
  * mês ainda não terminou ou se o Power BI não tem nada dele.
+ * Brasil em mercado/trrs/distribuidoras; os estados da aba em `estados[UF]`
+ * (mercado e TRRs: as fornecedoras de TRR, como na planilha, só no Brasil).
  * @param {string} refMes último mês da planilha ('2026-08')
  * @param {string} hojeISO
  */
@@ -174,15 +190,16 @@ export async function lerPreviaShare(refMes, hojeISO) {
     abrirPainel('painel-dinamico-do-mercado-brasileiro-de-trr')
   ]);
   const [mercado, trrs, distribuidoras] = await Promise.all([
-    bloco(liq, { fato: '(Movimento) - FT_SDL_MOVIMENTO', empresa: '(Movimento) - DM_SIMP_EMPRESA', tipo: 'Vendas' }, mes),
-    bloco(trr, { fato: 'FT_SDL_MOVIMENTO_TRR', empresa: 'DM_SIMP_EMPRESA', tipo: 'TRR' }, mes),
-    bloco(trr, { fato: 'FT_SDL_MOVIMENTO_TRR', empresa: 'DM_SIMP_EMPRESA', tipo: 'DISTRIBUIDOR' }, mes)
+    blocos(liq, { fato: '(Movimento) - FT_SDL_MOVIMENTO', empresa: '(Movimento) - DM_SIMP_EMPRESA', tipo: 'Vendas' }, mes, true),
+    blocos(trr, { fato: 'FT_SDL_MOVIMENTO_TRR', empresa: 'DM_SIMP_EMPRESA', tipo: 'TRR' }, mes, true),
+    blocos(trr, { fato: 'FT_SDL_MOVIMENTO_TRR', empresa: 'DM_SIMP_EMPRESA', tipo: 'DISTRIBUIDOR' }, mes, false)
   ]);
-  if (!mercado && !trrs && !distribuidoras) return null;
+  if (!mercado.BR && !trrs.BR && !distribuidoras.BR) return null;
   return {
     mes, rotulo: rotuloMes(mes), anterior: rotuloMes(mesAnterior(mes)),
     fonte: 'ANP · Painéis Dinâmicos do Abastecimento (Power BI), prévia enquanto a planilha não sai',
     lidoEm: new Date().toISOString(),
-    mercado, trrs, distribuidoras
+    mercado: mercado.BR, trrs: trrs.BR, distribuidoras: distribuidoras.BR,
+    estados: Object.fromEntries(ESTADOS.map((uf) => [uf, { mercado: mercado.porUf[uf], trrs: trrs.porUf[uf] }]))
   };
 }
