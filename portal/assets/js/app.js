@@ -1237,8 +1237,14 @@
     }
     if (M.canalTrr) partes.push('o canal TRR ficou com ' + dec1(M.canalTrr.share) + '%');
     var prox = proximaShare(ref);
-    $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.' +
-      (prox ? ' <small class="share-teaser__prox">ANP: ' + esc(prox) + '.</small>' : '');
+    // Prévia do mês seguinte, lida no Power BI da ANP (só enquanto a planilha não o traz).
+    var P = S.previa, pm = P && P.mercado;
+    var previa = P && (!ref.mes || P.mes > ref.mes) && pm
+      ? ' <a class="share-teaser__previa" href="market-share.html#previa">Prévia de ' + esc(P.rotulo) + ' no Power BI da ANP: ' +
+        dec1(pm.cobertura) + '% do volume já declarado →</a>'
+      : '';
+    $('#shareResumo').innerHTML = partes.join('; ') + '. Veja por estado, por período e o ranking completo.' + previa +
+      (prox ? ' <small class="share-teaser__prox">Planilha oficial da ANP: ' + esc(prox) + '.</small>' : '');
 
     $('#shareTop').innerHTML = M.mes.top.slice(0, 3).map(function (x) {
       return '<li><span>' + x.pos + '. ' + esc(x.curto || x.nome) + '</span><b>' + dec1(x.share) + '%</b></li>';

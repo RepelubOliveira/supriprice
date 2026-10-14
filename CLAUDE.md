@@ -12,7 +12,8 @@ Converse em português.
 - `automacao/atualizar.mjs` — o robô. Coleta Abicom (defasagem), BCB/Yahoo
   (cotações), ANP (bomba e market share), feeds de notícia, negócios do setor
   (M&A/Cade), gera o jornal do dia e publica tudo no HTMLy.
-  - `fontes.mjs` Abicom/BCB/Brent/indicadores · `anp.mjs` bomba · `share.mjs`
+  - `powerbi.mjs` prévia do market share pelo Power BI da ANP ·
+    `fontes.mjs` Abicom/BCB/Brent/indicadores · `anp.mjs` bomba · `share.mjs`
     planilhas da ANP (trr.zip, liquidos.zip) · `noticias.mjs` feeds, radar e
     negócios · `jornal.mjs` jornal 1080x1920 (Stories) · `imagem.mjs` foto do
     jornal pelo Edge headless · `textos.mjs` texto estático para buscadores/IAs ·
@@ -51,7 +52,11 @@ node automacao/share.mjs                 # testa só o market share
   pedir, ler em voz alta, gravar em arquivo nem colar chave em chat.
 - `git push` é o dono quem roda. Commits locais podem ser feitos.
 - Notícias: só manchete, resumo curto e link com o nome do veículo. Nunca o texto integral.
-- Market share: só da PLANILHA de dados abertos da ANP (o dono não quer ler o Power BI).
+- Market share: a PLANILHA de dados abertos da ANP é a fonte oficial. Enquanto ela não traz um mês,
+  o robô lê esse mês no Power BI público da ANP (`automacao/powerbi.mjs`, pedido de 14/10/2026) e o
+  site mostra como PRÉVIA PARCIAL (`share.previa` no dados.js, quadro #previa na aba). Abaixo de 90%
+  do volume declarado ou faltando uma das 5 maiores: só volume por empresa, sem participação.
+  Quando a planilha sai, a prévia some e vale a planilha.
 - Cotações: não usar TradingView (os termos proíbem robô).
 - Não burlar Cloudflare/CAPTCHA da Abicom. Não mexer em configurações do Windows
   (energia, segurança) — só orientar.

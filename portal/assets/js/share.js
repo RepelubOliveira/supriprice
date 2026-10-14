@@ -543,6 +543,62 @@
     window.addEventListener('hashchange', function () { lerEndereco(); atualizar(); });
   }
 
+  /**
+   * Prévia do mês que a planilha ainda não trouxe, lida pelo robô no Power BI
+   * da ANP. Enquanto a maior parte do volume não foi declarada, mostra quanto
+   * cada empresa já declarou (e a variação sobre o próprio mês anterior), sem
+   * participação de mercado: quem não declarou ainda distorceria o ranking.
+   */
+  function montarPrevia() {
+    var P = S && S.previa, alvo = $('#previa');
+    if (!alvo || !P || (SR && SR.meses && SR.meses.indexOf(P.mes) >= 0)) return;
+    var pct = function (v) { return (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + dec1(Math.abs(v)) + '%'; };
+    var quando = '';
+    try {
+      var d = new Date(P.lidoEm);
+      quando = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }) + ', ' +
+        d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    } catch (e) { /* sem hora */ }
+
+    function bloco(b, titulo) {
+      if (!b) return '';
+      var linhas = b.top.map(function (x) {
+        var dir = b.ranking
+          ? '<b class="tnum">' + dec1(x.share) + '%</b>'
+          : '<b class="tnum">' + dec1(x.volume) + '</b>';
+        var meta = b.ranking
+          ? dec1(x.volume) + ' mil m³' + (x.deltaPP != null ? ' · ' + (x.deltaPP > 0 ? '+' : x.deltaPP < 0 ? '−' : '') + dec(Math.abs(x.deltaPP), 2) + ' p.p.' : '')
+          : (x.varPct != null ? pct(x.varPct) + ' sobre ' + esc(P.anterior) : 'não declarou em ' + esc(P.anterior));
+        return '<li><span class="ms-previa__nome">' + x.pos + '. ' + esc(x.curto || x.nome) + '</span>' + dir +
+          '<small class="tnum">' + meta + '</small></li>';
+      }).join('');
+      return '<div class="ms-previa__bloco">' +
+        '<h3>' + esc(titulo) + '</h3>' +
+        '<p class="ms-previa__cob"><span class="ms-previa__barra"><i style="width:' + Math.min(100, b.cobertura).toFixed(0) + '%"></i></span>' +
+          dec1(b.cobertura) + '% do volume de ' + esc(P.anterior) + ' já declarado · ' + b.agentes + ' de ' + b.agentesAntes + ' empresas</p>' +
+        (b.faltam && b.faltam.length ? '<p class="ms-previa__faltam">Ainda não declararam: ' + esc(b.faltam.join(', ')) + '.</p>' : '') +
+        '<p class="ms-previa__leg">' + (b.ranking ? 'Participação na prévia' : 'mil m³ declarados até agora') + '</p>' +
+        '<ol class="ms-previa__lista">' + linhas + '</ol>' +
+      '</div>';
+    }
+
+    alvo.innerHTML =
+      '<div class="card__head">' +
+        '<h2 class="card__title" id="msPreviaTitulo"><span class="ms-previa__selo">PRÉVIA</span> ' + esc(P.rotulo) + ' · parcial</h2>' +
+        '<p class="card__note">Power BI da ANP' + (quando ? ', lido em ' + esc(quando) : '') + '</p>' +
+      '</div>' +
+      '<p class="ms-previa__aviso">As empresas ainda estão declarando ' + esc(P.rotulo) + ' à ANP. ' +
+        'Enquanto menos de 90% do volume foi declarado (ou falta alguma das cinco maiores), mostramos quanto cada empresa ' +
+        'já declarou, sem participação de mercado; passando disso, a prévia vira ranking. Quando a ANP publicar a ' +
+        'planilha oficial, ela substitui esta prévia.</p>' +
+      '<div class="ms-previa__grade">' +
+        bloco(P.mercado, 'Distribuidoras · mercado total') +
+        bloco(P.distribuidoras, 'Fornecedoras de TRR') +
+        bloco(P.trrs, 'TRRs') +
+      '</div>';
+    alvo.hidden = false;
+  }
+
   function montarRodape() {
     var base = SR.base ? SR.base.split('-').reverse().join('/') : '';
     var ref = S && S.referencia;
@@ -589,6 +645,7 @@
       lerEndereco();
       montarFiltros();
       montarRodape();
+      try { montarPrevia(); } catch (e) { console.error('[SupriPrice] prévia:', e); }
       $('#msStatus').hidden = true;
       $('#msConteudo').hidden = false;
       atualizar();

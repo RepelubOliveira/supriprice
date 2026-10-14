@@ -28,6 +28,7 @@ import { coletarTudo, lerIndicadores } from './fontes.mjs';
 import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias, buscarRadar, buscarNegocios } from './noticias.mjs';
 import { lerShare } from './share.mjs';
+import { lerPreviaShare } from './powerbi.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { lerArbitragem } from './paridade.mjs';
@@ -45,6 +46,7 @@ const P = {
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
   arbitragemUltima: path.join(RAIZ, 'conteudo', 'arbitragem-ultima.json'),
   indicadoresUltimos: path.join(RAIZ, 'conteudo', 'indicadores-ultimos.json'),
+  previaShare: path.join(RAIZ, 'conteudo', 'previa-share.json'),
   abicomUltimo: path.join(RAIZ, 'conteudo', 'abicom-ultimo.json'),
   shareTrr: path.join(RAIZ, 'conteudo', 'share-trr.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
@@ -482,6 +484,30 @@ async function principal() {
       if (share) log(`Market share: usando o último guardado (referência ${share.referencia.rotulo}).`);
     }
   }
+  // PRÉVIA do mês seguinte, lida no Power BI da ANP enquanto a planilha não o
+  // traz (pedido de 14/10/2026). Só vai para o site (dados.js), nunca para o
+  // share-trr.json: quando a planilha trouxer o mês, a prévia some sozinha.
+  let previaShare = null;
+  const refShare = share?.mercado?.referencia?.mes || share?.referencia?.mes;
+  if (refShare) {
+    try {
+      previaShare = await lerPreviaShare(refShare, iso(hoje));
+      if (previaShare) await writeFile(P.previaShare, JSON.stringify(previaShare) + '\n', 'utf8');
+      if (previaShare) {
+        const c = (b) => (b ? ` ${b.cobertura}% declarado` : '');
+        log(`Prévia ${previaShare.rotulo} (Power BI da ANP): mercado${c(previaShare.mercado)} · TRRs${c(previaShare.trrs)}` +
+          ` · distribuidoras p/ TRR${c(previaShare.distribuidoras)}`);
+      }
+    } catch (e) {
+      console.warn(`  ! Prévia do market share (Power BI) indisponível: ${e.message}`);
+      // Fica a última prévia lida, se ainda for de um mês que a planilha não trouxe.
+      const guardada = await lerJson(P.previaShare, null);
+      if (guardada?.mes > refShare) {
+        previaShare = guardada;
+        log(`Prévia ${guardada.rotulo}: usando a última leitura do Power BI (${guardada.lidoEm}).`);
+      }
+    }
+  }
   // Arquivos grandes da aba (série ~230 KB, ranking CSV ~700 KB) sobem UMA vez
   // por base da ANP: o share-trr.json lembra o que já foi publicado. Se um
   // deles sumiu do disco antes de subir, o portal sai sem ele em vez de
@@ -619,7 +645,7 @@ async function principal() {
     polosTitulo: 'Preço médio do S10 por região',
     bomba: montarBomba(anp),
     anp: anp ? { maisCaros: anp.maisCaros, maisBaratos: anp.maisBaratos, referencia: anp.referencia } : null,
-    share: share || null,
+    share: share ? { ...share, previa: previaShare } : null,
     paridade: editorial.paridade,
     agenda: editorial.agenda,
     noticias: noticias ? noticias.editorias : {},
