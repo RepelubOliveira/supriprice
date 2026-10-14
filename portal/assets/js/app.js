@@ -54,31 +54,25 @@
 
   function montarSelo() {
     var meta = D.meta || {};
-    var alvo = $('#selo');
-    var fonte = $('#heroFonte');
-    if (fonte) fonte.textContent = meta.fonte || '';
-    if (!alvo || !meta.dataISO) return;
-
-    // O selo fala de quando o SITE foi atualizado (atualizadoISO, o dia da
-    // rodada do robô). A data do boletim da Abicom fica na linha da fonte,
-    // logo abaixo: no fim de semana ela não publica, e "Defasagem de 02/10"
-    // no selo passava a ideia de site parado — mercado, ANP e notícias
-    // estavam em dia.
-    var refISO = meta.atualizadoISO || meta.dataISO;
-    var partes = refISO.split('-');
-    var d = new Date(+partes[0], +partes[1] - 1, +partes[2]);
-    var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    var dias = Math.round((hoje - d) / 86400000);
-    var ddmm = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
-
-    // Só a data, sem hora.
-    var texto;
-    if (dias <= 0) texto = 'Atualizado hoje, ' + ddmm;
-    else if (dias === 1) texto = 'Atualizado ontem, ' + ddmm;
-    else texto = 'Atualizado em ' + ddmm + '/' + d.getFullYear();
-
-    alvo.textContent = texto;
     var ano = $('#ano'); if (ano) ano.textContent = String(new Date().getFullYear());
+    if (!meta.dataISO) return;
+
+    // No topo, só "Atualizado" (e "Ao vivo" quando a arbitragem começa a ser
+    // recalculada no navegador, em ligarTopoAoVivo). A data e a hora da última
+    // rodada do robô ficam, discretas, no fim do rodapé (pedido de 14/10).
+    var refISO = meta.atualizadoISO || meta.dataISO;
+    var quando = refISO.split('-').reverse().join('/');
+    if (meta.gerado) {
+      try {
+        var g = new Date(meta.gerado);
+        quando = g.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ', ' +
+          g.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+      } catch (e) { /* fica a data */ }
+    }
+    var carimbo = $('#carimbo');
+    if (carimbo) carimbo.textContent = 'Última atualização: ' + quando + '.';
+    var caixa = $('#seloCaixa');
+    if (caixa) caixa.title = 'Última atualização: ' + quando;
 
     // Dado estruturado para buscadores — ajuda o site a aparecer como fonte diária.
     var ld = document.createElement('script');
@@ -99,7 +93,7 @@
   /* --------------------------------------------------------- arbitragem */
 
   /**
-   * Cartões do topo (Arbitragem SupriPrice), no estilo escolhido em 13/10:
+   * Cartões do topo (Arbitragem), no estilo escolhido em 13/10:
    * valor grande, quanto mudou no dia, a conta (importação e Petrobras) e a
    * mini-linha dos últimos pregões. Recebe a lista do robô ou a calculada
    * ao vivo (ligarTopoAoVivo).
@@ -223,10 +217,33 @@
     if (!a) return [];
     return ARB_PRODUTOS.map(function (p) {
       var x = a[p.id], delta = x.inicio ? x.defasagem - x.inicio.defasagem : 0;
-      return { id: 'arb_' + p.id, nome: 'Arbitragem SupriPrice ' + (p.id === 'diesel' ? 'diesel' : 'gasolina'),
+      return { id: 'arb_' + p.id, nome: 'Arbitragem ' + (p.id === 'diesel' ? 'diesel' : 'gasolina'),
         moeda: 'BRL', arb: true, valor: x.defasagem, delta: delta,
         variacao: Math.abs(delta) < 0.005 ? 0 : delta, data: a.data, hora: a.hora, dataISO: a.dataISO };
     });
+  }
+
+  /**
+   * Leva a leitura ao vivo para a série diária (o ponto de hoje): o gráfico
+   * do último mês e as mini-linhas dos cartões andam junto com o número.
+   * Se a série ainda não tem o dia da cotação, ganha um ponto novo.
+   */
+  function vivoNaSerie(a) {
+    var chave = a.dataISO;
+    if (!chave || !ARB) return false;
+    var rot = chave.slice(8, 10) + '/' + chave.slice(5, 7);
+    var dv = Math.round(a.diesel.defasagem * 100) / 100, gv = Math.round(a.gasolina.defasagem * 100) / 100;
+    var s = ARB.serie || (ARB.serie = []), ult = s[s.length - 1];
+    if (ult && ult.data === chave) { ult.diesel = dv; ult.gasolina = gv; }
+    else if (!ult || chave > ult.data) s.push({ data: chave, rotulo: rot, diesel: dv, gasolina: gv });
+    else return false;
+    var pts = D.serieS10 && D.serieS10.pontos;
+    if (pts) {
+      var u = pts[pts.length - 1];
+      if (u && u[0] === rot) u[1] = dv; else pts.push([rot, dv]);
+    }
+    GRAF.vivo = { rot: rot, hora: a.hora };
+    return true;
   }
 
   /** Topo ao vivo: a cada consulta da faixa (uma por minuto), refaz os cartões. */
@@ -238,16 +255,27 @@
       var nomes = { diesel: 'Diesel A', gasolina: 'Gasolina A' };
       var mostrar = (D.produtos || []).map(function (p) { return /gasolina/i.test(p.nome) ? 'gasolina' : 'diesel'; });
       if (!mostrar.length) mostrar = ['diesel', 'gasolina'];
+      var mudouSerie = false;
+      try { mudouSerie = vivoNaSerie(a); } catch (e) { /* segue sem o ponto de hoje */ }
       montarProdutos(mostrar.map(function (id) {
         var x = a[id];
-        return { nome: nomes[id], escopo: 'Arbitragem SupriPrice', petro: x.petro, ppi: x.ppi,
+        return { nome: nomes[id], escopo: 'Arbitragem', petro: x.petro, ppi: x.ppi,
           defasagem: x.defasagem, pct: x.pct, anterior: x.inicio ? x.inicio.defasagem : null };
       }));
-      var fonte = $('#heroFonte');
-      if (fonte) {
-        fonte.innerHTML = '<span class="mkt__live" aria-hidden="true"></span>Ao vivo · ' + esc(a.data + ' ' + a.hora) +
-          ' · Arbitragem SupriPrice, cálculo próprio recalculado a cada minuto.';
-      }
+      if (mudouSerie) { try { montarGrafico(); } catch (e) { console.error('[SupriPrice] gráfico:', e); } }
+
+      var selo = $('#selo'), caixa = $('#seloCaixa');
+      if (selo) selo.textContent = 'Ao vivo';
+      if (caixa && a.hora) caixa.title = 'Recalculada às ' + a.hora + ' · cálculo próprio, a cada minuto';
+
+      // O resumo em texto (escrito pelo robô para buscadores) acompanha os cartões.
+      function vivo(chave, texto) { var el = document.querySelector('[data-vivo="' + chave + '"]'); if (el) el.textContent = texto; }
+      ['diesel', 'gasolina'].forEach(function (id) {
+        var x = a[id]; if (!x) return;
+        vivo(id, brl(Math.abs(x.defasagem)) + (id === 'diesel' ? ' por litro' : ''));
+        vivo(id + 'Pct', Math.abs(x.pct) + '%' + (id === 'diesel' ? (x.defasagem >= 0 ? ' abaixo' : ' acima') : ''));
+      });
+      if (a.dataISO) vivo('data', a.dataISO.split('-').reverse().join('/'));
     });
   }
 
@@ -299,7 +327,7 @@
       // Às 08:20 a B3 ainda não abriu: o Ibovespa é o fechamento de ontem.
       // Dizer isso evita que o leitor tome o número como sendo do dia.
       var antigo = hoje && i.dataISO && i.dataISO < hoje;
-      var dica = i.arb ? 'Arbitragem SupriPrice · variação no dia'
+      var dica = i.arb ? 'Arbitragem · variação no dia'
         : (antigo ? 'Fechamento de ' + i.data : 'Cotação de ' + i.data + ', ' + i.hora) +
         ' · variação sobre o fechamento anterior';
       return '' +
@@ -463,6 +491,8 @@
   // O SVG é desenhado na largura real da caixa (sem esticar o texto) e
   // refeito quando a janela muda de tamanho.
   var DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  // vivo: { rot, hora } do ponto de hoje quando ele acompanha o ao vivo.
+  var GRAF = { vivo: null, desenhar: null, area: null };
 
   function montarGrafico() {
     var alvo = $('#grafico'); if (!alvo || !D.serieS10) return;
@@ -491,10 +521,16 @@
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
     var media = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
     var iMax = vals.indexOf(hi), iMin = vals.indexOf(lo), iUlt = pts.length - 1;
+    var vivo = GRAF.vivo && GRAF.vivo.rot === pts[iUlt].rot ? GRAF.vivo : null;
+    var nota = $('#graficoNota');
+    if (nota) nota.textContent = 'R$ por litro, no fechamento de cada pregão' + (vivo ? '; o ponto de hoje acompanha o ao vivo' : '');
 
     alvo.innerHTML =
       '<ul class="linha__resumo">' +
-        '<li><span>Último pregão</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' + pts[iUlt].rot + '</small></li>' +
+        (vivo
+          ? '<li><span><i class="mkt__live" aria-hidden="true"></i>Agora</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' +
+              pts[iUlt].rot + (vivo.hora ? ', ' + esc(vivo.hora) : '') + '</small></li>'
+          : '<li><span>Último pregão</span><b class="tnum">' + brl(pts[iUlt].v) + '</b><small>' + pts[iUlt].rot + '</small></li>') +
         '<li><span>Média do período</span><b class="tnum">' + brl(media) + '</b><small>' + pts.length + ' pregões</small></li>' +
         '<li><span>Máxima</span><b class="tnum">' + brl(hi) + '</b><small>' + pts[iMax].rot + '</small></li>' +
         '<li><span>Mínima</span><b class="tnum">' + brl(lo) + '</b><small>' + pts[iMin].rot + '</small></li>' +
@@ -546,7 +582,7 @@
       var rotulos = rotulo(iMax, 'Máx. ' + brl(hi)) + rotulo(iMin, 'Mín. ' + brl(lo), true);
       if (iUlt !== iMax && iUlt !== iMin) rotulos += rotulo(iUlt, brl(pts[iUlt].v), pts[iUlt].v < media);
 
-      var desc = 'Arbitragem SupriPrice do diesel de ' + pts[0].rot + ' a ' + pts[iUlt].rot + ': último pregão ' + brl(pts[iUlt].v) +
+      var desc = 'Arbitragem do diesel de ' + pts[0].rot + ' a ' + pts[iUlt].rot + ': último pregão ' + brl(pts[iUlt].v) +
         ', média ' + brl(media) + ', máxima ' + brl(hi) + ' em ' + pts[iMax].rot + ', mínima ' + brl(lo) + ' em ' + pts[iMin].rot + '.';
 
       area.innerHTML =
@@ -565,6 +601,7 @@
             var destaque = i === iMax || i === iMin || i === iUlt;
             return '<circle cx="' + f(X(i)) + '" cy="' + f(Y(p.v)) + '" r="' + (destaque ? 5 : 3) + '" class="linha__ponto' + (destaque ? ' is-destaque' : '') + '"/>';
           }).join('') +
+          (vivo ? '<circle cx="' + f(X(iUlt)) + '" cy="' + f(Y(pts[iUlt].v)) + '" r="6" class="linha__vivo"/>' : '') +
           rotulos + datas +
           '<line class="linha__guia" y1="' + m.t + '" y2="' + (H - m.b) + '" x1="0" x2="0" visibility="hidden"/>' +
           '<circle class="linha__foco" r="7" cx="0" cy="0" visibility="hidden"/>' +
@@ -583,7 +620,9 @@
         guia.setAttribute('x1', x); guia.setAttribute('x2', x); guia.setAttribute('visibility', 'visible');
         foco.setAttribute('cx', x); foco.setAttribute('cy', y); foco.setAttribute('visibility', 'visible');
         var dv = p.ant == null ? null : p.v - p.ant;
-        dica.innerHTML = '<b>' + DIAS_SEM[p.dow] + ', ' + p.rot + '</b><span class="tnum">' + brl(p.v) + ' por litro</span>' +
+        var agora = vivo && i === iUlt;
+        dica.innerHTML = '<b>' + (agora ? 'Hoje, ao vivo' + (vivo.hora ? ' às ' + esc(vivo.hora) : '') : DIAS_SEM[p.dow] + ', ' + p.rot) +
+          '</b><span class="tnum">' + brl(p.v) + ' por litro</span>' +
           (dv == null ? '' : '<small class="tnum">' + (Math.abs(dv) < 0.005 ? 'igual ao pregão anterior'
             : (dv > 0 ? '▲ alta' : '▼ queda') + ' de ' + brl(Math.abs(dv)) + ' no dia') + '</small>') +
           '<small class="tnum">' + (p.v >= media ? brl(p.v - media) + ' acima da média' : brl(media - p.v) + ' abaixo da média') + '</small>';
@@ -604,13 +643,19 @@
     }
 
     desenhar();
-    var ultimaLargura = area.clientWidth, espera;
-    window.addEventListener('resize', function () {
-      clearTimeout(espera);
-      espera = setTimeout(function () {
-        if (area.clientWidth !== ultimaLargura) { ultimaLargura = area.clientWidth; desenhar(); }
-      }, 150);
-    });
+    // Um só ouvinte de redimensionar, que sempre chama o desenho mais recente
+    // (o gráfico é refeito a cada minuto com o ponto ao vivo).
+    var primeira = !GRAF.desenhar;
+    GRAF.desenhar = desenhar; GRAF.area = area;
+    if (primeira) {
+      var ultimaLargura = area.clientWidth, espera;
+      window.addEventListener('resize', function () {
+        clearTimeout(espera);
+        espera = setTimeout(function () {
+          if (GRAF.area.clientWidth !== ultimaLargura) { ultimaLargura = GRAF.area.clientWidth; GRAF.desenhar(); }
+        }, 150);
+      });
+    }
   }
 
   /* ------------------------------------------------------ painéis fixos */

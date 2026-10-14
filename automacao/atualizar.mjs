@@ -44,6 +44,7 @@ const P = {
   edicoes: path.join(RAIZ, 'conteudo', 'edicoes.json'),
   anpUltima: path.join(RAIZ, 'conteudo', 'anp-ultima.json'),
   arbitragemUltima: path.join(RAIZ, 'conteudo', 'arbitragem-ultima.json'),
+  indicadoresUltimos: path.join(RAIZ, 'conteudo', 'indicadores-ultimos.json'),
   abicomUltimo: path.join(RAIZ, 'conteudo', 'abicom-ultimo.json'),
   shareTrr: path.join(RAIZ, 'conteudo', 'share-trr.json'),
   dados: path.join(RAIZ, 'portal', 'assets', 'js', 'dados.js'),
@@ -153,7 +154,7 @@ function montarProdutosSupri(arb, editorial) {
   const itens = [['diesel', 'Diesel A']];
   if (editorial.mostrarGasolina !== false) itens.push(['gasolina', 'Gasolina A']);
   return itens.map(([id, nome]) => ({
-    nome, escopo: 'Arbitragem SupriPrice',
+    nome, escopo: 'Arbitragem',
     petro: arb[id].petro, ppi: arb[id].ppi, defasagem: arb[id].defasagem, pct: arb[id].pct,
     anterior: ult && typeof ult[id] === 'number' ? ult[id] : null
   }));
@@ -341,11 +342,22 @@ async function principal() {
   log(`Abicom ${abicom.data}: diesel ${brl(def)} (${abicom.diesel.pct}%)`);
   log(`Dólar ${brl(dolar.valor)} · Brent US$ ${brent.valor}`);
 
-  // Faixa de mercado: nunca derruba a atualização. Cada indicador que falhar
-  // simplesmente não aparece.
+  // Faixa de mercado: nunca derruba a atualização. Indicador que falhar fica
+  // com a última leitura boa (a faixa mostra "fech. dd/mm" se for de outro
+  // dia); no site, o navegador do leitor ainda busca tudo ao vivo.
   log('Buscando indicadores de mercado...');
   const indicadores = await lerIndicadores();
   log(`Mercado: ${indicadores.map((i) => `${i.nome} ${i.variacao > 0 ? '+' : ''}${i.variacao}%`).join(' · ') || 'nenhum indicador disponível'}`);
+  const indicadoresGuardados = await lerJson(P.indicadoresUltimos, []);
+  const faltando = indicadoresGuardados.filter((g) => !indicadores.some((i) => i.id === g.id));
+  if (faltando.length) {
+    // Na ordem guardada, para a faixa não embaralhar.
+    const ordem = indicadoresGuardados.map((g) => g.id);
+    indicadores.push(...faltando);
+    indicadores.sort((a, b) => ordem.indexOf(a.id) - ordem.indexOf(b.id));
+    log(`Mercado: ${faltando.map((i) => i.nome).join(', ')} com a última leitura guardada.`);
+  }
+  if (indicadores.length) await writeFile(P.indicadoresUltimos, JSON.stringify(indicadores) + '\n', 'utf8');
 
   // ARBITRAGEM SUPRIPRICE: a nossa paridade (Nova York + dólar + custo de
   // trazer), independente da Abicom. Falhou? O site sai sem o bloco e o
@@ -588,7 +600,7 @@ async function principal() {
       atualizadoISO: iso(hoje),
       // A data do boletim fica AQUI, na linha da fonte; o selo do topo fala
       // de quando o site foi atualizado (meta.atualizadoISO).
-      fonte: arbitragem ? 'Arbitragem SupriPrice: cálculo próprio, recalculado a cada minuto.'
+      fonte: arbitragem ? 'Arbitragem: cálculo próprio, recalculado a cada minuto.'
         : `Fonte: Abicom/StoneX, boletim de ${abicom.data}`,
       siteUrl: 'https://www.supriprice.com.br/',
       gerado: new Date().toISOString()

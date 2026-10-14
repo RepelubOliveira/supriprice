@@ -32,6 +32,9 @@ Converse em português.
   arbitragemSupriPrice` (`node automacao/paridade.mjs --calibrar`, revisar ~1x/mês). O preço da
   Petrobras (`editorial.json → precosPetrobras`) precisa ser atualizado no dia de cada reajuste.
   Aberta a todos por enquanto; quando a assinatura começar, o ao vivo fica só para assinantes.
+  No site e no jornal o nome é só "Arbitragem" (pedido de 14/10). O topo mostra "● Ao vivo" sem
+  data; a data da última rodada fica discreta no fim do rodapé (#carimbo). O ponto de hoje do
+  gráfico e das mini-linhas acompanha o ao vivo (vivoNaSerie no app.js).
 
 ## Comandos
 

@@ -118,7 +118,7 @@ function mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo
     case 'defasagem': {
       const pts = (historico || []).slice(-20).map((p) => p.valor);
       if (pts.length < 5) return null;
-      return { tipo: 'd-defasagem', chapeu: 'Arbitragem SupriPrice',
+      return { tipo: 'd-defasagem', chapeu: 'Arbitragem',
         manchete: `Arbitragem do diesel oscila entre ${brl(Math.min(...pts))} e ${brl(Math.max(...pts))} em ${pts.length} pregões` };
     }
     case 'estados': {
@@ -159,7 +159,7 @@ function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, ana
   const c = [];
   const varDef = !parcial && historico?.length > 1 ? d.defasagem - historico[historico.length - 2].valor : null;
   if (varDef != null && Math.abs(varDef) >= 0.15) {
-    c.push({ tipo: 'defasagem', nota: 3, chapeu: 'Arbitragem SupriPrice', manchete: varDef > 0
+    c.push({ tipo: 'defasagem', nota: 3, chapeu: 'Arbitragem', manchete: varDef > 0
       ? `Arbitragem do diesel sobe ${brl(Math.abs(varDef))} e chega a ${brl(d.defasagem)}`
       : `Arbitragem do diesel recua ${brl(Math.abs(varDef))} e fica em ${brl(d.defasagem)}` });
   }
@@ -197,12 +197,12 @@ function escolherManchete({ iso, abicom, anp, historico, share, shareResumo, ana
   const md = mancheteDoDestaque({ destaque, historico, anp, indicadores, shareResumo, iso });
   if (md) c.push({ ...md, nota: 1.0 });
   if (!parcial && d.diasJanelaFechada > 200) {
-    c.push({ tipo: 'janela', nota: 0.8, chapeu: 'Arbitragem SupriPrice', manchete: `Janela de importação completa ${d.diasJanelaFechada} dias fechada` });
+    c.push({ tipo: 'janela', nota: 0.8, chapeu: 'Arbitragem', manchete: `Janela de importação completa ${d.diasJanelaFechada} dias fechada` });
   }
   if (!parcial) {
-    c.push({ tipo: 'nivel', nota: 0.7, chapeu: 'Arbitragem SupriPrice', manchete: `Arbitragem do diesel fica em ${brl(d.defasagem)} por litro` });
+    c.push({ tipo: 'nivel', nota: 0.7, chapeu: 'Arbitragem', manchete: `Arbitragem do diesel fica em ${brl(d.defasagem)} por litro` });
   }
-  c.push({ tipo: 'paridade', nota: 0.5, chapeu: 'Arbitragem SupriPrice', manchete: `Diesel segue ${d.pct}% abaixo da paridade de importação` });
+  c.push({ tipo: 'paridade', nota: 0.5, chapeu: 'Arbitragem', manchete: `Diesel segue ${d.pct}% abaixo da paridade de importação` });
 
   for (const x of c) if (x.tipo === anterior && x.tipo !== 'negocios') x.nota *= 0.3;
   c.sort((a, b) => b.nota - a.nota);
@@ -219,7 +219,7 @@ function lide({ abicom, anp, dataAbicomISO, parcial, fimDeSemana, analise, anali
 
   const ref = `defasagem do diesel de <strong>${brl(d.defasagem)} por litro</strong> (${d.pct}% abaixo da paridade)`;
   if (propria) {
-    partes.push(`A Arbitragem SupriPrice do diesel está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
+    partes.push(`A arbitragem do diesel está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
       `${Math.abs(d.pct)}% ${d.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação.`);
   } else if (!parcial) {
     partes.push(`A defasagem média do diesel fechou em <strong>${brl(d.defasagem)} por litro</strong>, ${d.pct}% abaixo da paridade de importação.`);
@@ -386,7 +386,7 @@ function blocoDefasagem(historico, abicom, propria) {
   const d = abicom.diesel;
   return `
   <section class="bloco bloco--dados">
-    <p class="bloco__chapeu">${propria ? 'Arbitragem SupriPrice do diesel' : 'Defasagem do diesel'} · últimos ${pts.length} pregões</p>
+    <p class="bloco__chapeu">${propria ? 'Arbitragem do diesel' : 'Defasagem do diesel'} · últimos ${pts.length} pregões</p>
     <svg class="spark" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" aria-hidden="true">
       <path d="M${linha}" fill="none" stroke="#B3341F" stroke-width="4" stroke-linejoin="round"/>
     </svg>
@@ -396,7 +396,7 @@ function blocoDefasagem(historico, abicom, propria) {
       ${d.diasJanelaFechada != null ? `<li><span>Janela fechada</span><b>${d.diasJanelaFechada} dias</b></li>` : ''}
     </ul>
     <p class="bloco__assina">De ${esc(pts[0].rotulo)} a ${esc(pts[pts.length - 1].rotulo)} · ${propria
-      ? 'Arbitragem SupriPrice, fechamento de cada pregão' : 'Abicom/StoneX, média dos polos'}, R$ por litro.</p>
+      ? 'Arbitragem, fechamento de cada pregão' : 'Abicom/StoneX, média dos polos'}, R$ por litro.</p>
   </section>`;
 }
 
@@ -670,7 +670,7 @@ export function gerarJornal({
   ${blocoNoticias(noticias?.editorias || {}, radar, analise)}
 
   <footer class="rodape">
-    <p class="rodape__fontes">Fontes: ${propria ? 'Arbitragem SupriPrice (NYMEX, dólar e preço da Petrobras)' : 'Abicom/StoneX (defasagem)'} · ANP (bomba e market share) · Banco Central
+    <p class="rodape__fontes">Fontes: ${propria ? 'Arbitragem (cálculo próprio)' : 'Abicom/StoneX (defasagem)'} · ANP (bomba e market share) · Banco Central
       (PTAX) · Yahoo Finance (cotações) · veículos citados nas manchetes.
       © ${data.getFullYear()} SupriPrice. Reprodução permitida citando a fonte.</p>
     <p class="rodape__site"><b>supriprice.com.br</b><span>Números atualizados todos os dias</span></p>

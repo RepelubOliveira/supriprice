@@ -47,7 +47,7 @@
      normalmente pelo @font-face do style.css. -->
 <!-- ?v= muda a cada alteração do CSS/JS: força o navegador a buscar a versão
      nova em vez de misturar HTML novo com CSS velho guardado em cache. -->
-<link rel="stylesheet" href="assets/css/style.css?v=20261013d">
+<link rel="stylesheet" href="assets/css/style.css?v=20261014a">
 </head>
 <body>
 
@@ -99,18 +99,17 @@
     <div class="hero__head">
       <div>
         <p class="hero__eyebrow">
-          Arbitragem SupriPrice
-          <span class="stamp" style="margin-left:10px;">
+          Arbitragem
+          <span class="stamp" id="seloCaixa" style="margin-left:10px;">
             <span class="stamp__dot" aria-hidden="true"></span>
-            <span id="selo">Atualizado hoje</span>
+            <span id="selo">Atualizado</span>
           </span>
         </p>
         <h1 class="hero__title">Defasagem entre o preço da Petrobras e a paridade de importação</h1>
         <!-- Resumo em texto, escrito pelo robô a cada atualização: é o que
              buscadores e IAs leem, já que eles não rodam o JavaScript. -->
-        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em 13/10/2026, a Arbitragem SupriPrice do diesel A está em <strong>R$ 2,87 por litro</strong>, 88% abaixo da paridade de importação; a da gasolina A, em R$ 0,38 (13%). Cálculo próprio, recalculado a cada minuto. O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 04/10/2026 a 09/10/2026). Dólar PTAX: R$ 4,99.<!-- RESUMO:FIM --></p>
+        <p class="hero__resumo"><!-- RESUMO:INICIO -->Em <span data-vivo="data">14/10/2026</span>, a arbitragem do diesel A está em <strong data-vivo="diesel">R$ 3,03 por litro</strong>, <span data-vivo="dieselPct">92% abaixo</span> da paridade de importação; a da gasolina A, em <span data-vivo="gasolina">R$ 0,41</span> (<span data-vivo="gasolinaPct">14%</span>). Cálculo próprio, recalculado a cada minuto. O diesel S10 custou em média <strong>R$ 7,37</strong> na bomba (ANP, 04/10/2026 a 09/10/2026). Dólar PTAX: R$ 5,01.<!-- RESUMO:FIM --></p>
       </div>
-      <p class="hero__source" id="heroFonte"></p>
     </div>
 
     <div class="hero__cols">
@@ -127,8 +126,8 @@
   <section class="panel" id="painel" aria-label="Painel de mercado">
     <div class="card is-full">
       <div class="card__head">
-        <h2 class="card__title">Arbitragem SupriPrice do diesel, último mês</h2>
-        <p class="card__note">R$ por litro, no fechamento de cada pregão</p>
+        <h2 class="card__title">Arbitragem do diesel, último mês</h2>
+        <p class="card__note" id="graficoNota">R$ por litro, no fechamento de cada pregão</p>
       </div>
       <div class="linha" id="grafico"></div>
     </div>
@@ -204,12 +203,12 @@
 <!-- ====================== Rodapé ====================== -->
 <footer class="wrap site-footer">
   <span>
-    Arbitragem SupriPrice: cálculo próprio. Preço na bomba: ANP, dados abertos.
+    Arbitragem: cálculo próprio. Preço na bomba: ANP, dados abertos.
     Dólar PTAX: Banco Central. Brent: ICE. Indicadores de mercado: Yahoo Finance.
     Mercado de distribuição e market share: ANP, SIMP (dados abertos).
     Manchetes: os veículos citados em cada item,
     com link para a matéria original. Conteúdo informativo, não constitui
-    recomendação comercial.
+    recomendação comercial.<span class="site-footer__carimbo" id="carimbo"></span>
   </span>
   <span class="site-footer__termos">
     © <span id="ano">2026</span> SupriPrice. Textos, análises, compilações, gráficos e o jornal são
@@ -240,7 +239,7 @@
      site continuaria vendo os números antigos por até um mês. O index.html
      em si vem com "no-store", então a versão nova é sempre encontrada. -->
 <script src="assets/js/medicao.js?v=20261008b"></script>
-<script src="assets/js/dados.js?v=20261013-110007"></script>
-<script src="assets/js/app.js?v=20261013e"></script>
+<script src="assets/js/dados.js?v=20261014-083807"></script>
+<script src="assets/js/app.js?v=20261014a"></script>
 </body>
 </html>

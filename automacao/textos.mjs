@@ -39,9 +39,12 @@ export function resumoHome({ arbitragem, abicom, anp, dolar }) {
   if (arbitragem) {
     const d = arbitragem.diesel, g = arbitragem.gasolina;
     const quando = new Date(arbitragem.quandoISO).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-    t = `Em ${esc(quando)}, a Arbitragem SupriPrice do diesel A está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
-      `${Math.abs(d.pct)}% ${d.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação`;
-    if (g) t += `; a da gasolina A, em ${brl(Math.abs(g.defasagem))} (${Math.abs(g.pct)}%)`;
+    // data-vivo: o app.js troca esses números pelos recalculados a cada minuto.
+    t = `Em <span data-vivo="data">${esc(quando)}</span>, a arbitragem do diesel A está em ` +
+      `<strong data-vivo="diesel">${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
+      `<span data-vivo="dieselPct">${Math.abs(d.pct)}% ${d.defasagem >= 0 ? 'abaixo' : 'acima'}</span> da paridade de importação`;
+    if (g) t += `; a da gasolina A, em <span data-vivo="gasolina">${brl(Math.abs(g.defasagem))}</span> ` +
+      `(<span data-vivo="gasolinaPct">${Math.abs(g.pct)}%</span>)`;
     t += '. Cálculo próprio, recalculado a cada minuto.';
   } else {
     const d = abicom.diesel;
@@ -121,7 +124,7 @@ export function llmsTxt({ arbitragem, abicom, anp, dolar, share, atualizadoISO }
   const L = [];
   L.push('# SupriPrice');
   L.push('');
-  L.push('> Portal brasileiro de inteligência do mercado de combustíveis: Arbitragem SupriPrice (defasagem do ' +
+  L.push('> Portal brasileiro de inteligência do mercado de combustíveis: arbitragem (defasagem do ' +
     'diesel e da gasolina em relação à paridade de importação, cálculo próprio, ao vivo), preço na bomba ' +
     '(ANP), market share de ' +
     'distribuidoras e TRRs no Brasil e por estado (ANP/SIMP), cotações e notícias do setor. Atualizado seis ' +
@@ -131,8 +134,8 @@ export function llmsTxt({ arbitragem, abicom, anp, dolar, share, atualizadoISO }
   L.push('');
   if (arbitragem) {
     const ad = arbitragem.diesel, ag = arbitragem.gasolina;
-    L.push(`- Arbitragem SupriPrice do diesel A: R$ ${dec(Math.abs(ad.defasagem))} por litro, ${Math.abs(ad.pct)}% ${ad.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação.`);
-    if (ag) L.push(`- Arbitragem SupriPrice da gasolina A: R$ ${dec(Math.abs(ag.defasagem))} por litro, ${Math.abs(ag.pct)}%.`);
+    L.push(`- Arbitragem do diesel A: R$ ${dec(Math.abs(ad.defasagem))} por litro, ${Math.abs(ad.pct)}% ${ad.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação.`);
+    if (ag) L.push(`- Arbitragem da gasolina A: R$ ${dec(Math.abs(ag.defasagem))} por litro, ${Math.abs(ag.pct)}%.`);
   } else {
     L.push(`- Defasagem do diesel A (${abicom.data}): R$ ${dec(d.defasagem)} por litro, ${d.pct}% abaixo da paridade de importação.`);
     if (g?.defasagem != null) L.push(`- Defasagem da gasolina A (${abicom.data}): R$ ${dec(g.defasagem)} por litro${g.pct != null ? `, ${g.pct}%` : ''}.`);

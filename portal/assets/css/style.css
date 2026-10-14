@@ -805,6 +805,14 @@ button { cursor: pointer; }
 .hero .arb__metodo { margin-top: 22px; }
 .hero__products:has(.arb__cartao) { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
 .hero__source .mkt__live { margin-right: 6px; vertical-align: middle; }
+/* Data da última rodada do robô: discreta, no fim das fontes do rodapé. */
+.site-footer__carimbo { opacity: .7; }
+.site-footer__carimbo:not(:empty)::before { content: " "; }
+/* Ponto de hoje no gráfico da arbitragem, acompanhando o ao vivo. */
+.linha__vivo { fill: none; stroke: #2E8B57; stroke-width: 2; transform-box: fill-box; transform-origin: center;
+  animation: linha-vivo 2s ease-out infinite; }
+@keyframes linha-vivo { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.6); } }
+@media (prefers-reduced-motion: reduce) { .linha__vivo { animation: none; opacity: .6; } }
 @media (max-width: 760px) {
   .arb { padding: 20px 16px; }
   .arb__valor { font-size: 38px; }
