@@ -507,6 +507,7 @@
     $('#msAtalhos').addEventListener('click', function (ev) {
       var b = ev.target.closest('[data-de]'); if (!b) return;
       estado.de = +b.getAttribute('data-de'); estado.ate = +b.getAttribute('data-ate'); atualizar();
+      if (window.spEvento) window.spEvento('escolheu_periodo', { periodo: b.textContent.trim() });
     });
 
     $('#msUfs').innerHTML = '<button class="filter" type="button" data-uf="BR">Brasil</button>' +
@@ -516,7 +517,7 @@
     $('#msUfs').addEventListener('click', function (ev) {
       var b = ev.target.closest('[data-uf]'); if (!b) return;
       estado.uf = b.getAttribute('data-uf'); atualizar();
-      if (window.spEvento) window.spEvento('filtro_estado', { uf: estado.uf });
+      if (window.spEvento) window.spEvento('escolheu_estado', { uf: estado.uf });
     });
 
     $('#msTopN').innerHTML = [5, 10, 20].map(function (n) {
@@ -619,7 +620,7 @@
     var csv = S.csv && urlSegura(S.csv), baixar = $('#msCsv');
     if (csv) {
       baixar.href = csv;
-      baixar.addEventListener('click', function () { if (window.spEvento) window.spEvento('download_planilha', { base: S.baseANP || '' }); });
+      baixar.addEventListener('click', function () { if (window.spEvento) window.spEvento('baixou_planilha_share', { base: S.baseANP || '' }); });
       baixar.setAttribute('download', 'supriprice-market-share-' + (S.referencia ? S.referencia.mes : '') + '.csv');
       $('#msCsvTexto').textContent = 'Todas as distribuidoras e TRRs, posição a posição, no Brasil e nos 27 estados, em ' +
         (S.referencia ? S.referencia.rotulo : 'último mês') + ' e nos últimos 12 meses.';

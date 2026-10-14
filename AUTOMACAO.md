@@ -456,3 +456,47 @@ vêm do `dados.js`. Abra `http://localhost:8767/video/arbitragem.html` e rode
   Yahoo Finance, EIA, OilPrice, Hellenic Shipping, Petronotícias, Click Petróleo
   e Gás, Agência Brasil, InfoMoney, NTC&Logística, Transporte Moderno, Canal
   Rural, Agrolink, Compre Rural. Mantenha a atribuição de cada uma.
+
+## Google Analytics: nomes das páginas e dos eventos
+
+O site só mede quem aceita os cookies (LGPD). Nas explorações do Google Analytics:
+
+- **Páginas** (Tipo de nó "Título da página e nome da tela"): `Início`, `Market share`
+  e `Jornal DD/MM/AAAA`. Esses nomes vão só para o Analytics; o título da aba e o da
+  busca do Google não mudam.
+- **Eventos** (Tipo de nó "Nome do evento"):
+
+| Evento | Quando acontece | Detalhe enviado |
+|---|---|---|
+| `viu_grafico` | rolou até o painel (gráfico, bomba, regiões) | página |
+| `viu_market_share` | rolou até a chamada do market share (início) | página |
+| `viu_jornal` | rolou até o Jornal do dia | página |
+| `viu_noticias` | rolou até as notícias | página |
+| `viu_arquivo` | rolou até o arquivo de edições | página |
+| `viu_previa` | viu o quadro de prévia (aba market share) | página |
+| `viu_rankings` | rolou até os rankings (aba market share) | página |
+| `viu_evolucao` | rolou até o gráfico de evolução (aba market share) | página |
+| `abriu_noticia` | clicou numa notícia | veiculo |
+| `encaminhou_noticia` | botão Encaminhar de uma notícia | veiculo |
+| `abriu_jornal` | abriu uma edição pelo arquivo | titulo |
+| `baixou_jornal` | baixou o jornal (PDF, PNG, JPEG, HTML) | formato, edicao |
+| `encaminhou_jornal` | botão Encaminhar do jornal | edicao |
+| `abriu_market_share` | botão "Ver market share completo" | — |
+| `abriu_previa` | link da prévia na página inicial | — |
+| `escolheu_estado` | clicou num estado na aba market share | uf |
+| `escolheu_periodo` | atalho de período (Último mês, 12 meses...) | periodo |
+| `baixou_planilha_share` | baixou o ranking completo (CSV) | base |
+| `clicou_menu` | clicou num item do menu do topo | destino |
+| `clicou_novidade` | clicou num item do pop-up "Novo hoje" | tipo |
+
+Automáticos do Google (não dá para renomear): `session_start` = entrou no site,
+`page_view` = abriu uma página, `click` = clicou num link para fora do site,
+`scroll` = chegou ao fim da página, `first_visit` = primeira visita.
+
+Para ver o DETALHE (veículo, estado, formato...) nos relatórios, cadastre cada um uma
+vez em Administrador → Definições personalizadas → Criar dimensão personalizada
+(escopo "Evento", parâmetro com o mesmo nome: `veiculo`, `uf`, `formato`, `periodo`,
+`destino`, `edicao`, `tipo`). Só vale daí para frente.
+
+Teste no computador sem mandar nada ao Google: no console do navegador,
+`localStorage.setItem('sp-ga-local', 'teste')` e recarregue; os eventos aparecem no console.

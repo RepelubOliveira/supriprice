@@ -747,7 +747,10 @@ export function gerarJornal({
     window.dataLayer = window.dataLayer || [];
     window.gtag = function () { window.dataLayer.push(arguments); };
     window.gtag('js', new Date());
-    window.gtag('config', 'G-8F90TTKC9Y', { allow_google_signals: false, allow_ad_personalization_signals: false });
+    // Nome curto da página só para o Analytics ("Jornal 14/10/2026").
+    var j = location.pathname.match(/jornal-(\\d{4})-(\\d{2})-(\\d{2})/);
+    window.gtag('config', 'G-8F90TTKC9Y', { page_title: j ? 'Jornal ' + j[3] + '/' + j[2] + '/' + j[1] : 'Jornal',
+      allow_google_signals: false, allow_ad_personalization_signals: false });
     var s = document.createElement('script');
     s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=G-8F90TTKC9Y';
     document.head.appendChild(s);

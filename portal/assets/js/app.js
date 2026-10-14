@@ -988,7 +988,7 @@
     gerarDownload(edicao, formato)
       .then(function () {
         toast('Arquivo ' + ROTULOS[formato].nome + ' salvo nos seus downloads.');
-        if (window.spEvento) window.spEvento('download_jornal', { formato: formato, edicao: edicao.data || '' });
+        if (window.spEvento) window.spEvento('baixou_jornal', { formato: formato, edicao: edicao.data || '' });
       })
       .catch(function (e) {
         console.error('[SupriPrice] download', formato, e);
@@ -1354,6 +1354,26 @@
   }
 
   function ligarEventos() {
+    // Medição (Google Analytics, só com consentimento): nomes em português
+    // claro. Não interfere no clique: o link segue normalmente.
+    document.addEventListener('click', function (ev) {
+      var a = ev.target.closest && ev.target.closest('a[href]');
+      if (!a || !window.spEvento) return;
+      var noticia = a.closest('.news-item');
+      if (noticia) {
+        var fonteN = noticia.querySelector('.news-item__source');
+        window.spEvento('abriu_noticia', { veiculo: fonteN ? fonteN.textContent.split(' · ')[0].trim() : '' });
+      } else if (a.closest('.archive-card')) {
+        window.spEvento('abriu_jornal', { titulo: a.textContent.trim().slice(0, 90) });
+      } else if (a.classList.contains('share-teaser__previa')) {
+        window.spEvento('abriu_previa', {});
+      } else if (a.closest('.share-teaser')) {
+        window.spEvento('abriu_market_share', {});
+      } else if (a.closest('.nav')) {
+        window.spEvento('clicou_menu', { destino: a.textContent.trim() });
+      }
+    }, true);
+
     document.addEventListener('click', function (ev) {
       var alvo = ev.target;
 
@@ -1385,6 +1405,7 @@
       if (shEd) {
         var e1 = D.edicoes[+shEd.getAttribute('data-compartilhar-edicao')];
         if (e1) {
+          if (window.spEvento) window.spEvento('encaminhou_jornal', { edicao: e1.data || '' });
           compartilhar({
             titulo: 'SupriPrice — ' + e1.titulo + ' ' + e1.data,
             texto: e1.descricao,
@@ -1398,7 +1419,10 @@
       var shN = alvo.closest('[data-share-noticia]');
       if (shN) {
         var n = noticiasPlanas[+shN.getAttribute('data-share-noticia')];
-        if (n) compartilhar({ titulo: n.titulo, texto: n.fonte + ' — ' + n.titulo, url: n.url });
+        if (n) {
+          if (window.spEvento) window.spEvento('encaminhou_noticia', { veiculo: n.fonte || '' });
+          compartilhar({ titulo: n.titulo, texto: n.fonte + ' — ' + n.titulo, url: n.url });
+        }
         return;
       }
 
@@ -1413,6 +1437,7 @@
       if (arqSh) {
         var a2 = D.arquivo[+arqSh.getAttribute('data-arquivo-share')];
         if (a2) {
+          if (window.spEvento) window.spEvento('encaminhou_jornal', { edicao: a2.data || '' });
           compartilhar({
             titulo: 'SupriPrice — ' + a2.titulo,
             texto: a2.data + ' · ' + a2.tag,
@@ -1560,7 +1585,7 @@
       $('.novidades__fechar', caixa).addEventListener('click', function () { fechar(itens); });
       Array.prototype.forEach.call(caixa.querySelectorAll('.novidades__item'), function (a, i) {
         a.addEventListener('click', function () {
-          if (window.spEvento) window.spEvento('clique_novidade', { tipo: itens[i].tipo });
+          if (window.spEvento) window.spEvento('clicou_novidade', { tipo: itens[i].tipo });
           fechar(itens);
         });
       });

@@ -25,13 +25,57 @@
   var ligado = false;
   window.spEvento = function () { /* sem consentimento: não mede */ };
 
+  // Nome curto da página SÓ para o Google Analytics (relatórios e explorações:
+  // "Título da página"). O título da aba e o que o Google mostra na busca
+  // continuam os do HTML.
+  function nomePagina() {
+    var p = location.pathname;
+    if (/market-share\.html$/.test(p)) return 'Market share';
+    var j = p.match(/jornal-(\d{4})-(\d{2})-(\d{2})\.html$/);
+    if (j) return 'Jornal ' + j[3] + '/' + j[2] + '/' + j[1];
+    return 'Início';
+  }
+
+  // Seções vistas (rolou até elas), uma vez por visita à página. Nomes em
+  // português, sem acento e sem espaço (regra do Google Analytics).
+  var SECOES = {
+    painel: 'viu_grafico', share: 'viu_market_share', jornal: 'viu_jornal',
+    noticias: 'viu_noticias', arquivo: 'viu_arquivo',
+    previa: 'viu_previa', msMerc: 'viu_rankings', msEvo: 'viu_evolucao'
+  };
+  function observarSecoes() {
+    if (!('IntersectionObserver' in window)) return;
+    var obs = new IntersectionObserver(function (itens) {
+      itens.forEach(function (it) {
+        if (!it.isIntersecting) return;
+        obs.unobserve(it.target);
+        window.spEvento(SECOES[it.target.id], { pagina: nomePagina() });
+      });
+    }, { threshold: 0.25 });
+    Object.keys(SECOES).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+  }
+
   function ligar() {
+    // Teste no computador sem mandar nada ao Google:
+    // localStorage.setItem('sp-ga-local', 'teste') → os eventos saem no console.
+    if (!ligado && !PRODUCAO && ler('sp-ga-local') === 'teste') {
+      ligado = true;
+      window.spEvento = function (nome, params) { console.info('[GA teste]', nome, params || {}); };
+      console.info('[GA teste] page_view', { page_title: nomePagina() });
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observarSecoes);
+      else observarSecoes();
+      return;
+    }
     if (ligado || !(PRODUCAO || ler('sp-ga-local') === '1')) return;
     ligado = true;
     window.dataLayer = window.dataLayer || [];
     window.gtag = function () { window.dataLayer.push(arguments); };
     window.gtag('js', new Date());
     window.gtag('config', ID, {
+      page_title: nomePagina(),
       allow_google_signals: false,
       allow_ad_personalization_signals: false
     });
@@ -42,6 +86,8 @@
     s.async = true;
     s.src = 'https://www.googletagmanager.com/gtag/js?id=' + ID;
     document.head.appendChild(s);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observarSecoes);
+    else observarSecoes();
   }
 
   /** Apaga os cookies do Google Analytics (_ga, _ga_XXXX) deste site. */
