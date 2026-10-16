@@ -471,6 +471,17 @@ function blocoPrevia(previa) {
   </section>`;
 }
 
+/** A matéria do editor-chefe: texto autoral que liga os assuntos do dia. */
+function blocoMateria(m) {
+  return `
+  <section class="bloco bloco--materia">
+    <p class="bloco__chapeu">${esc(m.chapeu || 'Análise do dia')}</p>
+    <h2 class="bloco__titulo">${esc(m.titulo)}</h2>
+    ${(m.paragrafos || []).slice(0, 3).map((p) => `<p class="materia__par">${esc(p)}</p>`).join('')}
+    <p class="bloco__assina">Redação SupriPrice${(m.fontes || []).length ? ` · com informações de ${esc(m.fontes.join(', '))}` : ''}</p>
+  </section>`;
+}
+
 /** Negócios do setor: o principal com resumo, mais até 2 outros. */
 function blocoNegocios(negocios) {
   const [n, ...outros] = negocios;
@@ -520,7 +531,7 @@ function blocoNoticias(editorias, radar, analise) {
 export function gerarJornal({
   data, abicom, brent, dolar, anp, noticias, historico, indicadores,
   share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = [],
-  negocios = [], propria = false, previa = null, arbitragem = null, agenda = []
+  negocios = [], propria = false, previa = null, arbitragem = null, agenda = [], pauta = null
 }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   dataAbicomISO = dataAbicomISO || iso;
@@ -530,10 +541,15 @@ export function gerarJornal({
   // Com a arbitragem própria, a manchete é do editor (editor.mjs): fato novo,
   // com causa e contexto, e lide próprio. Sem ela (salvaguarda), a regra antiga.
   let escolha;
-  const fato = arbitragem
+  // PAUTA do editor-chefe (automacao/pauta.mjs): quando existe para hoje, a
+  // edição é escrita, não montada: manchete, lide, matéria e notícias dela.
+  const fato = pauta ? null : arbitragem
     ? fatosDoDia({ iso, arbitragem, agenda, indicadores, anp, negocios, share, previa, analise, destaque, edicoesAntes })[0]
     : null;
-  if (fato) {
+  if (pauta) {
+    escolha = { chapeu: pauta.chapeu, manchete: pauta.manchete, tipoManchete: 'pauta', analiseNaManchete: false,
+      lideEditor: esc(pauta.lide).replace(/&lt;(\/?)strong&gt;/g, '<$1strong>') };
+  } else if (fato) {
     escolha = { chapeu: fato.chapeu, manchete: fato.manchete, tipoManchete: fato.tipo,
       analiseNaManchete: !!fato.analise, lideEditor: fato.lide || '' };
   } else {
@@ -544,7 +560,9 @@ export function gerarJornal({
   const { chapeu, manchete, tipoManchete, analiseNaManchete, lideEditor } = escolha;
 
   let bloco = '', faixa = '';
+  if (pauta?.materia) { destaque.tipo = 'materia'; delete destaque.uf; }
   switch (destaque.tipo) {
+    case 'materia': bloco = blocoMateria(pauta.materia); break;
     case 'share': bloco = blocoShare(share); break;
     case 'analise': bloco = blocoAnalise(analise); break;
     case 'mercado': bloco = blocoMercadoDia(indicadores, iso); break;
@@ -656,6 +674,11 @@ export function gerarJornal({
   .bloco__lista li { padding: 7px 0; border-bottom: 1px solid #EEE8DA; display: flex; flex-direction: column; gap: 2px; }
   .bloco__lista span { font-size: 20px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bloco__lista i { font-style: normal; font-size: 16px; color: #6A7480; }
+  .bloco--materia { background: #fff; border: 2px solid #DCD5C4; border-left: 10px solid #0E2A47; display: flex; flex-direction: column; gap: 10px; }
+  .bloco--materia .bloco__chapeu { color: #B3341F; }
+  .bloco--materia .bloco__titulo { font-size: 34px; }
+  .materia__par { font-size: 21px; line-height: 1.42; color: #2A2F36; }
+  .bloco--materia .bloco__assina { color: #6A7480; font-size: 16px; }
   .bloco--dados { background: #fff; border: 2px solid #DCD5C4; }
   .bloco--dados .bloco__chapeu { color: #B3341F; }
   .bloco--dados .bloco__assina { color: #6A7480; }
@@ -719,7 +742,9 @@ export function gerarJornal({
   ${blocoNumeros({ abicom, dolar, anp, dataAbicomISO, brent, propria })}
   ${bloco}
   ${faixa}
-  ${blocoNoticias(noticias?.editorias || {}, radar, analise)}
+  ${pauta?.noticias?.itens?.length >= 2
+    ? blocoNoticias({}, pauta.noticias.itens, { radarTitulo: pauta.noticias.titulo || 'O que move o mercado' })
+    : blocoNoticias(noticias?.editorias || {}, radar, analise)}
 
   <footer class="rodape">
     <p class="rodape__fontes">Fontes: ${propria ? 'Arbitragem (cálculo próprio)' : 'Abicom/StoneX (defasagem)'} · ANP (bomba e market share) · Banco Central

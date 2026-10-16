@@ -64,7 +64,12 @@ node automacao/share.mjs                 # testa só o market share
 
 ## Armadilhas já conhecidas
 
-- Jornal: a manchete é do EDITOR (`automacao/editor.mjs`, pedido de 16/10): fato novo com causa
+- Jornal ESCRITO (pedido de 16/10): a tarefa agendada "supriprice-editor-chefe" (Claude, todo dia
+  ~8h44, app aberto) lê `node automacao/pauta.mjs --material`, escreve `conteudo/pauta.json`
+  (manchete, lide, matéria, radar de notícias; números do dia como marcadores {arb.diesel} etc.),
+  valida (`--validar`), confere a imagem e publica. Com pauta de hoje, o robô usa ela em todas as
+  rodadas do dia; sem pauta, vale o editor automático abaixo.
+- Jornal automático (reserva): a manchete é do EDITOR (`automacao/editor.mjs`, pedido de 16/10): fato novo com causa
   e contexto; dado velho (market share por estado de meses atrás) nunca é manchete; repetir o
   assunto de ontem só pesa contra fato fraco; agenda do editorial.json (hoje/amanhã) entra, com
   `manchete`/`lide` opcionais e `{quando}`. O "no dia" da arbitragem compara com o

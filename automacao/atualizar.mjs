@@ -29,6 +29,7 @@ import { lerPrecosAnp } from './anp.mjs';
 import { coletarNoticias, buscarRadar, buscarNegocios } from './noticias.mjs';
 import { lerShare } from './share.mjs';
 import { lerPreviaShare } from './powerbi.mjs';
+import { lerPauta, preencherPauta, valoresMarcadores } from './pauta.mjs';
 import { injetar, resumoHome, resumoShare, destaquesShare, datasetJsonLd, llmsTxt } from './textos.mjs';
 import { gerarJornal } from './jornal.mjs';
 import { lerArbitragem } from './paridade.mjs';
@@ -571,12 +572,17 @@ async function principal() {
     },
     historico: arbitragem.serie.map((p) => ({ data: p.data, rotulo: p.rotulo, valor: p.diesel, gasolina: p.gasolina }))
   } : null;
+  // Pauta escrita pelo editor-chefe (tarefa agendada do Claude), se for de hoje.
+  const pautaBruta = lerPauta(hojeISO);
+  const pauta = pautaBruta && preencherPauta(pautaBruta, valoresMarcadores({ arbitragem, anp, indicadores }));
+  if (pauta) log(`Jornal: edição escrita pelo editor-chefe (pauta de ${pauta.data}).`);
+  else if (pautaBruta) console.warn('  ! Pauta de hoje com marcador sem valor: o jornal sai pelo editor automático.');
   const jornal = gerarJornal({
     data: hoje, abicom: arbJ ? arbJ.abicom : abicom, brent, dolar, anp, noticias,
     historico: arbJ ? arbJ.historico : historico, indicadores,
     share: shareNoJornal, shareResumo: share, previa: previaShare, analise, radar,
     parcial: arbJ ? false : parcial, fimDeSemana, dataAbicomISO: arbJ ? iso(hoje) : dataAbicomISO, edicoesAntes,
-    negocios: negociosJornal, propria: !!arbJ, arbitragem, agenda: editorial.agenda
+    negocios: negociosJornal, propria: !!arbJ, arbitragem, agenda: editorial.agenda, pauta
   });
   for (const id of jornal.negociosPublicados) regNegocios.noJornal[id] = regNegocios.noJornal[id] || hojeISO;
   if (jornal.negociosPublicados.length) log(`Jornal: com ${jornal.negociosPublicados.length} negócio(s) do setor.`);
