@@ -19,6 +19,8 @@
 // ANÁLISE DA SEMANA, escrita à mão no editorial.json e assinada como
 // "Análise SupriPrice". Onde o dado falta, a frase não é inventada.
 
+import { fatosDoDia } from './editor.mjs';
+
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
   'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira',
@@ -230,8 +232,8 @@ function lide({ abicom, anp, dataAbicomISO, parcial, fimDeSemana, analise, anali
 
   const ref = `defasagem do diesel de <strong>${brl(d.defasagem)} por litro</strong> (${d.pct}% abaixo da paridade)`;
   if (propria) {
-    partes.push(`A arbitragem do diesel está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>, ` +
-      `${Math.abs(d.pct)}% ${d.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade de importação.`);
+    partes.push(`A arbitragem do diesel está em <strong>${brl(Math.abs(d.defasagem))} por litro</strong>` +
+      (d.ppi && d.petro ? `: o importado sai a ${brl(d.ppi)} e a Petrobras vende a ${brl(d.petro)}.` : '.'));
   } else if (!parcial) {
     partes.push(`A defasagem média do diesel fechou em <strong>${brl(d.defasagem)} por litro</strong>, ${d.pct}% abaixo da paridade de importação.`);
   } else if (fimDeSemana) {
@@ -279,11 +281,15 @@ function blocoNumeros({ abicom, dolar, anp, dataAbicomISO, brent, propria }) {
   const s10 = anp?.produtos?.find((p) => p.nome === 'Diesel S10');
   const rot = propria ? 'Arbitragem' : 'Defasagem';
   const fonte = propria ? 'SupriPrice' : `Abicom ${ddmm(dataAbicomISO)}`;
-  const lado = (x) => `${Math.abs(x.pct ?? 0)}% ${x.defasagem >= 0 ? 'abaixo' : 'acima'} da paridade`;
+  // pct = diferença sobre o preço da Petrobras (2,76 / 3,28 = 84%). NÃO é "84% abaixo
+  // da paridade": a Petrobras fica 46% abaixo do importado (2,76 / 6,04).
+  const lado = (x) => propria
+    ? `${x.defasagem >= 0 ? '+' : '−'}${Math.abs(x.pct ?? 0)}% sobre o preço da Petrobras`
+    : `${Math.abs(x.pct ?? 0)}% abaixo da paridade`;
   const itens = [
-    { rotulo: `${rot} do diesel`, valor: brl(Math.abs(d.defasagem)), nota: `${lado(d)} · ${fonte}` },
+    { rotulo: `${rot} do diesel`, valor: brl(Math.abs(d.defasagem)), nota: propria ? lado(d) : `${lado(d)} · ${fonte}` },
     g?.defasagem != null
-      ? { rotulo: `${rot} da gasolina`, valor: brl(Math.abs(g.defasagem)), nota: `${lado(g)} · ${fonte}` }
+      ? { rotulo: `${rot} da gasolina`, valor: brl(Math.abs(g.defasagem)), nota: propria ? lado(g) : `${lado(g)} · ${fonte}` }
       : { rotulo: 'Brent', valor: `US$ ${num(brent.valor)}`, nota: 'fechamento do contrato' },
     s10
       ? { rotulo: 'Diesel S10 na bomba', valor: brl(s10.media),
@@ -514,16 +520,28 @@ function blocoNoticias(editorias, radar, analise) {
 export function gerarJornal({
   data, abicom, brent, dolar, anp, noticias, historico, indicadores,
   share, shareResumo, analise, radar, parcial = false, fimDeSemana = false, dataAbicomISO, edicoesAntes = [],
-  negocios = [], propria = false, previa = null
+  negocios = [], propria = false, previa = null, arbitragem = null, agenda = []
 }) {
   const iso = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
   dataAbicomISO = dataAbicomISO || iso;
 
   // O bloco do dia muda todo dia (ver escolherDestaque).
   const destaque = escolherDestaque({ iso, abicom, anp, historico, indicadores, share, shareResumo, analise, parcial, edicoesAntes, negocios, previa });
-  const { chapeu, manchete, tipoManchete, analiseNaManchete } = escolherManchete({
-    iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios, previa
-  });
+  // Com a arbitragem própria, a manchete é do editor (editor.mjs): fato novo,
+  // com causa e contexto, e lide próprio. Sem ela (salvaguarda), a regra antiga.
+  let escolha;
+  const fato = arbitragem
+    ? fatosDoDia({ iso, arbitragem, agenda, indicadores, anp, negocios, share, previa, analise, destaque, edicoesAntes })[0]
+    : null;
+  if (fato) {
+    escolha = { chapeu: fato.chapeu, manchete: fato.manchete, tipoManchete: fato.tipo,
+      analiseNaManchete: !!fato.analise, lideEditor: fato.lide || '' };
+  } else {
+    escolha = escolherManchete({
+      iso, abicom, anp, historico, share, shareResumo, analise, parcial, indicadores, destaque, edicoesAntes, negocios, previa
+    });
+  }
+  const { chapeu, manchete, tipoManchete, analiseNaManchete, lideEditor } = escolha;
 
   let bloco = '', faixa = '';
   switch (destaque.tipo) {
@@ -695,7 +713,7 @@ export function gerarJornal({
   <section class="abre">
     <p class="chapeu">${esc(chapeu)}</p>
     <h1 class="manchete clamp">${esc(manchete)}</h1>
-    <p class="lide clamp">${lide({ abicom, anp, dataAbicomISO, parcial, fimDeSemana, analise, analiseNaManchete, propria })}</p>
+    <p class="lide clamp">${lideEditor || lide({ abicom, anp, dataAbicomISO, parcial, fimDeSemana, analise, analiseNaManchete, propria })}</p>
   </section>
 
   ${blocoNumeros({ abicom, dolar, anp, dataAbicomISO, brent, propria })}

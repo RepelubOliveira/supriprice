@@ -576,7 +576,7 @@ async function principal() {
     historico: arbJ ? arbJ.historico : historico, indicadores,
     share: shareNoJornal, shareResumo: share, previa: previaShare, analise, radar,
     parcial: arbJ ? false : parcial, fimDeSemana, dataAbicomISO: arbJ ? iso(hoje) : dataAbicomISO, edicoesAntes,
-    negocios: negociosJornal, propria: !!arbJ
+    negocios: negociosJornal, propria: !!arbJ, arbitragem, agenda: editorial.agenda
   });
   for (const id of jornal.negociosPublicados) regNegocios.noJornal[id] = regNegocios.noJornal[id] || hojeISO;
   if (jornal.negociosPublicados.length) log(`Jornal: com ${jornal.negociosPublicados.length} negócio(s) do setor.`);

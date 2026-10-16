@@ -61,6 +61,16 @@ async function grafico(simbolo, range = '3mo') {
   throw new Error(`${simbolo}: ${erro.message}`);
 }
 
+/** Fechamento do pregão anterior (null se o Yahoo não responder: o jornal só omite a causa). */
+async function fechamentoAnterior(simbolo) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(simbolo)}?interval=1d&range=1d`;
+    const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+    const v = (await r.json())?.chart?.result?.[0]?.meta?.chartPreviousClose;
+    return Number.isFinite(v) && v > 0 ? r4(v) : null;
+  } catch { return null; }
+}
+
 /** Preço de importação e arbitragem de um produto, em R$/L. */
 export function calcular({ usdPorGalao, dolar, custo, petro }) {
   const ppi = (usdPorGalao / LITROS_POR_GALAO) * dolar + custo;
@@ -91,10 +101,16 @@ export async function lerArbitragem({ precos, custos, pregoes = 30 }) {
     });
 
   const quando = new Date(Math.max(ho.quando, rb.quando, usd.quando));
+  // Fechamento do pregão ANTERIOR: o jornal diz o que moveu o número (Nova
+  // York ou dólar). Vem do chartPreviousClose da consulta de UM dia, como a
+  // faixa de cotações (ver fontes.mjs): a série diária tem as datas
+  // desalinhadas no câmbio e daria outro "ontem".
+  const [antHo, antRb, antUsd] = await Promise.all([SIMBOLOS.diesel, SIMBOLOS.gasolina, SIMBOLOS.dolar].map(fechamentoAnterior));
   return {
     metodo: 'Arbitragem SupriPrice',
     quandoISO: quando.toISOString(),
     insumos: { diesel: r4(ho.atual), gasolina: r4(rb.atual), dolar: r4(usd.atual) },
+    anteriores: { diesel: antHo, gasolina: antRb, dolar: antUsd },
     custos, precos, litrosPorGalao: LITROS_POR_GALAO,
     diesel: prod('diesel', ho.atual, usd.atual),
     gasolina: prod('gasolina', rb.atual, usd.atual),

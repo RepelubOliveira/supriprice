@@ -64,6 +64,14 @@ node automacao/share.mjs                 # testa só o market share
 
 ## Armadilhas já conhecidas
 
+- Jornal: a manchete é do EDITOR (`automacao/editor.mjs`, pedido de 16/10): fato novo com causa
+  e contexto; dado velho (market share por estado de meses atrás) nunca é manchete; repetir o
+  assunto de ontem só pesa contra fato fraco; agenda do editorial.json (hoje/amanhã) entra, com
+  `manchete`/`lide` opcionais e `{quando}`. O "no dia" da arbitragem compara com o
+  chartPreviousClose (range=1d), NUNCA com a barra de ontem da série diária do Yahoo: nos
+  futuros de NY a barra difere do fechamento (16/10: 4,85 x 4,65). O % da arbitragem é sobre o
+  preço da Petrobras ("+84% sobre o preço da Petrobras"), não "84% abaixo da paridade".
+
 - Preço na bomba: as médias (Brasil, regiões, estados) vêm do RESUMO SEMANAL oficial da ANP
   (`resumo_semanal_lpc_*.xlsx`, achado na página "últimas semanas pesquisadas"), não da média
   simples do CSV posto a posto: a ANP pondera e a diferença chega a R$ 0,25 num estado. O CSV

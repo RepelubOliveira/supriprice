@@ -11,6 +11,9 @@
     "Mexa quando quiser corrigir um preço de refinaria ou trocar a agenda.",
     "",
     "Agenda: itens com data DD/MM já vencida somem do portal sozinhos.",
+    "Agenda no jornal: um item com data DD/MM de hoje, amanhã ou depois de amanhã pode virar a",
+    "manchete. Opcional em cada item: \"manchete\", \"lide\" e \"chapeu\" escritos à mão;",
+    "{quando} vira \"hoje\", \"amanhã\" ou \"em DD/MM\". Sem eles, o robô monta a partir do \"texto\".",
     "Se a ANP não responder, o robô usa a última leitura válida dela (conteudo/anp-ultima.json), com o período à mostra.",
     "",
     "ANÁLISE DA SEMANA (campo \"analise\"): o único texto escrito à mão do jornal.",
@@ -73,7 +76,10 @@
     },
     {
       "data": "17/10",
-      "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado."
+      "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado.",
+      "chapeu": "Subsídio do diesel",
+      "manchete": "Subsídio de R$ 1,00 por litro do diesel termina {quando}",
+      "lide": "O desconto de R$ 1,00 por litro vence em 17/10 e ainda pode ser prorrogado."
     },
     {
       "data": "25/10",
