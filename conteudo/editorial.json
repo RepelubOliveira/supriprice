@@ -75,11 +75,20 @@
       "texto": "Mês de maior consumo de diesel do ano."
     },
     {
-      "data": "17/10",
-      "texto": "Fim do subsídio de R$ 1,00/L. Pode ser prorrogado.",
-      "chapeu": "Subsídio do diesel",
-      "manchete": "Subsídio de R$ 1,00 por litro do diesel termina {quando}",
-      "lide": "O desconto de R$ 1,00 por litro vence em 17/10 e ainda pode ser prorrogado."
+      "data": "26/10",
+      "texto": "Vence a subvenção de R$ 2,12/L ao diesel (Portaria 2.946/2026). Pode ser prorrogada por mais 30 dias.",
+      "chapeu": "Subvenção do diesel",
+      "manchete": "Subvenção de R$ 2,12 por litro ao diesel vence {quando}",
+      "lide": "A Portaria 2.946/2026 manteve o desconto por 30 dias, até 26/10, e permite prorrogar por igual período.",
+      "_conferido": "2026-10-16: Gazeta do Povo (26/09) e CNN Brasil (30/09). Reconferir antes de 26/10."
+    },
+    {
+      "data": "12/11",
+      "texto": "Vence o adicional de R$ 1,40/L ao diesel importado (30 dias desde 13/10). Pode ser prorrogado.",
+      "chapeu": "Diesel importado",
+      "manchete": "Adicional de R$ 1,40 por litro ao diesel importado vence {quando}",
+      "lide": "O reforço publicado em 13/10 elevou o subsídio do importador para R$ 3,52 por litro, por 30 dias prorrogáveis.",
+      "_conferido": "2026-10-16: SBT News (14/10). Reconferir antes de 12/11."
     },
     {
       "data": "25/10",

@@ -67,7 +67,9 @@ node automacao/share.mjs                 # testa só o market share
 - Jornal ESCRITO (pedido de 16/10): a tarefa agendada "supriprice-editor-chefe" (Claude, todo dia
   ~8h44, app aberto) lê `node automacao/pauta.mjs --material`, escreve `conteudo/pauta.json`
   (manchete, lide, matéria, radar de notícias; números do dia como marcadores {arb.diesel} etc.),
-  valida (`--validar`), confere a imagem e publica. Com pauta de hoje, o robô usa ela em todas as
+  valida (`--validar`), confere a imagem e publica. Fato de política pública ou de calendário
+  (subvenção, impostos, reajuste, prazos) só entra CHECADO na web: em 16/10 a agenda dizia "fim
+  do subsídio em 17/10" e ele já tinha sido prorrogado até 26/10 (Portaria 2.946/2026) — saiu errado. Com pauta de hoje, o robô usa ela em todas as
   rodadas do dia; sem pauta, vale o editor automático abaixo.
 - Jornal automático (reserva): a manchete é do EDITOR (`automacao/editor.mjs`, pedido de 16/10): fato novo com causa
   e contexto; dado velho (market share por estado de meses atrás) nunca é manchete; repetir o
